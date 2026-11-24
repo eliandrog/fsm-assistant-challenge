@@ -27,6 +27,9 @@ from fsm_assistant.llm import (
     TokenUsage,
     ToolCall,
 )
+from fsm_assistant.result import RuleCard
+from fsm_assistant.rules.backtest import BacktestResult, MonthlyBacktest
+from fsm_assistant.rules.proposal import RuleEvidence, build_evidence
 from fsm_assistant.tracing import TraceRun
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -154,6 +157,57 @@ class RecordingSink:
 
     def close(self) -> None:
         self.closed = True
+
+
+def _month(name: str, flagged: int, labelled: int, caught: int) -> MonthlyBacktest:
+    return MonthlyBacktest(
+        month=name,
+        flagged=flagged,
+        flagged_labelled=labelled,
+        true_positives=caught,
+        false_positives=labelled - caught,
+        flagged_amount_cents=flagged * 1009,
+        fraud_amount_caught_cents=caught * 1013,
+        false_positive_amount_cents=(labelled - caught) * 1019,
+        total_transactions=9182736,
+        total_labelled=6453778,
+        total_fraud=2600139,
+    )
+
+
+def marked_evidence(clause: str, *, db_path: Path, timeout_seconds: float) -> RuleEvidence:
+    """Stands in for `rule_evidence`: figures no other part of a turn could produce.
+
+    May and September are far below the rule's overall precision and the later
+    period far below the earlier one, so both evidence caveats are raised.
+    """
+    months = (
+        _month("2019-03", 7341106, 6120754, 5831329),
+        _month("2019-05", 4409183, 3907661, 211457),
+        _month("2019-09", 9203517, 8101943, 307883),
+    )
+
+    def total(name: str) -> int:
+        return sum(getattr(row, name) for row in months)
+
+    overall = BacktestResult(
+        clause=clause,
+        elapsed_seconds=0.25,
+        **{name: total(name) for name in MonthlyBacktest.model_fields if name != "month"},
+    )
+    return build_evidence(overall, months, monthly_seconds=1.5)
+
+
+def never_outside_the_answer(card: RuleCard) -> tuple[str, ...]:
+    """Every figure of a marked rule card, as a trace or a log line could write it, and its months."""
+    written: set[str] = {"weakest_month", "base_fraud_rate", "true_positives", "min_precision"}
+    for part in (card, *card.months, card.earlier, card.later, card.stability):
+        for value in part.model_dump().values():
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 1000:
+                written |= {str(value), f"{value:,}"}
+            elif isinstance(value, float) and value != int(value):
+                written |= {str(value)[:7], f"{value:.2%}"}
+    return (*sorted(written), *(row.month for row in card.months))
 
 
 # Eleven replies for the eleven questions of `check-model`: eight valid, three misses.

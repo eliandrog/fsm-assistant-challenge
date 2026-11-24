@@ -21,7 +21,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-09 | `.env` is read by a small built-in parser | Accepted |
 | D-10 | The schema context prescribes one form of the label join | Accepted |
 | D-11 | Backtest metrics use labelled transactions only; undefined ratios are `None` | Accepted |
-| D-12 | One backtest template; the clause sees only `transactions` | Accepted; refined by D-17 |
+| D-12 | One backtest template; the clause sees only `transactions` | Accepted; refined by D-17; D-28 adds a second fixed template, by month |
 | D-13 | A rule clause is contained by parentheses and a lexical scan | Accepted; refined by D-17 |
 | D-14 | Model provider: Anthropic (Claude) through its API | Accepted; built (D-20) |
 | D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; the packages are installed (D-20), the graph is not built yet |
@@ -32,6 +32,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-20 | Model settings, key handling, and hosted tracing off | Accepted; refined by D-27 |
 | D-21 | One model interface, with our own record and replay | Accepted |
 | D-27 | Logs for errors and health; LangSmith for traces, opt-in and built from an allow-list | Accepted |
+| D-28 | A rule is shown with its backtest month by month, as a stability check | Accepted |
 
 ## Template
 
@@ -220,7 +221,7 @@ Any of them firing raises `ReadOnlyViolation`. A connection lives for one query,
 
 ## D-12: One backtest template; the clause sees only `transactions`
 
-**Status:** Accepted; refined by D-17 (the guard rejects a clause that reads `fraud_labels`)
+**Status:** Accepted; refined by D-17 (the guard rejects a clause that reads `fraud_labels`); D-28 adds a second fixed template, which measures the same clause by calendar month
 
 **Context:** The brief defines a rule as a `WHERE` clause that filters `transactions`, with an example that uses bare column names and a subquery on `cards`. The backtest has to join `fraud_labels` too, and a clause placed in a query where both tables are in scope could name a column ambiguously or use `is_fraud` as if it were a transaction column. The label join must also be the cast form of D-10.
 
@@ -659,7 +660,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-24: The turn result: one outcome, model text kept apart, coded caveats
 
-**Status:** Accepted.
+**Status:** Accepted. Refined by D-28 (the rule card carries the evidence by month, and two caveats are added: `weak_month`, `period_drop`).
 
 **Context:** Three callers read the reply to a turn: the terminal, an HTTP API later, and the evaluation suite. They need one closed set of outcomes, the SQL next to the result, and a way to tell what code computed from what the model wrote.
 
@@ -833,3 +834,50 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 - The trace's model run is written in LangSmith's documented message format by this code, not by LangChain. How LangSmith displays it, and whether it prices the tokens, has not been seen: no trace has been sent yet.
 - No test can reach LangSmith: tests hand the tracer a recording sink, or give the real client a fake HTTP session, and network connections are refused for the whole test process.
 - The online metrics in the README are still proposed. Nothing aggregates traces or log lines.
+
+## D-28: A rule is shown with its backtest month by month, as a stability check
+
+**Status:** Accepted. Refines D-12 (a second fixed template) and D-24 (the rule card and two caveats).
+
+**Context:** A backtest scores a rule on the same history the rule was written from, so a strong score can be a fit to that history and nothing more. The shipped data makes the point sharply: all 1,360 fraud labels sit at merchant locations in Rome, Italy, and the rule "location is in Rome, Italy" scores precision 0.851 and recall 1.0 over the ten months. One figure for the whole period also hides how it is made up: that rule is at 93% to 98% precision in eight months, 78% in August and 50% in March (142 fraud among 284 labelled flagged transactions). The brief asks how an insight becomes a rule an FSM would deploy, and what would show a Head of Fraud that the tool is safe to rely on. An overall precision is not enough for either.
+
+**Decision:**
+
+- **A second fixed statement, by calendar month** (`rules/backtest.py`, `backtest_by_month`). The clause is contained exactly as in D-12: a CTE selects the flagged ids from `transactions` alone, unaliased, so the clause sees no other table and no alias. The outer query then walks every transaction once, left-joining the flagged ids and the labels (the shared label join of D-10), and groups by the first seven characters of `date`. Each month returns what the rule flags in it (flagged, flagged labelled, fraud caught, false positives, the three amounts) and the month's own totals (transactions, labelled, labelled fraud), so a month's recall and flag rate have their own denominators and a month the rule never flags is still a row. It applies the rule policy itself, as `backtest` does, and runs through `db.run_query`. `backtest` and its template are unchanged.
+- **`rules/proposal.py` puts the two together** (`rule_evidence`): the overall backtest, the monthly rows, and arithmetic on those rows. No further SQL.
+- **It is called a stability check, never a held-out test.** Nothing limits what the analyst or the model looked at when the rule was written: both see the whole dataset. So no month is unseen, and a rule's score on the later months is not evidence about data it has not met. The rule card says so in a fixed sentence next to the table: "The rule is scored here on the same history it was written from, so this is a stability check, not a test on unseen data. Only new data or a shadow run can show that the rule holds."
+- **The month table leads; the weakest month is named.** The weakest month is the one with the lowest precision among months in which at least 30 of the flagged transactions are labelled (`MIN_MONTH_LABELLED`, the same judgement as `small_sample`), so that a month with two labelled rows cannot be it. Of several months with the same precision, the one with more labelled rows, then the earlier. When no month qualifies the card says so.
+- **An earlier and a later period, with a fixed boundary.** 2019-01 to 2019-07 and 2019-08 to 2019-10 (`LATER_PERIOD_START`), roughly the first two thirds and the last third of the data, summed from the monthly rows. The boundary is one constant for every rule; it is not chosen per rule, which would let the split be picked to flatter the rule. A period's recall is over that period's labelled fraud.
+- **Lift.** Precision divided by the base fraud rate (labelled fraud over labelled transactions: 0.175% on the shipped data), overall and per period with each period's own base rate. Undefined (`None`) when precision is undefined or there is no labelled fraud. It says how many times better than flagging at random a rule is, which a precision of 0.8% does not show by itself (the brief's rule: 4.8 times).
+- **A stability summary**: the number of months in which the rule flags anything, in which something flagged is labelled, and that qualify; and the lowest and highest monthly precision over the qualifying months.
+- **Two coded caveats**, after the five of D-24, with their thresholds as constants in `presentation.py`:
+
+  | Code | When | Thresholds |
+  |---|---|---|
+  | `weak_month` | A qualifying month's precision is below half the rule's overall precision, and at the overall precision that month would hold at least five fraud among its labelled flagged rows. The message names every such month with its counts | 0.5, 30 labelled rows, 5 expected fraud |
+  | `period_drop` | Both periods have at least 30 labelled flagged rows, the later period's precision is below half the earlier period's, and at the earlier precision the later period would hold at least five fraud | 0.5, 30, 5 |
+
+  Why half: the base fraud rate of the data itself moves from month to month, between 0.67 (September) and 1.29 (October) times its average, so a rule that does no more than follow the base rate already reaches 0.67. A threshold of three quarters would fire on that. Why five expected fraud: a rule with precision 0.8% and 35 labelled rows in a month expects 0.3 fraud there, and a month with none is what chance gives; without this condition the caveat fires on every low-precision rule.
+- **What fires on the two reference rules.** The Rome rule: neither. March, at 50%, is 0.59 of the overall 85.1%, above the threshold, and the later period (87.8%) is above the earlier (83.9%). March is still shown as the weakest month with its counts. The brief's rule: neither; only August and September have 30 labelled flagged rows, with no fraud among them, and each expects 0.3. A rule that does fire both: "the card is American Express" catches 74 fraud in the earlier period and 3 in the later, none at all from July to September.
+- **In the turn.** `backtest_rule` returns the evidence in a state field of its own, `evidence`, never saved, with its overall part still in `result`. `RuleCard` gains `base_fraud_rate`, `lift`, `months`, `weakest_month`, `earlier`, `later` and `stability`: counts and rates, no row of the data. Like the rest of the card they are not checkpointed and never sent to the model.
+- **In the evaluation.** `score_rule_arithmetic` also compares every monthly row with a recomputation that shares no statement with the template (inner joins, the month taken with `strftime`, each month's totals from statements of their own), and checks that the reported months add up to the reported overall figures. Five cases give a reference rule's month table and the weakest month the card must name.
+
+**Alternatives rejected:**
+
+- **One train and test split presented as validation** (derive on the early months, report the score on the late ones as "held out"). Nothing confines how a rule is written to the early months, so the late months are not held out; calling them so would claim more than was measured. And on this data it cannot fail a sensible rule: the Rome rule scores 83.9% early and 87.8% late.
+- **Cross-validation over random rows.** Random folds of one history share its patterns by construction; a rule that matches a place or a card passes every fold. It would add figures and no information about time.
+- **Restricting what the analyst may look at** (hiding the later months from queries until a rule is fixed). It would make the later period a real test, at the cost of the tool's main use, which is exploring all the data; and the guard would have to bound dates in arbitrary SQL.
+- **A boundary chosen per rule, or reporting the best and worst split.** A free boundary is a parameter that can be fitted.
+- **A statistical test per month** in place of the two thresholds. The fraud a low-lift rule catches is spread unevenly over the months (the American Express rule catches 25 in May and none from July to September), so monthly counts are not independent draws at one rate, and a p-value would claim a precision the data does not support. Two stated thresholds can be read and argued with.
+- **Computing the months in Python from fetched rows.** It would pull row-level data out of the database for a figure SQL can aggregate.
+
+**Consequences:**
+
+- **What it still cannot show.** A pattern that runs through the whole dataset passes any split by time. The Rome rule is steady in nine months of ten and that says nothing about whether the next month's fraud is in Rome. Only data the rule was not written from, or a shadow run in production, can test that. The card states it; nothing in the tool measures it.
+- A rule turn now runs two statements. Measured on the real database, the by-month statement takes about 1.2 s whatever the rule flags (a selective threshold, the Rome rule, every transaction: it walks all 1,159,966 transactions each time), next to 0.04 to 0.9 s for the overall one. Each runs under the query timeout, so a rule turn can take up to twice that limit before it is stopped.
+- The monthly `total_labelled` and `total_fraud` are counted through the join from `transactions`, the overall ones from `fraud_labels` alone (D-12). They agree while every label belongs to exactly one transaction; tests check on the real data that the monthly rows add up to the overall backtest in every field.
+- The thresholds (half, 30 rows, 5 expected fraud) and the period boundary are judgements made on one synthetic dataset and are not tuned. `weak_month` fires readily on rules with little lift, because the few fraud they catch cluster in some months; that is true of those rules and is what the caveat is for, but it is not a test of significance.
+- The boundary is a date of the shipped data. On another dataset `LATER_PERIOD_START` has to be set again; months before it are "earlier" whatever they are.
+- A month is the text of `date` up to the month. A transaction with no date would be counted under an empty month; the shipped data has none.
+- A rule that lists fraud transaction ids as literals still scores perfectly in every month. The month table does not catch it; reading the clause does.
+- None of the evidence is traced or logged (D-27). The allow-list is unchanged: the `backtest_rule` step carries the time the two statements took and nothing else, and the turn carries the clause and the caveat codes, where `weak_month` and `period_drop` now appear. `RuleEvidence` keeps that time (`elapsed_seconds`) so the step does not report the overall statement alone. Tests search a traced rule turn, its `--trace` lines and the log for every figure of a rule card.

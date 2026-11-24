@@ -423,11 +423,11 @@ def test_filters() -> None:
     def ids(**fields: object) -> list[str]:
         return [case.id for case in select(cases, Selection.model_validate(fields))]
 
-    assert len(ids()) == 119 and Selection().is_everything
+    assert len(ids()) == 124 and Selection().is_everything
     assert len(ids(tiers=("scan", "top_n"))) == 8
     assert ids(case_ids=("fraud-count", "agg-date-range")) == ["agg-date-range", "fraud-count"]
     assert ids(tag="trap:velocity") == ["trap-velocity-window", "trap-velocity-same-minute-cards"]
-    assert len(ids(split="tuned")) + len(ids(split="held_out")) == 119
+    assert len(ids(split="tuned")) + len(ids(split="held_out")) == 124
     assert ids(tiers=("ambiguous",), split="held_out", limit=2) == [
         "ambiguous-recent",
         "ambiguous-big-merchants",
@@ -445,7 +445,8 @@ def test_the_caveat_facts_are_the_caveat_codes_of_a_turn_result() -> None:
 def test_shipped_cases_pass_on_the_real_data_when_the_model_writes_the_reference(
     real_db: Path,
 ) -> None:
-    # Through the real graph: the three required caveats, the velocity trap and the brief's rule.
+    # Through the real graph: the three required caveats, the velocity trap, the brief's
+    # rule, and three of the five cases about the month-by-month evidence.
     settings = load_settings({"FSM_DB_PATH": str(real_db)}, env_file=None)
     suite = load_suite()
     wanted = (
@@ -454,6 +455,9 @@ def test_shipped_cases_pass_on_the_real_data_when_the_model_writes_the_reference
         "rule-brief-example",
         "rule-amount-threshold",
         "policy-flag-everything",
+        "evidence-location-by-month",
+        "evidence-unlabelled-month",
+        "evidence-fading-rule",
     )
 
     def model_for(case: Case) -> IntentModel:
@@ -467,6 +471,10 @@ def test_shipped_cases_pass_on_the_real_data_when_the_model_writes_the_reference
     runs = by_id(run_suite(cases, suite, settings, model_for, available=frozenset()))
     assert {case_id: reasons(run) for case_id, run in runs.items()} == {name: [] for name in wanted}
     assert all(run.passed for run in runs.values())
+    scorers = [score.scorer for score in runs["evidence-fading-rule"].turns[0].scores]
+    assert scorers == [
+        "outcome", "behaviour", "guardrail", "rule_arithmetic", "rule_match", "weakest_month",
+    ]  # fmt: skip
 
 
 # --- Recording and replay -----------------------------------------------------------------
@@ -884,8 +892,8 @@ def test_cli_sends_nothing_without_yes_spend(
 ) -> None:
     assert cli.main(["eval"]) == 0
     output = capsys.readouterr().out
-    assert "eval: 117 cases (123 turns) to claude-test" in output and "2 skipped" in output
-    assert "Upper bound: 246 requests" in output and "Nothing was sent." in output
+    assert "eval: 122 cases (128 turns) to claude-test" in output and "2 skipped" in output
+    assert "Upper bound: 256 requests" in output and "Nothing was sent." in output
     assert cli.main(["eval", "--model", "claude-other", "--tier", "rules", "--limit", "3"]) == 0
     assert "eval: 3 cases (3 turns) to claude-other" in capsys.readouterr().out
 
@@ -893,10 +901,10 @@ def test_cli_sends_nothing_without_yes_spend(
 def test_cli_list_and_filters(isolated: None, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["eval", "--list"]) == 0
     output = capsys.readouterr().out
-    assert "119 of 119 cases selected:" in output
-    assert re.search(r"^total +119 +22 +97$", output, re.MULTILINE)
+    assert "124 of 124 cases selected:" in output
+    assert re.search(r"^total +124 +23 +101$", output, re.MULTILINE)
     assert cli.main(["eval", "--list", "--tier", "scan", "--tier", "top_n", "--held-out"]) == 0
-    assert "7 of 119 cases selected:" in capsys.readouterr().out
+    assert "7 of 124 cases selected:" in capsys.readouterr().out
     assert cli.main(["eval", "--list", "--tuned", "--tag", "vague-term"]) == 0
     assert "tuned" in capsys.readouterr().out
     assert cli.main(["eval", "--list", "--case", "fraud-count", "--case", "no-such"]) == 2

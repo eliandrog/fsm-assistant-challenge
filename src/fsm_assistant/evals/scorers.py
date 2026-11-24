@@ -55,6 +55,7 @@ ScorerName = Literal[
     "rule_arithmetic",
     "rule_match",
     "rule_alternative",
+    "weakest_month",
     "scan",
     "scoring",
 ]
@@ -113,6 +114,7 @@ class FailureReason(StrEnum):
     LOW_OVERLAP = "low_overlap"
     NOT_DETERMINISTIC = "not_deterministic"  # the rule calls a function such as random()
     FLAG_RATE_OUT_OF_BAND = "flag_rate_out_of_band"
+    WRONG_WEAKEST_MONTH = "wrong_weakest_month"
     # scan
     WRONG_TOP_SEGMENT = "wrong_top_segment"
     # scoring
@@ -151,6 +153,28 @@ class RuleMatchScore(Score):
     jaccard: float | None
 
 
+class MonthMetrics(BaseModel):
+    """One calendar month of a backtest: what the rule flags in it, and the month's totals."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    month: str
+    flagged: int
+    flagged_labelled: int
+    true_positives: int
+    false_positives: int
+    total_transactions: int
+    total_labelled: int
+    total_fraud: int
+    flagged_amount_cents: int
+    fraud_amount_caught_cents: int
+    false_positive_amount_cents: int
+
+
+# The fields of a month that add up to the field of the same name of the whole backtest.
+_SUMMED = tuple(name for name in MonthMetrics.model_fields if name != "month")
+
+
 class RuleMetrics(BaseModel):
     """A backtest's numbers, as reported by a turn or as recomputed for the check."""
 
@@ -169,6 +193,7 @@ class RuleMetrics(BaseModel):
     precision: float | None
     recall: float | None
     flag_rate: float | None
+    months: tuple[MonthMetrics, ...] = ()  # the same measurement per calendar month
 
 
 class JudgedStatement(BaseModel):
@@ -194,6 +219,7 @@ class Observation(BaseModel):
     rows: tuple[tuple[Cell, ...], ...] | None = None
     truncated: bool = False
     backtest: RuleMetrics | None = None
+    weakest_month: str | None = None  # the month a rule card names as its weakest
     caveats: tuple[str, ...] = ()  # caveat codes
     # Guard reason codes of the model's replies that were refused in this turn.
     rejections: tuple[str, ...] = ()
@@ -218,6 +244,8 @@ def observed_facts(observation: Observation) -> frozenset[Fact]:
         "zero_rows": "caveat_zero_rows",
         "small_sample": "caveat_small_sample",
         "high_flag_rate": "caveat_high_flag_rate",
+        "weak_month": "caveat_weak_month",
+        "period_drop": "caveat_period_drop",
     }
     facts.update(caveats[code] for code in observation.caveats if code in caveats)
     return frozenset(facts)
@@ -394,11 +422,17 @@ def score_result(
 
 
 def score_rule_arithmetic(reported: RuleMetrics | None, recomputed: RuleMetrics) -> Score:
-    """Do the numbers a turn reported for its rule equal an independent recomputation?"""
+    """Do the numbers a turn reported for its rule equal an independent recomputation?
+
+    The overall figures, then the monthly rows one by one, then that the
+    reported monthly rows add up to the reported overall figures.
+    """
     if reported is None:
         return _fail("rule_arithmetic", FailureReason.NO_BACKTEST, "the turn reported no backtest")
     differences: list[str] = []
     for name in RuleMetrics.model_fields:
+        if name == "months":
+            continue
         ours, theirs = getattr(recomputed, name), getattr(reported, name)
         same = (
             ours == theirs
@@ -407,6 +441,7 @@ def score_rule_arithmetic(reported: RuleMetrics | None, recomputed: RuleMetrics)
         )
         if not same:
             differences.append(f"{name}: reported {theirs}, recomputed {ours}")
+    differences += _month_differences(reported, recomputed)
     if differences:
         return _fail("rule_arithmetic", FailureReason.METRIC_MISMATCH, "; ".join(differences))
     return _ok("rule_arithmetic", "every reported number equals the recomputation")
@@ -461,6 +496,50 @@ def score_rule_match(
         overlap_recall=recall,
         jaccard=jaccard,
     )
+
+
+def _month_differences(reported: RuleMetrics, recomputed: RuleMetrics) -> list[str]:
+    theirs = {row.month: row for row in reported.months}
+    ours = {row.month: row for row in recomputed.months}
+    if list(theirs) != list(ours):
+        return [
+            f"months: reported {', '.join(theirs) or 'none'}; "
+            f"recomputed {', '.join(ours) or 'none'}"
+        ]
+    differences = [
+        f"{month} {name}: reported {getattr(theirs[month], name)}, "
+        f"recomputed {getattr(ours[month], name)}"
+        for month in ours
+        for name in _SUMMED
+        if getattr(theirs[month], name) != getattr(ours[month], name)
+    ]
+    if reported.months:
+        differences += [
+            f"{name}: the reported months add up to {total}, the reported backtest says "
+            f"{getattr(reported, name)}"
+            for name in _SUMMED
+            if (total := sum(getattr(row, name) for row in reported.months))
+            != getattr(reported, name)
+        ]
+    return differences
+
+
+def score_weakest_month(reported: str | None, expected: str, *, proposed: bool) -> Score:
+    """Does the rule card name the month the case expects as the rule's weakest?
+
+    `expected` is a month, or `none` when no month of the reference rule has
+    enough labelled flagged transactions to be compared.
+    """
+    if not proposed:
+        return _fail("weakest_month", FailureReason.NO_BACKTEST, "the turn proposed no rule")
+    named = reported or "none"
+    if named != expected:
+        return _fail(
+            "weakest_month",
+            FailureReason.WRONG_WEAKEST_MONTH,
+            f"expected the weakest month {expected}, the rule card names {named}",
+        )
+    return _ok("weakest_month", f"the weakest month is {named}, as expected")
 
 
 def score_rule_alternative(

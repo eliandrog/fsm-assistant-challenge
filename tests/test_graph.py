@@ -36,6 +36,7 @@ from fsm_assistant.presentation import render_text
 from fsm_assistant.prompt import RULE_SCOPE
 from fsm_assistant.result import ErrorKind, Outcome, Status, TurnResult
 from fsm_assistant.rules.backtest import RuleClauseError
+from fsm_assistant.rules.proposal import RuleEvidence
 from fsm_assistant.sql_guard import GuardDecision, ReasonCode
 from fsm_assistant.state import PER_TURN_RESET, Failure, TurnState
 
@@ -211,15 +212,49 @@ def test_no_result_row_is_saved_or_sent_to_the_model(settings: Settings) -> None
 
     snapshot = saved(assistant, "c1")
     assert "result" not in snapshot
+    assert "evidence" not in snapshot
     assert "response" not in snapshot
     saver = assistant.saver
     stored = repr((saver.storage, saver.writes, saver.blobs))
     assert "approved_sql" in stored, "the search below looks in the right place"
     assert ROW_MARKER not in stored
     assert "flagged" not in stored, "nor a backtest"
+    for name in ("weakest_month", "total_fraud", "min_precision", "2019-02"):
+        assert name not in stored, "nor its month-by-month evidence"
     for request in model.requests:
         assert ROW_MARKER not in request.system + request.user
     assert ADDRESSES in model.requests[2].user or RULE in model.requests[2].user
+
+
+def test_no_figure_of_a_rules_evidence_is_saved_sent_or_traced(settings: Settings) -> None:
+    # The rule flags one transaction, in February. A follow-up is then told the clause only.
+    steps: list[TraceStep] = []
+    model = ScriptedModel([rule_reply("id = 1002"), sql_reply(COUNT)])
+    assistant = Assistant(settings, model)
+    handed = everything_saved(assistant)
+
+    proposed = assistant.run_turn("A rule for that one payment", "c1", on_step=steps.append)
+    card = proposed.rule
+    assert card is not None, "the figures are in what the user is shown"
+    assert [row.month for row in card.months if row.flagged] == ["2019-02"]
+    assert card.lift == 4.0 and card.later.first_month == "2019-10"
+    assistant.run_turn("And how many are there?", "c1")
+
+    untracked = {"result", "evidence", "response", "failure_detail"}
+    assert untracked <= set(TurnState.model_fields)
+    assert not untracked & set(saved(assistant, "c1"))
+    kept = "\n".join(handed) + repr((assistant.saver.storage, assistant.saver.writes, assistant.saver.blobs))
+    sent = "\n".join(request.system + request.user for request in model.requests)
+    traced = "\n".join(step.summary for step in steps)
+    assert "id = 1002" in kept and "id = 1002" in model.requests[1].user and "id = 1002" in traced
+    for name in ("2019-02", "weakest_month", "true_positives", "total_fraud", "stability", "lift"):
+        assert name not in kept, name
+    for text in (sent, traced):
+        for name in ("weakest_month", "true_positives", "total_fraud", "min_precision"):
+            assert name not in text, name
+    assert "backtest ran in" in traced
+    # The months of the data are not in the prompt as figures of this rule.
+    assert "2019-02" not in model.requests[1].user
 
 
 def everything_saved(assistant: Assistant) -> list[str]:
@@ -325,11 +360,21 @@ def test_a_rule_is_never_returned_without_its_backtest(
     assert proposed.where_clause == RULE
     assert proposed.rule is not None
     assert (proposed.rule.flagged, proposed.rule.true_positives) == (1, 1)
+    # ... nor without its months: six transactions in six months, the rule's one in February.
+    months = {row.month: (row.flagged, row.true_positives, row.total_transactions) for row in proposed.rule.months}
+    assert months == {
+        "2019-01": (0, 0, 1),
+        "2019-02": (1, 1, 1),
+        "2019-03": (0, 0, 1),
+        "2019-04": (0, 0, 1),
+        "2019-05": (0, 0, 1),
+        "2019-10": (0, 0, 1),
+    }
 
     def broken(clause: str, *, db_path: Path, timeout_seconds: float) -> None:
         raise RuleClauseError("SQLite rejected the clause: broken", ReasonCode.SQLITE_ERROR, "broken")
 
-    monkeypatch.setattr(nodes, "backtest", broken)
+    monkeypatch.setattr(nodes, "rule_evidence", broken)
     result = turn(settings, [rule_reply(RULE), rule_reply(RULE)])
     assert facts(result) == ("failed", "error", "sql_execution")
     assert result.where_clause is None
@@ -430,6 +475,42 @@ def test_rule_proposed(settings: Settings) -> None:
     assert facts(result) == ("rule_proposed", "ok", None)
     assert result.sql is None and result.table is None
     assert result.assumptions == ("Debit only, not prepaid",)
+    card = result.rule
+    assert card is not None
+    # Four labelled transactions, one of them fraud: the rule's one catch is four times chance.
+    assert (card.base_fraud_rate, card.lift, card.weakest_month) == (1 / 4, 4.0, None)
+    assert (card.earlier.first_month, card.earlier.last_month, card.earlier.months) == ("2019-01", "2019-05", 5)
+    assert (card.earlier.true_positives, card.earlier.total_fraud, card.earlier.recall) == (1, 1, 1.0)
+    assert (card.later.first_month, card.later.months, card.later.flagged, card.later.recall) == ("2019-10", 1, 0, None)
+    assert (card.stability.months, card.stability.months_flagged, card.stability.qualifying_months) == (6, 1, 0)
+    text = render_text(result)
+    assert "Month by month, on the same history:" in text and "this is a stability check" in text
+    assert [caveat.code for caveat in result.caveats] == [
+        "label_coverage", "small_sample", "high_flag_rate",
+    ]  # fmt: skip
+
+
+def test_the_backtest_node_returns_the_evidence_and_its_overall_part(settings: Settings) -> None:
+    turn_nodes = TurnNodes(settings, ScriptedModel([]), model_spec(settings))
+    update = turn_nodes.backtest_rule(TurnState(question="q", approved_clause=RULE))
+    assert set(update) == {"result", "evidence"}
+    evidence = update["evidence"]
+    assert isinstance(evidence, RuleEvidence)
+    assert update["result"] is evidence.overall
+    assert len(evidence.months) == 6 and sum(row.flagged for row in evidence.months) == evidence.overall.flagged
+    assert PER_TURN_RESET["evidence"] is None
+    with pytest.raises(RuntimeError, match="without a clause the guard approved"):
+        turn_nodes.backtest_rule(TurnState(question="q"))
+
+
+def test_a_repair_request_clears_the_evidence_of_the_first_attempt(settings: Settings) -> None:
+    model = ScriptedModel([tool_reply("decline")])
+    turn_nodes = TurnNodes(settings, model, model_spec(settings))
+    measured = turn_nodes.backtest_rule(TurnState(question="q", approved_clause=RULE))
+    stale = TurnState.model_validate({"question": "q", **measured})
+    assert stale.evidence is not None
+    cleared = turn_nodes.call_model(stale)
+    assert cleared["evidence"] is None and cleared["result"] is None
 
 
 @pytest.mark.parametrize(

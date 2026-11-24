@@ -267,10 +267,10 @@ def test_a_run_of_the_whole_suite_keeps_every_case_in_the_table() -> None:
         for case in suite.cases
     ]
     summary = summarise(results, INFO)
-    assert counts(summary.overall) == (119, 117, 0, 2)
-    assert sum(item.cases for item in summary.by_tier) == 119
-    assert sum(item.cases for item in summary.by_split) == 119
-    assert counts(tally(summary, "by_split", "tuned")) == (22, 21, 0, 1)
+    assert counts(summary.overall) == (124, 122, 0, 2)
+    assert sum(item.cases for item in summary.by_tier) == 124
+    assert sum(item.cases for item in summary.by_split) == 124
+    assert counts(tally(summary, "by_split", "tuned")) == (23, 22, 0, 1)
     assert [item.case_id for item in summary.known_limitations] == ["follow-after-decline"]
     assert summary.known_limitations[0].passed
     assert len(summary.paraphrases) == 8

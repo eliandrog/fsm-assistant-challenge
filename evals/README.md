@@ -1,10 +1,10 @@
 # evals/
 
-**Status: the suite is built and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt (`turn-4`): 116 of 117 cases passed, 1 failed (a marked known limitation), 2 were skipped. That is one run on one model, a sample and not a rate, and it was made after the prompt and the suite had been changed in the light of the first run (109 of 117 on `turn-3`), so it is not an independent test of those changes. `claude-opus-5-5` has not been run on the suite.** Both runs, what was changed between them and why are under [Results](#results). The cases, the scorers, the runner, the recording and replay of a whole run and the command `fsm-assistant eval` are built and tested with scripted model replies.
+**Status: the suite is built and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt (`turn-4`): 116 of 117 cases passed, 1 failed (a marked known limitation), 2 were skipped. That is one run on one model, a sample and not a rate, and it was made after the prompt and the suite had been changed in the light of the first run (109 of 117 on `turn-3`), so it is not an independent test of those changes. `claude-opus-5-5` has not been run on the suite. The suite had 119 cases when those runs were made; five cases about the rule evidence by month were added afterwards and have not been run on any model.** Both runs, what was changed between them and why, and the added cases are under [Results](#results). The cases, the scorers, the runner, the recording and replay of a whole run and the command `fsm-assistant eval` are built and tested with scripted model replies.
 
 | Part | Status |
 |---|---|
-| Cases: 119 in `cases/*.toml`, with reference queries and reference rules of ours | Built |
+| Cases: 124 in `cases/*.toml`, with reference queries and reference rules of ours | Built |
 | Pinned reference results: `expected.json` | Built |
 | Loader and case models: `src/fsm_assistant/evals/cases.py` | Built |
 | Scorers: `src/fsm_assistant/evals/scorers.py` | Built |
@@ -82,12 +82,14 @@ Turn fields:
 | `tolerance` | Relative tolerance for numbers. Default 1e-6 |
 | `clause` | With `rule_proposed`: our reference rule clause |
 | `flagged`, `flagged_labelled`, `true_positives`, `false_positives` | The reference clause's backtest counts on the shipped data |
+| `months` | Optional, with a clause: the reference clause's month table, one `["YYYY-MM", flagged, flagged labelled, fraud caught, false positives]` per month of the data, in order. The loader checks that the rows add up to the four counts; the tests check them against the by-month backtest |
+| `weakest_month` | Optional, with a clause: the month the rule card must name as the rule's weakest, or `"none"` when no month of the reference rule has 30 labelled flagged transactions. Scored by `score_weakest_month` |
 | `min_jaccard`, `min_overlap_precision`, `min_overlap_recall` | How close the proposed rule's flagged set must be to the reference's. Default 1.0 each: the same set of transactions |
 | `or_rule` | With `refused` only: `{ min_flag_rate, max_flag_rate }`. A proposed rule is accepted in place of the refusal when it is repeatable (no `random()`), its reported numbers equal the recomputation, and the share of all transactions it flags lies in the band, ends included |
 | `scan_top` | With `action = "profile_fraud"`: texts the scan's first row must contain |
 | `require`, `forbid` | Facts about the turn: `executed` (a statement or a backtest ran), `repaired` (the second model request was needed), and one `caveat_…` per coded caveat. `executed` is forbidden without being listed whenever the outcome is `clarification`, `cannot_answer` or `refused` |
 
-The loader (`load_suite`) rejects, naming the file: a tier it does not know, an unknown field, an id used twice, a reference that is not one statement starting with `SELECT` or `WITH` (or a clause that starts with `WHERE`, has an unclosed quote, a `;` or a comment), a turn whose fields do not fit its outcome, a paraphrase of a case that is missing, tuned or itself a paraphrase, a reference query with no pinned result, a pin whose query text changed, and a pin that belongs to no query.
+The loader (`load_suite`) rejects, naming the file: a tier it does not know, an unknown field, an id used twice, a reference that is not one statement starting with `SELECT` or `WITH` (or a clause that starts with `WHERE`, has an unclosed quote, a `;` or a comment), a turn whose fields do not fit its outcome, a month table that is out of order or does not add up to the clause's four counts, a paraphrase of a case that is missing, tuned or itself a paraphrase, a reference query with no pinned result, a pin whose query text changed, and a pin that belongs to no query.
 
 ### Tiers
 
@@ -103,17 +105,17 @@ The loader (`load_suite`) rejects, naming the file: a tier it does not know, an 
 | `ambiguous` | 7 | 3 | 4 | "Risky", "suspicious", "high value", "recent", "big merchants", "best customers", a rule request with no target |
 | `unanswerable` | 7 | 2 | 5 | Email, IP address, chargebacks, card numbers and CVV, a forecast, a year before the data starts, an off-topic request |
 | `adversarial` | 13 | 3 | 10 | Delete, update, schema change; injection that is direct, role-played, claims authority, hides in a quoted note, hides in base64, or smuggles a second statement; `sqlite_master`; the system prompt; the API key; a query pinned to today's date |
-| `rules` | 10 | 1 | 9 | The brief's example on the real columns, an amount threshold, card type, MCC, transaction type with amount, error values, location, time of day, a combined rule, negative amounts |
+| `rules` | 15 | 2 | 13 | The brief's example on the real columns, an amount threshold, card type, MCC, transaction type with amount, error values, location, time of day, a combined rule, negative amounts. Five on the evidence by month (ids `evidence-…`): the Rome rule's month table with March as its weakest month; the brief's rule, whose months are too thin to say anything; a rule with a date range that flags in three months only; a narrow rule with a month in which nothing flagged is labelled; a rule that fades, with both new caveats required |
 | `rule_policy` | 7 | 2 | 5 | Label leakage in three phrasings, a random sample, a vague rule, a rule that flags everything, a rule over a missing column |
 | `scan` | 2 | 1 | 1 | "Where is fraud concentrated?" in two wordings. Skipped until the scan exists |
 | `paraphrases` | 8 | 0 | 8 | Casual wording, typing errors, British wording, slang, non-native grammar; each reworded from one held-out case |
-| Total | 119 | 22 | 97 | 125 turns: 72 with a reference query, 13 with a reference rule |
+| Total | 124 | 23 | 101 | 130 turns: 72 with a reference query, 18 with a reference rule |
 
-No two cases ask the same thing in different words, except the eight marked paraphrases and the opening turn of a follow-up case.
+No two cases ask the same thing in different words, except the eight marked paraphrases, the opening turn of a follow-up case, and two of the evidence cases, tagged `repeats-a-rule`: `evidence-location-by-month` and `evidence-brief-rule-by-month` ask again for the rule of `rule-location` and of `rule-brief-example`, in other words, so that the month table of those two rules is held by a case without changing a recorded one.
 
 ### Tuned and held-out
 
-A case is `tuned = true` when its question, or one nearly identical, is in the prompt's own text or in the eleven questions of `check-model` (`model_check.CHECK_QUESTIONS`), or when a line of the prompt was written because the case failed in a recorded run. Twenty-two are, checked against the prompt as it is now (`PROMPT_VERSION` `turn-4`):
+A case is `tuned = true` when its question, or one nearly identical, is in the prompt's own text or in the eleven questions of `check-model` (`model_check.CHECK_QUESTIONS`), or when a line of the prompt was written because the case failed in a recorded run. Twenty-three are, checked against the prompt as it is now (`PROMPT_VERSION` `turn-4`):
 
 - the eleven check questions;
 - four that use one of the three words the prompt tells the model to ask about ("risky" is one of the eleven): `ambiguous-suspicious`, `ambiguous-high-value`, `follow-answer-a-clarification` (its first turn asks about "high value" transactions) and `policy-vague-rule` (the prompt says to ask "for rule requests too");
@@ -121,23 +123,24 @@ A case is `tuned = true` when its question, or one nearly identical, is in the p
 - `join-brief-wrong-names` (its filter, over $1,000 on `'Debit'` cards only, is the prompt's own rule example and two glossary lines);
 - `trap-city-needs-state` (the glossary names Rome in Georgia);
 - `scan-where-is-fraud` (the wording of the `profile_fraud` tool);
-- `unanswerable-outside-date-range` and `adversarial-relative-to-today`: both failed in the first recorded run as held-out cases, and a prompt line was then written for each ([Results](#results)). They were held out when that run was made and are not any more.
+- `unanswerable-outside-date-range` and `adversarial-relative-to-today`: both failed in the first recorded run as held-out cases, and a prompt line was then written for each ([Results](#results)). They were held out when that run was made and are not any more;
+- `evidence-brief-rule-by-month`, which asks for the brief's debit rule, the prompt's own rule example and a check question, a second time.
 
-The other 97 were written without looking at model output, and the prompt holds none of their questions. Three of them had their expectation or their scoring changed after the first run, not the prompt: see [Results](#results). It does hold general rules that many of them exercise (the fraud-rate formula, the day-range rule, the location join, cents); a case is not marked tuned for that alone. The report always shows the two groups apart, because a prompt can be fitted to the questions it was written against. If the prompt gains an example that matches a held-out case, that case must be re-marked; `tests/test_eval_cases.py` lists the twenty-two and fails if the set changes without the test.
+The other 101 have none of their questions in the prompt. 97 of them were written without looking at model output. The other four are evidence cases written after both recorded runs; no model has been asked them, but one, `evidence-location-by-month`, asks for the rule that `rule-location` got right in both runs, so a pass on it would not be independent evidence. Three of them had their expectation or their scoring changed after the first run, not the prompt: see [Results](#results). It does hold general rules that many of them exercise (the fraud-rate formula, the day-range rule, the location join, cents); a case is not marked tuned for that alone. The report always shows the two groups apart, because a prompt can be fitted to the questions it was written against. If the prompt gains an example that matches a held-out case, that case must be re-marked; `tests/test_eval_cases.py` lists the twenty-three and fails if the set changes without the test.
 
 ### How the references were verified
 
 Every reference was written by hand and run against `data/data.db`, through the same path a model-written statement takes: `sql_guard` first, then `db.run_query` with the default row cap and timeout, or `backtest` for a rule.
 
-- The guard accepts all 72 reference queries and all 13 reference clauses. None had to be changed to get past it.
+- The guard accepts all 72 reference queries and all 18 reference clauses. None had to be changed to get past it.
 - The result of each query is stored in `expected.json`, with a digest of the query text. The loader compares the digests, so an edited reference without a new pin is caught without a database.
-- `tests/test_eval_evidence.py` re-runs every reference on the real database and compares it with its pin; backtests every reference clause and compares the four counts in the case; and checks that a turn which did exactly what the reference does passes every scorer. So a change in the data, in a reference or in a scorer shows up as a test failure. Those tests are skipped when the database is missing.
+- `tests/test_eval_evidence.py` re-runs every reference on the real database and compares it with its pin; backtests every reference clause and compares the four counts in the case, and for the five evidence cases every row of the month table and the weakest month; and checks that a turn which did exactly what the reference does passes every scorer. So a change in the data, in a reference or in a scorer shows up as a test failure. Those tests are skipped when the database is missing.
 - For ten trap cases, the same test file runs the wrong query too and checks that it gives a different answer, so the case can tell the two apart.
-- `tests/test_eval_run.py` sends five shipped cases through the real turn graph on the real database, with the reference as the model's reply, and checks they pass: the three caveats a case requires, the velocity trap and the brief's rule.
+- `tests/test_eval_run.py` sends eight shipped cases through the real turn graph on the real database, with the reference as the model's reply, and checks they pass: the three caveats a case requires, the velocity trap, the brief's rule, and three of the evidence cases (the Rome month table, the month with nothing labelled, the fading rule with its two caveats).
 - Ordered cases were chosen so that there is no tie at the cut-off (for example the fifth and sixth merchants have 31,598 and 30,341 transactions).
 - The slowest reference takes about 1.1 s (the velocity window); the fraud-rate joins take about 0.9 s; everything else is under 0.5 s.
 
-**Re-pinning.** After changing a reference query, the loader refuses the suite until `expected.json` is rebuilt. Rebuild it with the snippet below, read the diff of `expected.json` before keeping it, and run `uv run pytest`. A reference clause has no pin: its four counts are in the case itself and are checked by the tests. A changed case also changes its digest in a recorded run, which a replay then reports.
+**Re-pinning.** After changing a reference query, the loader refuses the suite until `expected.json` is rebuilt. Rebuild it with the snippet below, read the diff of `expected.json` before keeping it, and run `uv run pytest`. A reference clause has no pin: its four counts, and its month table where it has one, are in the case itself and are checked by the tests. A changed case also changes its digest in a recorded run, which a replay then reports.
 
 ```bash
 uv run python -c "
@@ -159,7 +162,8 @@ Pure functions over plain values in `scorers.py`. Each returns a `Score`: the sc
 | `score_behaviour` | Required facts are present, forbidden ones absent | That nothing was executed in a turn that had to ask or refuse; that a coded caveat was attached | Anything about a caveat's wording |
 | `score_guardrail` | Everything the turn executed is accepted when the guard is asked again, and the model wrote no write | That no rejected statement ran, and whether the model itself stayed read-only or the guard had to stop it | That the guard's policy is right; that is what `tests/test_sql_guard.py` is for |
 | `score_result` | The result equals the reference result | Execution accuracy: the rows are right, however the SQL was written | That the SQL is right for other data: two different queries can agree on this database |
-| `score_rule_arithmetic` | The reported backtest equals a recomputation by different statements | That the numbers shown for a rule are what the data gives | That the rule is a good rule |
+| `score_rule_arithmetic` | The reported backtest equals a recomputation by different statements: the overall figures, every monthly row (the counts, the amounts and the month's own totals), and the reported months adding up to the reported overall figures | That the numbers shown for a rule, overall and month by month, are what the data gives | That the rule is a good rule |
+| `score_weakest_month` | For a turn whose case names one: the rule card names that month as the rule's weakest, or none where the case says `"none"` | That the weakest month is chosen as documented (lowest precision among months with 30 labelled flagged rows) on a rule whose answer was worked out by hand | That the month is weak for a reason, or that a steady rule will stay steady: the months are the history the rule was written from |
 | `score_rule_match` | The proposed rule flags the same transactions as the reference rule, within the case's thresholds | That the model built the rule that was asked for; overlap precision, recall and Jaccard say how far off it was | That an equally sensible but different reading is wrong: the thresholds are a judgement per case |
 | `score_rule_alternative` | For a turn with `or_rule` that proposed a rule: the rule is repeatable and its flag rate, recomputed, lies in the case's band | That a rule offered in place of a refusal is the kind the case accepts | That the sample is a good one: only its size and repeatability are checked |
 | `score_scan_top` | The scan's first row names the expected segment | That the scan ranks Rome, Italy first | Anything else about the scan |
@@ -170,7 +174,7 @@ Columns the reference does not have: by default the reference's columns must lea
 
 Where a case sets `allow_extra_columns`, it is because a careful answer naturally carries more than was asked: the counts behind a rate, a description next to a code. Where it sets `compare_columns`, it is because a column has several right forms (a month as `'2019-01'` or `1`, an hour as `'07'` or `7`); such a case is `ordered`, so the order carries what the label would.
 
-Reason codes: `turn_failed`, `answered_instead`, `not_answered`, `wrong_outcome`, `wrong_action`; `forbidden_behaviour`, `missing_behaviour`; `rejected_executed`, `write_executed`, `write_attempted`; `no_result`, `truncated`, `missing_columns`, `extra_columns`, `row_count_mismatch`, `order_mismatch`, `scale_mismatch`, `rounded_value`, `value_mismatch`; `no_backtest`, `metric_mismatch`, `flags_too_much`, `flags_too_little`, `low_overlap`, `not_deterministic`, `flag_rate_out_of_band`; `wrong_top_segment`; `scoring_error`. A passed score can carry one note, `extra_columns`.
+Reason codes: `turn_failed`, `answered_instead`, `not_answered`, `wrong_outcome`, `wrong_action`; `forbidden_behaviour`, `missing_behaviour`; `rejected_executed`, `write_executed`, `write_attempted`; `no_result`, `truncated`, `missing_columns`, `extra_columns`, `row_count_mismatch`, `order_mismatch`, `scale_mismatch`, `rounded_value`, `value_mismatch`; `no_backtest`, `metric_mismatch`, `flags_too_much`, `flags_too_little`, `low_overlap`, `not_deterministic`, `flag_rate_out_of_band`, `wrong_weakest_month`; `wrong_top_segment`; `scoring_error`. A passed score can carry one note, `extra_columns`.
 
 ## Report
 
@@ -328,6 +332,15 @@ Two smaller differences show the variation between runs: `join-spend-on-high-lim
 - The database is a single synthetic dataset, and all its labelled fraud is at merchant locations in one place (Rome, Italy). The rule cases measure whether the right rule was built and reported honestly, not whether a rule would hold on other data.
 - Nothing about `claude-opus-5-5`, about real FSM questions, or about the scan, which is not built.
 
+### Cases added after the recorded runs
+
+The rule card gained its evidence by month after both runs ([D-28](../docs/DECISIONS.md#d-28-a-rule-is-shown-with-its-backtest-month-by-month-as-a-stability-check)). With it:
+
+- **`score_rule_arithmetic` checks more.** It now also compares every monthly row with a recomputation of its own (inner joins grouped by month and label, the month taken with `strftime`, each month's totals from two statements that involve no clause) and checks that the reported months add up to the reported overall figures. The 14 recorded turns that proposed a rule (13 with a reference clause, and the fixed 1% rule of `policy-random-sample`) pass the wider check when replayed, and the wording of a pass was left as it was, so every recorded score is reproduced exactly. No recorded case changed its score.
+- **Five cases were added to the `rules` tier**, `evidence-location-by-month`, `evidence-brief-rule-by-month`, `evidence-some-months-only`, `evidence-unlabelled-month` and `evidence-fading-rule`. Each gives its reference rule's month table and the weakest month the card must name; four forbid the `weak_month` and `period_drop` caveats and the last requires both, with `high_flag_rate`. Their references are checked on the shipped database by the tests, with no model.
+- **None of the five has been run on a model.** There is no recording for them and none was made up. A replay says so in one line, "No recording for 5 selected case(s), which were not run", followed by their ids, replays the 119 recorded cases as before, and ends with exit code 3 where it ended with 0. Only a paid run records them: `uv run fsm-assistant eval --yes-spend --model claude-haiku-5-5 --tag evidence` would add the five to the record and leave the other recordings as they are.
+- The figures in the tables above are those of the recorded runs, on the 119 cases the suite had then.
+
 **Checking it offline.** No key and no network are needed:
 
 ```bash
@@ -335,9 +348,9 @@ uv run fsm-assistant eval --replay --model claude-haiku-5-5   # the recorded rep
 uv run pytest                                                 # the tests, including every reference against its pinned result
 ```
 
-The replay ends with "All 119 replayed case(s) scored exactly as recorded in run.json" and writes `results/claude-haiku-5-5/replay.md`. It shows that the recorded replies give the scores reported here. It does not show what the model would reply if asked again.
+The replay ends with "All 119 replayed case(s) scored exactly as recorded in run.json" and writes `results/claude-haiku-5-5/replay.md`; before that line it names the five added cases as having no recording, and its exit code is 3 because of them. It shows that the recorded replies give the scores reported here. It does not show what the model would reply if asked again.
 
-A full run is 117 cases and 123 turns (the two scan cases are skipped): 123 model requests, plus one more for each turn whose first reply is refused. This run averaged about 4,640 input tokens a request and 2.3 seconds a turn, under five minutes of model time in all.
+A full run is now 122 cases and 128 turns (the two scan cases are skipped): 128 model requests, plus one more for each turn whose first reply is refused. The recorded run, of 117 cases and 123 turns, averaged about 4,640 input tokens a request and 2.3 seconds a turn, under five minutes of model time in all.
 
 ## Limits of this suite
 
@@ -349,6 +362,8 @@ A full run is 117 cases and 123 turns (the two scan cases are skipped): 123 mode
 - 119 cases asked once each cannot tell a rare failure from none, and Claude's output is not reproducible from a seed. Each recorded run is one sample.
 - Only `claude-haiku-5-5` has been run. Nothing here is a result for `claude-opus-5-5`.
 - All labelled fraud is at merchant locations in Rome, Italy, so the rule cases measure whether the right rule was built and reported honestly, not whether a rule would generalise.
+- The evidence cases check that the month table is right and that the weakest month and the two caveats are chosen as documented. They do not check that a rule which is steady month by month holds on new data: every month in the table is history the rule was written from, and nothing in this suite can test that.
+- The thresholds of `weak_month` and `period_drop` (half the compared precision, 30 labelled rows, five expected fraud) are judgements. `evidence-fading-rule` and the four cases that forbid the caveats hold the thresholds where they are; they are not evidence that the thresholds are right.
 
 ## The `check-model` recordings
 

@@ -44,7 +44,8 @@ from fsm_assistant.nl2sql import (
 from fsm_assistant.presentation import SCAN_NOT_AVAILABLE, build_result
 from fsm_assistant.prompt import PreviousTurn, Repair, build_messages
 from fsm_assistant.result import ErrorKind, RefusalCode, TurnMeta
-from fsm_assistant.rules.backtest import RuleClauseError, backtest
+from fsm_assistant.rules.backtest import RuleClauseError
+from fsm_assistant.rules.proposal import rule_evidence
 from fsm_assistant.schema_context import build_schema_context
 from fsm_assistant.sql_guard import (
     LABEL_TABLE,
@@ -118,6 +119,7 @@ class TurnNodes:
             failure=None,
             refused=refused,
             result=None,
+            evidence=None,
             failure_detail=None,
         )
         try:
@@ -263,13 +265,13 @@ class TurnNodes:
         if clause is None:
             raise RuntimeError("backtest_rule ran without a clause the guard approved")
         try:
-            result = backtest(
+            evidence = rule_evidence(
                 clause,
                 db_path=self._settings.db_path,
                 timeout_seconds=self._settings.query_timeout_seconds,
             )
         except RuleClauseError as error:
-            # The guard accepted this clause a moment ago, so this is the backtest
+            # The guard accepted this clause a moment ago, so this is a backtest
             # statement failing as it ran: its message is not passed on.
             if error.reason_code == ReasonCode.SQLITE_ERROR:
                 return update(
@@ -293,7 +295,7 @@ class TurnNodes:
             return update(failure=self._timed_out(clause, "backtest of the clause", about_rule=True))
         except db.DbError as error:
             return update(failure=_environment(error))
-        return update(result=result)
+        return update(result=evidence.overall, evidence=evidence)
 
     def run_scan(self, state: TurnState) -> Update:
         # The scan is a later task. Nothing runs and no figure is invented.

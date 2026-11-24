@@ -32,6 +32,13 @@ as one WHERE expression, and reads neither the labels nor anything outside
 the data. A rejection is raised as `RuleClauseError` with the guard's reason
 code and reason. Writes are impossible either way (`db` enforces read-only
 in the engine).
+
+By month. `backtest_by_month` measures the same clause once per calendar
+month with a second fixed statement (docs/DECISIONS.md, D-28). The clause is
+contained the same way and passes the same policy; the statement then walks
+every transaction once, so each month also carries its own totals and a
+month the rule never flags is still a row. A month is the first seven
+characters of `transactions.date` (`YYYY-MM`).
 """
 
 from pathlib import Path
@@ -73,6 +80,42 @@ SELECT
   (SELECT coalesce(sum(is_fraud = 1), 0) FROM fraud_labels) AS total_fraud
 FROM flagged
 LEFT JOIN fraud_labels f ON """ + label_join("f", "flagged") + "\n"
+
+# One pass over every transaction: the flagged ids and the labels are both
+# left-joined to it, so a month's totals and what the rule flags in it come
+# from the same rows. The clause still sees `transactions` alone, inside the
+# CTE. A month's `total_labelled` and `total_fraud` are counted through the
+# join, where the single-row template counts `fraud_labels` directly; the
+# two agree while every label belongs to exactly one transaction.
+_MONTHLY_TEMPLATE = """\
+WITH flagged AS (
+  SELECT id FROM transactions WHERE (
+{clause}
+  )
+)
+SELECT
+  coalesce(substr(t.date, 1, 7), '') AS month,
+  count(flagged.id) AS flagged,
+  count(CASE WHEN flagged.id IS NOT NULL THEN f.is_fraud END) AS flagged_labelled,
+  coalesce(sum(flagged.id IS NOT NULL AND f.is_fraud = 1), 0) AS true_positives,
+  coalesce(sum(flagged.id IS NOT NULL AND f.is_fraud = 0), 0) AS false_positives,
+  coalesce(sum(CASE WHEN flagged.id IS NOT NULL THEN t.amount_usd_cents END), 0)
+    AS flagged_amount_cents,
+  coalesce(sum(CASE WHEN flagged.id IS NOT NULL AND f.is_fraud = 1 THEN t.amount_usd_cents END), 0)
+    AS fraud_amount_caught_cents,
+  coalesce(sum(CASE WHEN flagged.id IS NOT NULL AND f.is_fraud = 0 THEN t.amount_usd_cents END), 0)
+    AS false_positive_amount_cents,
+  count(*) AS total_transactions,
+  count(f.is_fraud) AS total_labelled,
+  coalesce(sum(f.is_fraud = 1), 0) AS total_fraud
+FROM transactions t
+LEFT JOIN flagged ON flagged.id = t.id
+LEFT JOIN fraud_labels f ON """ + label_join("f", "t") + """
+GROUP BY month
+ORDER BY month
+"""
+# More months than any dataset this tool is pointed at will hold: 100 years.
+_MONTH_ROW_CAP = 1200
 
 
 class RuleClauseError(Exception):
@@ -153,6 +196,58 @@ class BacktestResult(BaseModel):
         return _ratio(self.flagged_labelled, self.flagged)
 
 
+class MonthlyBacktest(BaseModel):
+    """One calendar month of a rule's backtest, with that month's own totals.
+
+    The counts and amounts mean what they mean in `BacktestResult`, limited
+    to the transactions dated in `month`. The ratios use the month's own
+    denominators and are `None` when undefined.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    month: str  # YYYY-MM
+    flagged: int
+    flagged_labelled: int
+    true_positives: int
+    false_positives: int
+    flagged_amount_cents: int
+    fraud_amount_caught_cents: int
+    false_positive_amount_cents: int
+    total_transactions: int  # all transactions of the month
+    total_labelled: int  # of those, the labelled ones
+    total_fraud: int  # labelled fraud in the month (its recall denominator)
+
+    @property
+    def flagged_unlabelled(self) -> int:
+        return self.flagged - self.flagged_labelled
+
+    @property
+    def precision(self) -> float | None:
+        """Fraud caught / flagged labelled, in this month."""
+        return _ratio(self.true_positives, self.flagged_labelled)
+
+    @property
+    def recall(self) -> float | None:
+        """Fraud caught / the month's labelled fraud."""
+        return _ratio(self.true_positives, self.total_fraud)
+
+    @property
+    def flag_rate(self) -> float | None:
+        """Flagged / the month's transactions."""
+        return _ratio(self.flagged, self.total_transactions)
+
+
+class BacktestByMonth(BaseModel):
+    """A rule measured month by month: one row per month that has transactions, in order."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    clause: str
+    months: tuple[MonthlyBacktest, ...]
+    elapsed_seconds: float
+
+
 def backtest(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestResult:
     """Measure the rule `clause` over every transaction in the database.
 
@@ -170,19 +265,57 @@ def backtest(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestR
     return _backtest_unchecked(decision.sql, db_path=db_path, timeout_seconds=timeout_seconds)
 
 
+def backtest_by_month(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestByMonth:
+    """Measure the rule `clause` once per calendar month.
+
+    The same policy and the same errors as `backtest`. Every month that has
+    a transaction is a row, also when the rule flags nothing in it.
+    """
+    decision = check_rule_clause(clause, db_path=db_path)
+    if decision.reason_code is not None:
+        raise RuleClauseError(
+            decision.reason or "", decision.reason_code, decision.sqlite_message
+        )
+    result = _run(
+        _MONTHLY_TEMPLATE.format(clause=decision.sql),
+        db_path=db_path,
+        row_cap=_MONTH_ROW_CAP,
+        timeout_seconds=timeout_seconds,
+    )
+    return BacktestByMonth(
+        clause=decision.sql,
+        months=tuple(
+            MonthlyBacktest.model_validate(dict(zip(result.columns, row, strict=True)))
+            for row in result.rows
+        ),
+        elapsed_seconds=result.elapsed_seconds,
+    )
+
+
 def _backtest_unchecked(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestResult:
     """Run the template with `clause` as it is. No policy is applied.
 
     For `backtest`, after the guard has accepted the clause, and for tests
     that show what an unguarded clause would score. Nothing else may call it.
     """
+    result = _run(
+        _TEMPLATE.format(clause=clause), db_path=db_path, row_cap=1, timeout_seconds=timeout_seconds
+    )
+    # By column name, so the template and the result type cannot drift apart:
+    # a column that is not a field, or a field with no column, fails validation.
+    return BacktestResult.model_validate(
+        {
+            "clause": clause,
+            "elapsed_seconds": result.elapsed_seconds,
+            **dict(zip(result.columns, result.rows[0], strict=True)),
+        }
+    )
+
+
+def _run(sql: str, *, db_path: Path, row_cap: int, timeout_seconds: float) -> db.QueryResult:
+    """Run one of the two templates; what SQLite or the authorizer refuses is the clause's fault."""
     try:
-        result = db.run_query(
-            _TEMPLATE.format(clause=clause),
-            db_path=db_path,
-            row_cap=1,
-            timeout_seconds=timeout_seconds,
-        )
+        return db.run_query(sql, db_path=db_path, row_cap=row_cap, timeout_seconds=timeout_seconds)
     except db.QueryError as error:
         raise RuleClauseError(
             f"SQLite rejected the clause: {error.sqlite_message}",
@@ -193,15 +326,6 @@ def _backtest_unchecked(clause: str, *, db_path: Path, timeout_seconds: float) -
         raise RuleClauseError(
             f"The clause is not a read-only expression. {error}", ReasonCode.NOT_READ_ONLY
         ) from error
-    # By column name, so the template and the result type cannot drift apart:
-    # a column that is not a field, or a field with no column, fails validation.
-    return BacktestResult.model_validate(
-        {
-            "clause": clause,
-            "elapsed_seconds": result.elapsed_seconds,
-            **dict(zip(result.columns, result.rows[0], strict=True)),
-        }
-    )
 
 
 def _ratio(numerator: int, denominator: int) -> float | None:

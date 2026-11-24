@@ -10,6 +10,7 @@ from fsm_assistant.evals.cases import Comparison, ExpectedOutcome, Fact, Thresho
 from fsm_assistant.evals.scorers import (
     FailureReason,
     JudgedStatement,
+    MonthMetrics,
     Note,
     Observation,
     Outcome,
@@ -24,6 +25,7 @@ from fsm_assistant.evals.scorers import (
     score_rule_arithmetic,
     score_rule_match,
     score_scan_top,
+    score_weakest_month,
 )
 
 type Rows = tuple[tuple[Cell, ...], ...]
@@ -254,10 +256,15 @@ def test_facts_are_read_from_the_observation() -> None:
         Observation(
             outcome="cannot_answer",
             model_calls=2,
-            caveats=("label_coverage", "high_flag_rate", "small_sample", "zero_rows", "truncated", "new"),
+            caveats=(
+                "label_coverage", "high_flag_rate", "small_sample", "zero_rows", "truncated",
+                "weak_month", "period_drop", "new",
+            ),
         )
     ) == {
         "repaired",
+        "caveat_weak_month",
+        "caveat_period_drop",
         "caveat_label_coverage",
         "caveat_high_flag_rate",
         "caveat_small_sample",
@@ -314,6 +321,68 @@ def test_rule_arithmetic() -> None:
     assert reason(score_rule_arithmetic(metrics(recall=0.5), metrics())) is FailureReason.METRIC_MISMATCH
     undefined = metrics(precision=None)
     assert reason(score_rule_arithmetic(undefined, undefined)) is None
+    # The pass is worded as it was before the monthly rows were checked, so a
+    # recorded run still replays to the same scores.
+    assert score_rule_arithmetic(metrics(), metrics()).detail == (
+        "every reported number equals the recomputation"
+    )
+
+
+def by_month(first: MonthMetrics, second: MonthMetrics) -> RuleMetrics:
+    return metrics().model_copy(update={"months": (first, second)})
+
+
+def test_rule_arithmetic_checks_the_monthly_rows() -> None:
+    # The two months add up to `metrics()`.
+    january = MonthMetrics(
+        month="2019-01", flagged=200, flagged_labelled=138, true_positives=2, false_positives=136,
+        total_transactions=600_000, total_labelled=400_000, total_fraud=700,
+        flagged_amount_cents=30_000_000, fraud_amount_caught_cents=250_000,
+        false_positive_amount_cents=20_000_000,
+    )  # fmt: skip
+    february = MonthMetrics(
+        month="2019-02", flagged=150, flagged_labelled=100, true_positives=0, false_positives=100,
+        total_transactions=559_966, total_labelled=377_339, total_fraud=660,
+        flagged_amount_cents=20_000_000, fraud_amount_caught_cents=0,
+        false_positive_amount_cents=10_000_000,
+    )  # fmt: skip
+    honest = by_month(january, february)
+    assert reason(score_rule_arithmetic(honest, honest)) is None
+
+    # A month that differs from the recomputation, although the months still add up.
+    moved = by_month(
+        january.model_copy(update={"true_positives": 1, "false_positives": 137}),
+        february.model_copy(update={"true_positives": 1, "false_positives": 99}),
+    )
+    wrong = score_rule_arithmetic(moved, honest)
+    assert reason(wrong) is FailureReason.METRIC_MISMATCH
+    assert "2019-01 true_positives: reported 1, recomputed 2" in wrong.detail
+    assert "2019-02 false_positives: reported 99, recomputed 100" in wrong.detail
+    assert "add up" not in wrong.detail
+
+    # Months that do not add up to the overall figures the same turn reported.
+    short = by_month(january, february.model_copy(update={"flagged": 149}))
+    unsummed = score_rule_arithmetic(short, honest)
+    assert reason(unsummed) is FailureReason.METRIC_MISMATCH
+    assert "flagged: the reported months add up to 349, the reported backtest says 350" in unsummed.detail
+
+    # A month left out, and no months at all where the recomputation has them.
+    missing = score_rule_arithmetic(metrics().model_copy(update={"months": (january,)}), honest)
+    assert "months: reported 2019-01; recomputed 2019-01, 2019-02" in missing.detail
+    none = score_rule_arithmetic(metrics(), honest)
+    assert reason(none) is FailureReason.METRIC_MISMATCH
+    assert "months: reported none; recomputed 2019-01, 2019-02" in none.detail
+
+
+def test_weakest_month() -> None:
+    assert reason(score_weakest_month("2019-03", "2019-03", proposed=True)) is None
+    assert reason(score_weakest_month(None, "none", proposed=True)) is None
+    wrong = score_weakest_month("2019-08", "2019-03", proposed=True)
+    assert reason(wrong) is FailureReason.WRONG_WEAKEST_MONTH
+    assert wrong.detail == "expected the weakest month 2019-03, the rule card names 2019-08"
+    assert reason(score_weakest_month(None, "2019-03", proposed=True)) is FailureReason.WRONG_WEAKEST_MONTH
+    assert reason(score_weakest_month("2019-03", "none", proposed=True)) is FailureReason.WRONG_WEAKEST_MONTH
+    assert reason(score_weakest_month(None, "2019-03", proposed=False)) is FailureReason.NO_BACKTEST
 
 
 def test_rule_match() -> None:

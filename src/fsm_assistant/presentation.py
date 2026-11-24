@@ -5,12 +5,13 @@ Responsibility: turn the end state of a turn into what the user is shown
 hint per column, and caveats from a closed list in a fixed order.
 `render_text` is the terminal form of the same result.
 
-Every figure here comes from a `QueryResult` or a `BacktestResult`, that is
+Every figure here comes from a `QueryResult` or a `RuleEvidence`, that is
 from executed SQL. The model's explanation and assumptions are passed
 through unchanged and labelled as the model's.
 """
 
 import re
+import textwrap
 from collections.abc import Sequence
 
 from fsm_assistant.db import Cell, QueryResult
@@ -22,19 +23,39 @@ from fsm_assistant.result import (
     ErrorKind,
     Outcome,
     RuleCard,
+    RuleMonth,
+    RulePeriod,
+    RuleStability,
     Status,
     TableResult,
     TurnError,
     TurnMeta,
     TurnResult,
 )
-from fsm_assistant.rules.backtest import BacktestResult
+from fsm_assistant.rules.backtest import BacktestResult, MonthlyBacktest
+from fsm_assistant.rules.proposal import MIN_MONTH_LABELLED, PeriodBacktest, RuleEvidence
 from fsm_assistant.state import TurnState
 
 # A rule's precision resting on fewer labelled rows than this gets a caveat.
 SMALL_SAMPLE_LABELLED = 30
 # A rule flagging more than this share of all transactions gets a caveat.
 HIGH_FLAG_RATE = 0.05
+# A month, or the later period, is "well below" when its precision is under
+# this share of the figure it is compared with. The base fraud rate of the
+# shipped data itself moves between 0.67 and 1.29 times its average from
+# month to month, so a threshold above 0.67 would fire on a rule that only
+# follows the base rate.
+WEAK_PRECISION_RATIO = 0.5
+# ... and only when, at the compared precision, at least this many of its
+# labelled flagged transactions would have been fraud. Below that, a month
+# with none is what chance gives.
+MIN_EXPECTED_FRAUD = 5
+# Shown with every month-by-month table.
+EVIDENCE_NOTE = (
+    "The rule is scored here on the same history it was written from, so this is a "
+    "stability check, not a test on unseen data. Only new data or a shadow run can show "
+    "that the rule holds."
+)
 DEFAULT_PRINTED_ROWS = 20
 MAX_CELL_CHARACTERS = 60
 # Columns are printed until a line would pass this; the rest are named, not shown.
@@ -142,7 +163,8 @@ def present_table(result: QueryResult) -> TableResult:
     )
 
 
-def rule_card(backtest: BacktestResult) -> RuleCard:
+def rule_card(evidence: RuleEvidence) -> RuleCard:
+    backtest = evidence.overall
     return RuleCard(
         flagged=backtest.flagged,
         flagged_labelled=backtest.flagged_labelled,
@@ -159,6 +181,27 @@ def rule_card(backtest: BacktestResult) -> RuleCard:
         flagged_amount_cents=backtest.flagged_amount_cents,
         fraud_amount_caught_cents=backtest.fraud_amount_caught_cents,
         false_positive_amount_cents=backtest.false_positive_amount_cents,
+        base_fraud_rate=evidence.base_fraud_rate,
+        lift=evidence.lift,
+        months=tuple(_rule_month(row) for row in evidence.months),
+        weakest_month=None if evidence.weakest_month is None else evidence.weakest_month.month,
+        earlier=_rule_period(evidence.earlier),
+        later=_rule_period(evidence.later),
+        stability=RuleStability(
+            min_month_labelled=MIN_MONTH_LABELLED, **evidence.stability.model_dump()
+        ),
+    )
+
+
+def _rule_month(row: MonthlyBacktest) -> RuleMonth:
+    return RuleMonth(
+        **row.model_dump(), precision=row.precision, recall=row.recall, flag_rate=row.flag_rate
+    )
+
+
+def _rule_period(period: PeriodBacktest) -> RulePeriod:
+    return RulePeriod(
+        **period.model_dump(), precision=period.precision, recall=period.recall, lift=period.lift
     )
 
 
@@ -244,6 +287,67 @@ def rule_caveats(backtest: BacktestResult) -> tuple[Caveat, ...]:
     return tuple(caveats)
 
 
+def evidence_caveats(evidence: RuleEvidence) -> tuple[Caveat, ...]:
+    """The caveats that need the monthly rows: a weak month, a drop in the later period."""
+    caveats: list[Caveat] = []
+    overall = evidence.overall.precision
+    weak = [
+        row
+        for row in evidence.months
+        if row.flagged_labelled >= MIN_MONTH_LABELLED
+        and _well_below(row.precision, row.flagged_labelled, overall)
+    ]
+    if weak and overall is not None:
+        months = "; ".join(
+            f"{row.month} ({row.true_positives:,} of {row.flagged_labelled:,} labelled "
+            "flagged were fraud)"
+            for row in weak
+        )
+        caveats.append(
+            Caveat(
+                code="weak_month",
+                message=f"Precision is below half the rule's overall {overall:.2%} in "
+                f"{_count(len(weak), 'month')}: {months}. The overall figure does not "
+                "describe those months.",
+            )
+        )
+    earlier, later = evidence.earlier, evidence.later
+    if (
+        earlier.precision is not None
+        and min(earlier.flagged_labelled, later.flagged_labelled) >= SMALL_SAMPLE_LABELLED
+        and _well_below(later.precision, later.flagged_labelled, earlier.precision)
+    ):
+        caveats.append(
+            Caveat(
+                code="period_drop",
+                message=f"Precision in the later period ({_period_span(later)}: "
+                f"{later.true_positives:,} of {later.flagged_labelled:,} labelled flagged "
+                f"were fraud) is below half that of the earlier period "
+                f"({_period_span(earlier)}: {earlier.true_positives:,} of "
+                f"{earlier.flagged_labelled:,}). The rule did worse in the most recent months.",
+            )
+        )
+    return tuple(caveats)
+
+
+def _well_below(precision: float | None, labelled: int, reference: float | None) -> bool:
+    """Under `WEAK_PRECISION_RATIO` of `reference`, on enough rows for that to mean something."""
+    if precision is None or reference is None:
+        return False
+    return (
+        reference * labelled >= MIN_EXPECTED_FRAUD
+        and precision < WEAK_PRECISION_RATIO * reference
+    )
+
+
+def _period_span(period: RulePeriod | PeriodBacktest) -> str:
+    if period.first_month is None or period.last_month is None:
+        return "no month of the data"
+    if period.first_month == period.last_month:
+        return period.first_month
+    return f"{period.first_month} to {period.last_month}"
+
+
 def _count(number: int, noun: str) -> str:
     return f"{number:,} {noun}{'' if number == 1 else 's'}"
 
@@ -251,6 +355,7 @@ def _count(number: int, noun: str) -> str:
 def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
     """The reply for the end state of a turn: exactly one outcome."""
     failure, action, result = state.failure, state.action, state.result
+    evidence = state.evidence
     refused = state.refused
     if failure is not None and failure.refusal is not None:
         refused = (*refused, failure.refusal)
@@ -321,17 +426,17 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
         )
     if (
         isinstance(action, ProposeRule)
-        and isinstance(result, BacktestResult)
+        and evidence is not None
         and state.approved_clause is not None
     ):
         return reply(
             "rule_proposed",
-            _rule_summary(result),
+            _rule_summary(evidence.overall),
             where_clause=state.approved_clause,
-            rule=rule_card(result),
+            rule=rule_card(evidence),
             explanation=action.explanation or None,
             assumptions=action.assumptions,
-            caveats=rule_caveats(result),
+            caveats=rule_caveats(evidence.overall) + evidence_caveats(evidence),
         )
     # No route leads here; a turn that does is a fault of the graph, not of the user.
     message = "The turn ended without a result."
@@ -517,10 +622,91 @@ def _rule_lines(rule: RuleCard) -> list[str]:
         ("False positives", f"{rule.false_positives:,}"),
         ("Precision", ratio(rule.precision, "nothing flagged is labelled")),
         ("Recall", ratio(rule.recall, "the data has no labelled fraud")),
+        ("Lift", _lift_text(rule)),
         ("Amount flagged", format_cell(rule.flagged_amount_cents, "usd_cents")),
         ("Fraud amount caught", format_cell(rule.fraud_amount_caught_cents, "usd_cents")),
         ("False positive amount", format_cell(rule.false_positive_amount_cents, "usd_cents")),
     ]
-    return ["Backtest against the fraud labels (labelled transactions only):"] + [
+    lines = ["Backtest against the fraud labels (labelled transactions only):"] + [
         f"  {label:<22}{value}" for label, value in rows
     ]
+    if rule.months:
+        lines += ["", *_month_lines(rule)]
+    return lines
+
+
+def _lift_text(rule: RuleCard) -> str:
+    if rule.lift is None or rule.base_fraud_rate is None:
+        return "undefined (no precision or no base fraud rate to compare)"
+    return (
+        f"{rule.lift:,.1f} times the base fraud rate "
+        f"({rule.base_fraud_rate:.3%} of labelled transactions are fraud)"
+    )
+
+
+def _month_lines(rule: RuleCard) -> list[str]:
+    """The month table, the weakest month, the two periods and what the evidence is."""
+    header = ("Month", "Flagged", "Labelled", "Fraud caught", "False positives", "Precision")
+    cells = [
+        (
+            row.month,
+            f"{row.flagged:,}",
+            f"{row.flagged_labelled:,}",
+            f"{row.true_positives:,}",
+            f"{row.false_positives:,}",
+            "-" if row.precision is None else f"{row.precision:.2%}",
+        )
+        for row in rule.months
+    ]
+    widths = [max(len(line[index]) for line in (header, *cells)) for index in range(len(header))]
+
+    def line(values: tuple[str, ...]) -> str:
+        first, *rest = values
+        return "  " + "  ".join(
+            [first.ljust(widths[0]), *(value.rjust(width) for value, width in zip(rest, widths[1:]))]
+        )
+
+    stability, minimum = rule.stability, rule.stability.min_month_labelled
+    weakest = next((row for row in rule.months if row.month == rule.weakest_month), None)
+    if weakest is None or weakest.precision is None:
+        summary = [
+            ("Weakest month", f"none: no month has {minimum} or more labelled flagged transactions"),
+        ]
+    else:
+        low, high = stability.min_precision, stability.max_precision
+        spread = "" if low is None or high is None else f"{low:.2%} to {high:.2%} "
+        summary = [
+            (
+                "Weakest month",
+                f"{weakest.month}: {weakest.true_positives:,} of {weakest.flagged_labelled:,} "
+                f"labelled flagged were fraud ({weakest.precision:.2%})",
+            ),
+            (
+                "Monthly precision",
+                f"{spread}over the {_count(stability.qualifying_months, 'month')} with "
+                f"{minimum} or more labelled flagged, of {stability.months}",
+            ),
+        ]
+    summary += [
+        ("Earlier period", _period_text(rule.earlier)),
+        ("Later period", _period_text(rule.later)),
+    ]
+    return [
+        "Month by month, on the same history:",
+        line(header),
+        *map(line, cells),
+        *(f"  {label:<22}{value}" for label, value in summary),
+        *textwrap.wrap(EVIDENCE_NOTE, width=100, initial_indent="  ", subsequent_indent="  "),
+    ]
+
+
+def _period_text(period: RulePeriod) -> str:
+    span = _period_span(period)
+    if period.precision is None:
+        return f"{span}: nothing flagged is labelled"
+    lift = "undefined" if period.lift is None else f"{period.lift:,.1f}"
+    return (
+        f"{span}: {period.true_positives:,} of {period.flagged_labelled:,} labelled flagged "
+        f"were fraud ({period.precision:.2%}); recall {period.true_positives:,} of "
+        f"{period.total_fraud:,}; lift {lift}"
+    )

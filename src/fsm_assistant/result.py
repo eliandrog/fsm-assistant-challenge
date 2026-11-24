@@ -36,7 +36,13 @@ ErrorKind = Literal[
 RefusalCode = ReasonCode | ShapeFailureKind
 # In the order caveats are shown.
 CaveatCode = Literal[
-    "truncated", "label_coverage", "zero_rows", "small_sample", "high_flag_rate"
+    "truncated",
+    "label_coverage",
+    "zero_rows",
+    "small_sample",
+    "high_flag_rate",
+    "weak_month",
+    "period_drop",
 ]
 # How a column's values are meant to be shown. `usd_cents` values are integer
 # cents; `fraction` values lie between 0 and 1; `identifier` integers are
@@ -81,10 +87,72 @@ class TableResult(BaseModel):
     truncated: bool  # more rows existed than the row cap allowed
 
 
-class RuleCard(BaseModel):
-    """A rule's backtest. Every number comes from the backtest statement.
+class RuleMonth(BaseModel):
+    """One calendar month of a rule's backtest. The totals and ratios are the month's own."""
 
-    A ratio is None when its denominator is zero.
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    month: str  # YYYY-MM
+    flagged: int
+    flagged_labelled: int
+    true_positives: int
+    false_positives: int
+    total_transactions: int
+    total_labelled: int
+    total_fraud: int
+    flagged_amount_cents: int
+    fraud_amount_caught_cents: int
+    false_positive_amount_cents: int
+    precision: float | None
+    recall: float | None
+    flag_rate: float | None
+
+
+class RulePeriod(BaseModel):
+    """The months from `first_month` to `last_month`, summed. Not a held-out test."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    first_month: str | None  # None when the data has no month in the period
+    last_month: str | None
+    months: int
+    flagged: int
+    flagged_labelled: int
+    true_positives: int
+    false_positives: int
+    total_transactions: int
+    total_labelled: int
+    total_fraud: int
+    precision: float | None
+    recall: float | None  # of the period's own labelled fraud
+    lift: float | None  # precision over the period's own base fraud rate
+
+
+class RuleStability(BaseModel):
+    """How much monthly precision moves, over the months that qualify.
+
+    A month qualifies when at least `min_month_labelled` of the transactions
+    the rule flags in it are labelled.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    min_month_labelled: int
+    months: int
+    months_flagged: int
+    months_with_labelled_flags: int
+    qualifying_months: int
+    min_precision: float | None
+    max_precision: float | None
+
+
+class RuleCard(BaseModel):
+    """A rule's backtest. Every number comes from the two backtest statements.
+
+    The first fifteen fields are the rule over the whole history. The rest
+    is the same measurement month by month: a stability check on the history
+    the rule was written from, not a test on unseen data. A ratio is None
+    when its denominator is zero. Counts and rates only: no row of the data.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -104,6 +172,13 @@ class RuleCard(BaseModel):
     flagged_amount_cents: int
     fraud_amount_caught_cents: int
     false_positive_amount_cents: int
+    base_fraud_rate: float | None  # labelled fraud / labelled transactions
+    lift: float | None  # precision / base_fraud_rate
+    months: tuple[RuleMonth, ...]  # every month that has transactions, in order
+    weakest_month: str | None  # the qualifying month with the lowest precision
+    earlier: RulePeriod
+    later: RulePeriod
+    stability: RuleStability
 
 
 class TurnMeta(BaseModel):

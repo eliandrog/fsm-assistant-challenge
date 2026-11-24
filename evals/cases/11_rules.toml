@@ -147,3 +147,147 @@ flagged = 3514
 flagged_labelled = 2321
 true_positives = 6
 false_positives = 2315
+
+# The five cases below are about the month-by-month evidence shown with a
+# rule (D-28). Each gives the reference rule's month table and the month the
+# rule card must name as its weakest. None has been run on a model.
+
+[[case]]
+id = "evidence-location-by-month"
+tests = "The Rome rule's month table: March is its weakest month at 142 of 284, above the weak-month threshold, so no caveat"
+tags = ["rule", "evidence", "location", "subquery", "repeats-a-rule"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags every transaction at a merchant location in Rome, Italy, so that I can check it month by month."
+outcome = "rule_proposed"
+clause = "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')"
+flagged = 2431
+flagged_labelled = 1598
+true_positives = 1360
+false_positives = 238
+months = [
+  ["2019-01", 212, 134, 129, 5],
+  ["2019-02", 161, 116, 113, 3],
+  ["2019-03", 429, 284, 142, 142],
+  ["2019-04", 229, 150, 140, 10],
+  ["2019-05", 272, 175, 168, 7],
+  ["2019-06", 219, 135, 132, 3],
+  ["2019-07", 171, 112, 104, 8],
+  ["2019-08", 312, 212, 165, 47],
+  ["2019-09", 148, 96, 90, 6],
+  ["2019-10", 278, 184, 177, 7],
+]
+weakest_month = "2019-03"
+forbid = ["caveat_weak_month", "caveat_period_drop"]
+
+[[case]]
+id = "evidence-brief-rule-by-month"
+tests = "The brief's rule month by month: two fraud in ten months, so no month says anything and no weak-month caveat is raised"
+tags = ["rule", "evidence", "cents", "cards", "subquery", "repeats-a-rule"]
+tuned = true
+[[case.turn]]
+question = "Propose a rule for debit card transactions over $1,000, and show me how it did in each month."
+outcome = "rule_proposed"
+clause = "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')"
+flagged = 350
+flagged_labelled = 238
+true_positives = 2
+false_positives = 236
+months = [
+  ["2019-01", 34, 22, 0, 22],
+  ["2019-02", 22, 15, 0, 15],
+  ["2019-03", 33, 22, 0, 22],
+  ["2019-04", 36, 27, 0, 27],
+  ["2019-05", 36, 20, 0, 20],
+  ["2019-06", 29, 17, 0, 17],
+  ["2019-07", 33, 23, 1, 22],
+  ["2019-08", 50, 33, 0, 33],
+  ["2019-09", 43, 35, 0, 35],
+  ["2019-10", 34, 24, 1, 23],
+]
+weakest_month = "2019-09"
+forbid = ["caveat_weak_month", "caveat_period_drop"]
+
+[[case]]
+id = "evidence-some-months-only"
+tests = "A rule with a date range flags in three months only: the other seven are rows of zeros, and the weakest month is one of the three"
+tags = ["rule", "evidence", "cents", "date"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags transactions over $500 made in June, July or August 2019."
+outcome = "rule_proposed"
+clause = "amount_usd_cents > 50000 AND date >= '2019-06-01' AND date < '2019-09-01'"
+flagged = 1077
+flagged_labelled = 728
+true_positives = 9
+false_positives = 719
+months = [
+  ["2019-01", 0, 0, 0, 0],
+  ["2019-02", 0, 0, 0, 0],
+  ["2019-03", 0, 0, 0, 0],
+  ["2019-04", 0, 0, 0, 0],
+  ["2019-05", 0, 0, 0, 0],
+  ["2019-06", 379, 258, 4, 254],
+  ["2019-07", 362, 239, 2, 237],
+  ["2019-08", 336, 231, 3, 228],
+  ["2019-09", 0, 0, 0, 0],
+  ["2019-10", 0, 0, 0, 0],
+]
+weakest_month = "2019-07"
+forbid = ["caveat_weak_month", "caveat_period_drop"]
+
+[[case]]
+id = "evidence-unlabelled-month"
+tests = "A narrow rule: in July it flags two transactions and neither is labelled, and only June has enough labelled rows to be compared"
+tags = ["rule", "evidence", "location", "subquery"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule for swipe transactions at merchant locations in Rome, Italy."
+outcome = "rule_proposed"
+clause = "transaction_type = 'Swipe Transaction' AND merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')"
+flagged = 209
+flagged_labelled = 135
+true_positives = 122
+false_positives = 13
+months = [
+  ["2019-01", 16, 12, 12, 0],
+  ["2019-02", 23, 15, 15, 0],
+  ["2019-03", 20, 12, 12, 0],
+  ["2019-04", 10, 6, 6, 0],
+  ["2019-05", 29, 20, 18, 2],
+  ["2019-06", 54, 34, 32, 2],
+  ["2019-07", 2, 0, 0, 0],
+  ["2019-08", 18, 11, 11, 0],
+  ["2019-09", 15, 12, 10, 2],
+  ["2019-10", 22, 13, 6, 7],
+]
+weakest_month = "2019-06"
+forbid = ["caveat_weak_month", "caveat_period_drop"]
+
+[[case]]
+id = "evidence-fading-rule"
+tests = "A rule whose few catches are all early: four weak months and a later period far below the earlier one, both said in caveats"
+tags = ["rule", "evidence", "cards", "subquery", "trap:case-sensitive"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags every transaction made with an American Express card."
+outcome = "rule_proposed"
+clause = "card_id IN (SELECT id FROM cards WHERE card_brand = 'Amex')"
+flagged = 72733
+flagged_labelled = 48736
+true_positives = 77
+false_positives = 48659
+months = [
+  ["2019-01", 7441, 5019, 18, 5001],
+  ["2019-02", 6775, 4538, 4, 4534],
+  ["2019-03", 7360, 4958, 8, 4950],
+  ["2019-04", 7130, 4774, 14, 4760],
+  ["2019-05", 7478, 5080, 25, 5055],
+  ["2019-06", 7252, 4802, 5, 4797],
+  ["2019-07", 7295, 4888, 0, 4888],
+  ["2019-08", 7339, 4944, 0, 4944],
+  ["2019-09", 7069, 4711, 0, 4711],
+  ["2019-10", 7594, 5022, 3, 5019],
+]
+weakest_month = "2019-08"
+require = ["caveat_weak_month", "caveat_period_drop", "caveat_high_flag_rate"]

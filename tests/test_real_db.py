@@ -14,9 +14,11 @@ from fsm_assistant import db
 from fsm_assistant.config import Settings, load_settings
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import ScriptedModel
+from fsm_assistant.presentation import render_text
 from fsm_assistant.prompt import DATA_FIRST_DATE, DATA_LAST_DATE, system_text
 from fsm_assistant.rules import backtest as backtest_module
-from fsm_assistant.rules.backtest import RuleClauseError, backtest
+from fsm_assistant.rules.backtest import RuleClauseError, backtest, backtest_by_month
+from fsm_assistant.rules.proposal import RuleEvidence, rule_evidence
 from fsm_assistant.sql_guard import ReasonCode, check_query, check_rule_clause
 from fsm_assistant.schema_context import LABEL_JOIN, build_schema_context
 
@@ -402,3 +404,156 @@ def test_the_glossarys_last_date_and_velocity_example_hold_on_the_real_data(
     assert scalar(real_db, f"SELECT count(*) FROM {pairs} WHERE {exact}") == 59_715
     inexact = "(julianday(date) - julianday(previous)) * 1440 <= 5"
     assert scalar(real_db, f"SELECT count(*) FROM {pairs} WHERE {inexact}") == 55_547
+
+
+# --- Rule evidence month by month (D-28) --------------------------------------------------
+
+SUMMED = (
+    "flagged", "flagged_labelled", "true_positives", "false_positives",
+    "total_transactions", "total_labelled", "total_fraud",
+    "flagged_amount_cents", "fraud_amount_caught_cents", "false_positive_amount_cents",
+)  # fmt: skip
+
+
+def month_table(evidence: RuleEvidence) -> dict[str, tuple[int, int, int, int]]:
+    return {
+        row.month: (row.flagged, row.flagged_labelled, row.true_positives, row.false_positives)
+        for row in evidence.months
+    }
+
+
+def assert_months_add_up(evidence: RuleEvidence) -> None:
+    for name in SUMMED:
+        assert sum(getattr(row, name) for row in evidence.months) == getattr(evidence.overall, name), name
+
+
+def test_the_rome_rule_month_by_month(real_db: Path) -> None:
+    evidence = rule_evidence(ROME_RULE, db_path=real_db, timeout_seconds=30.0)
+    assert month_table(evidence) == {
+        "2019-01": (212, 134, 129, 5),
+        "2019-02": (161, 116, 113, 3),
+        "2019-03": (429, 284, 142, 142),
+        "2019-04": (229, 150, 140, 10),
+        "2019-05": (272, 175, 168, 7),
+        "2019-06": (219, 135, 132, 3),
+        "2019-07": (171, 112, 104, 8),
+        "2019-08": (312, 212, 165, 47),
+        "2019-09": (148, 96, 90, 6),
+        "2019-10": (278, 184, 177, 7),
+    }
+    assert_months_add_up(evidence)
+    overall = evidence.overall
+    assert (overall.flagged, overall.flagged_labelled, overall.true_positives, overall.false_positives) == (
+        2431, 1598, 1360, 238,
+    )  # fmt: skip
+
+    # March: 142 of 284, the weakest month, and not below half the overall 85.1%.
+    weakest = evidence.weakest_month
+    assert weakest is not None
+    assert (weakest.month, weakest.true_positives, weakest.flagged_labelled, weakest.precision) == (
+        "2019-03", 142, 284, 0.5,
+    )  # fmt: skip
+    assert overall.precision is not None and 0.5 / overall.precision > 0.5
+    stability = evidence.stability
+    assert (stability.months, stability.months_with_labelled_flags, stability.qualifying_months) == (10, 10, 10)
+    assert (stability.min_precision, stability.max_precision) == (142 / 284, 132 / 135)
+    # Every month's fraud is at these locations, so recall is 1 in each month.
+    assert all(row.recall == 1.0 for row in evidence.months)
+
+    earlier, later = evidence.earlier, evidence.later
+    assert (earlier.first_month, earlier.last_month, later.first_month, later.last_month) == (
+        "2019-01", "2019-07", "2019-08", "2019-10",
+    )  # fmt: skip
+    assert (earlier.true_positives, earlier.flagged_labelled) == (928, 1106)
+    assert (later.true_positives, later.flagged_labelled) == (432, 492)
+    assert (earlier.total_fraud, later.total_fraud, earlier.recall, later.recall) == (928, 432, 1.0, 1.0)
+    assert evidence.base_fraud_rate == 1360 / 777_339
+    assert evidence.lift == (1360 / 1598) / (1360 / 777_339)
+    assert earlier.lift == (928 / 1106) / (928 / earlier.total_labelled)
+    assert later.lift == (432 / 492) / (432 / later.total_labelled)
+
+
+def test_the_months_of_the_data_and_their_totals(real_db: Path) -> None:
+    evidence = rule_evidence("1=1", db_path=real_db, timeout_seconds=30.0)
+    months = evidence.months
+    assert [row.month for row in months] == [f"2019-{number:02d}" for number in range(1, 11)]
+    # Facts docs/DATA.md states: fraud per month, and even label coverage.
+    assert [row.total_fraud for row in months] == [129, 113, 142, 140, 168, 132, 104, 165, 90, 177]
+    coverage = [round(row.total_labelled / row.total_transactions, 3) for row in months]
+    assert (min(coverage), max(coverage)) == (0.668, 0.672)
+    # A rule that flags everything has each month's base fraud rate as its precision.
+    for row in months:
+        assert (row.flagged, row.flagged_labelled, row.true_positives) == (
+            row.total_transactions, row.total_labelled, row.total_fraud,
+        )  # fmt: skip
+    assert_months_add_up(evidence)
+    assert evidence.lift == 1.0
+    # The base rate moves between 0.67 and 1.29 times its average: the reason the weak-month
+    # threshold is half, not three quarters.
+    base = evidence.base_fraud_rate
+    assert base is not None
+    ratios = [row.precision / base for row in months if row.precision is not None]
+    assert (round(min(ratios), 2), round(max(ratios), 2)) == (0.67, 1.29)
+
+
+def test_the_briefs_rule_month_by_month(real_db: Path) -> None:
+    evidence = rule_evidence(BRIEF_RULE, db_path=real_db, timeout_seconds=30.0)
+    assert month_table(evidence) == {
+        "2019-01": (34, 22, 0, 22),
+        "2019-02": (22, 15, 0, 15),
+        "2019-03": (33, 22, 0, 22),
+        "2019-04": (36, 27, 0, 27),
+        "2019-05": (36, 20, 0, 20),
+        "2019-06": (29, 17, 0, 17),
+        "2019-07": (33, 23, 1, 22),
+        "2019-08": (50, 33, 0, 33),
+        "2019-09": (43, 35, 0, 35),
+        "2019-10": (34, 24, 1, 23),
+    }
+    assert_months_add_up(evidence)
+    # Only August and September have thirty labelled flagged rows, both without a catch.
+    assert evidence.stability.qualifying_months == 2
+    assert evidence.weakest_month is not None and evidence.weakest_month.month == "2019-09"
+    assert (evidence.earlier.true_positives, evidence.earlier.flagged_labelled) == (1, 146)
+    assert (evidence.later.true_positives, evidence.later.flagged_labelled) == (1, 92)
+
+
+def test_the_by_month_statement_is_fast_enough_and_refuses_a_label_read(real_db: Path) -> None:
+    # One pass over every transaction whatever the rule flags: about 1.2 s when measured.
+    for clause in ("amount_usd_cents > 250000", "1=1"):
+        assert backtest_by_month(clause, db_path=real_db, timeout_seconds=30.0).elapsed_seconds < 5
+    with pytest.raises(RuleClauseError) as raised:
+        backtest_by_month(LABEL_LEAK, db_path=real_db, timeout_seconds=30.0)
+    assert raised.value.reason_code is ReasonCode.LABEL_READ
+
+
+def test_a_turn_shows_the_rome_rule_with_its_months(real_settings: Settings) -> None:
+    result = Assistant(real_settings, ScriptedModel([rule_reply(ROME_RULE)])).run_turn("Rome, Italy", "c1")
+    card = result.rule
+    assert card is not None
+    assert (card.weakest_month, len(card.months)) == ("2019-03", 10)
+    assert (card.earlier.precision, card.later.precision) == (928 / 1106, 432 / 492)
+    assert card.lift == (1360 / 1598) / (1360 / 777_339)
+    # Neither new caveat: March is at 0.59 of the overall precision, the later period above the earlier.
+    assert [caveat.code for caveat in result.caveats] == ["label_coverage"]
+    text = render_text(result)
+    for line in (
+        "  Lift                  486.4 times the base fraud rate (0.175% of labelled transactions are fraud)",
+        "  2019-03      429       284           142              142     50.00%",
+        "  Weakest month         2019-03: 142 of 284 labelled flagged were fraud (50.00%)",
+        "  Earlier period        2019-01 to 2019-07: 928 of 1,106 labelled flagged were fraud (83.91%); "
+        "recall 928 of 928; lift 490.5",
+        "  Later period          2019-08 to 2019-10: 432 of 492 labelled flagged were fraud (87.80%); "
+        "recall 432 of 432; lift 477.4",
+    ):
+        assert line in text, line
+
+
+def test_a_fading_rule_gets_both_caveats(real_settings: Settings) -> None:
+    clause = "card_id IN (SELECT id FROM cards WHERE card_brand = 'Amex')"
+    result = Assistant(real_settings, ScriptedModel([rule_reply(clause)])).run_turn("Amex", "c1")
+    caveats = {caveat.code: caveat.message for caveat in result.caveats}
+    assert list(caveats) == ["label_coverage", "high_flag_rate", "weak_month", "period_drop"]
+    assert "in 4 months: 2019-07 (0 of 4,888" in caveats["weak_month"]
+    assert "2019-08 to 2019-10: 3 of 14,677" in caveats["period_drop"]
+    assert "2019-01 to 2019-07: 74 of 34,059" in caveats["period_drop"]
