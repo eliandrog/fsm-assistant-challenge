@@ -1,0 +1,131 @@
+tier = "dates"
+
+[[case]]
+id = "date-january-2019"
+tests = "A month range on a timestamp column: BETWEEN on days drops the 31st"
+tags = ["date", "trap:date-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made in January 2019?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-01-01' AND date < '2019-02-01'"
+
+[[case]]
+id = "date-single-day"
+tests = "One calendar day: equality with a date string matches no timestamp"
+tags = ["date", "trap:date-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made on 31 January 2019?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-01-31' AND date < '2019-02-01'"
+
+[[case]]
+id = "date-inclusive-day-range"
+tests = "An inclusive range of days inside a month, whose last day must be counted in full"
+tags = ["date", "trap:date-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made from 1 March 2019 to 15 March 2019, both days included?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-03-01' AND date < '2019-03-16'"
+
+[[case]]
+id = "date-last-month"
+tests = "A relative date resolved against the end of the data: last month is October 2019"
+tags = ["date", "relative-date", "count"]
+tuned = true
+[[case.turn]]
+question = "How many transactions were there last month?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-10-01' AND date < '2019-11-01'"
+
+[[case]]
+id = "date-by-hour"
+tests = "Hour of day taken from the timestamp, in hour order; the hour's own format is not compared"
+tags = ["date", "hour", "group-by", "ordered"]
+tuned = false
+[[case.turn]]
+question = "How many transactions fall in each hour of the day, from hour 0 to hour 23?"
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT CAST(strftime('%H', date) AS INTEGER) AS hour, count(*)
+FROM transactions
+GROUP BY hour
+ORDER BY hour
+"""
+
+[[case]]
+id = "date-by-weekday"
+tests = "Day of week taken from the timestamp, Sunday first; the day's own format is not compared"
+tags = ["date", "weekday", "group-by", "ordered"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made on each day of the week? List Sunday first, then Monday through Saturday."
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT CAST(strftime('%w', date) AS INTEGER) AS weekday, count(*)
+FROM transactions
+GROUP BY weekday
+ORDER BY weekday
+"""
+
+[[case]]
+id = "date-first-and-last-fraud"
+tests = "MIN and MAX of the timestamp over a label-filtered join"
+tags = ["date", "min-max", "labels"]
+tuned = false
+[[case.turn]]
+question = "When did the first and the last transaction labelled as fraud take place?"
+outcome = "answered"
+sql = """
+SELECT min(t.date), max(t.date)
+FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+WHERE f.is_fraud = 1
+"""
+
+[[case]]
+id = "date-month-over-month"
+tests = "Month-over-month change, which needs the previous month's count next to each month"
+tags = ["date", "window", "group-by", "ordered"]
+tuned = false
+[[case.turn]]
+question = "For each month from February to October 2019, how many transactions were there, and what was the change in that count from the month before?"
+outcome = "answered"
+ordered = true
+compare_columns = [1, 2]
+allow_extra_columns = true
+sql = """
+WITH monthly AS (
+  SELECT strftime('%Y-%m', date) AS month, count(*) AS transactions
+  FROM transactions
+  GROUP BY month
+),
+compared AS (
+  SELECT month, transactions, transactions - lag(transactions) OVER (ORDER BY month) AS change
+  FROM monthly
+)
+SELECT month, transactions, change FROM compared WHERE change IS NOT NULL ORDER BY month
+"""
+
+[[case]]
+id = "date-busiest-day"
+tests = "Grouping by calendar day and taking the top one; no tie at the top"
+tags = ["date", "group-by", "top-n"]
+tuned = false
+[[case.turn]]
+question = "Which calendar day had the most transactions, and how many?"
+outcome = "answered"
+sql = """
+SELECT date(date) AS day, count(*) AS transactions
+FROM transactions
+GROUP BY day
+ORDER BY transactions DESC
+LIMIT 1
+"""

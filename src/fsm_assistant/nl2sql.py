@@ -30,7 +30,7 @@ from fsm_assistant.config import Settings
 from fsm_assistant.llm import JsonObject, ModelReply, ModelSpec, ToolSpec
 from fsm_assistant.sql_guard import normalise
 
-PROMPT_VERSION = "turn-3"
+PROMPT_VERSION = "turn-4"
 
 MIN_SUGGESTIONS = 2
 MAX_SUGGESTIONS = 3

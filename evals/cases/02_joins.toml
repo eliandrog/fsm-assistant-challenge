@@ -1,0 +1,134 @@
+tier = "joins"
+
+[[case]]
+id = "join-transactions-by-card-type"
+tests = "transactions to cards on card_id"
+tags = ["join", "cards", "group-by"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made with each type of card?"
+outcome = "answered"
+sql = """
+SELECT c.card_type, count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+GROUP BY c.card_type
+"""
+
+[[case]]
+id = "join-brief-wrong-names"
+tests = "The brief's own wrong names, amount and 'debit', mapped to amount_usd_cents in cents and 'Debit'"
+tags = ["join", "cards", "cents", "case-sensitive", "brief-names"]
+tuned = true
+[[case.turn]]
+question = "How many transactions have amount > 1000 dollars and card_type = 'debit'? Do not count prepaid cards."
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE t.amount_usd_cents > 100000 AND c.card_type = 'Debit'
+"""
+
+[[case]]
+id = "join-transactions-by-gender"
+tests = "Two hops: transactions to cards to users"
+tags = ["join", "users", "group-by"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made by male users and how many by female users?"
+outcome = "answered"
+sql = """
+SELECT u.gender, count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id JOIN users u ON u.id = c.user_id
+GROUP BY u.gender
+"""
+
+[[case]]
+id = "join-mcc-description-count"
+tests = "MCC reached through merchants, filtered on a category description"
+tags = ["join", "mcc"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were at merchants in the 'Grocery Stores, Supermarkets' category?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t
+JOIN merchants m ON m.id = t.merchant_id
+JOIN mcc_codes mc ON mc.mcc = m.mcc
+WHERE mc.description = 'Grocery Stores, Supermarkets'
+"""
+
+[[case]]
+id = "join-location-state"
+tests = "transactions to merchant_locations on the location key"
+tags = ["join", "location"]
+tuned = false
+[[case.turn]]
+question = "How many transactions took place at merchant locations in California?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE l.state = 'CA'
+"""
+
+[[case]]
+id = "join-average-by-brand-low-credit-score"
+tests = "Three tables with a filter on users and a group on cards, in dollars"
+tags = ["join", "users", "cards", "average", "cents", "group-by"]
+tuned = false
+[[case.turn]]
+question = "For users with a credit score below 600, what is the average transaction amount in dollars for each card brand?"
+outcome = "answered"
+sql = """
+SELECT c.card_brand, avg(t.amount_usd_cents) / 100.0
+FROM transactions t JOIN cards c ON c.id = t.card_id JOIN users u ON u.id = c.user_id
+WHERE u.credit_score < 600
+GROUP BY c.card_brand
+"""
+
+[[case]]
+id = "join-users-with-prepaid-card"
+tests = "users to cards with no transactions involved; users counted once each"
+tags = ["join", "users", "cards", "distinct", "rows-vs-entities"]
+tuned = false
+[[case.turn]]
+question = "How many users with a credit score of 750 or more own at least one prepaid debit card?"
+outcome = "answered"
+sql = """
+SELECT count(DISTINCT u.id)
+FROM users u JOIN cards c ON c.user_id = u.id
+WHERE u.credit_score >= 750 AND c.card_type = 'Debit (Prepaid)'
+"""
+
+[[case]]
+id = "join-spend-on-high-limit-cards"
+tests = "A dollar threshold on a cents column of the joined table, and a sum in dollars"
+tags = ["join", "cards", "cents", "sum"]
+tuned = false
+[[case.turn]]
+question = "What is the total transaction amount in dollars on cards with a credit limit above $20,000?"
+outcome = "answered"
+sql = """
+SELECT sum(t.amount_usd_cents) / 100.0
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.credit_limit_usd_cents > 2000000
+"""
+
+[[case]]
+id = "join-five-tables"
+tests = "Five tables in one query: users, cards, transactions, merchants, merchant_locations"
+tags = ["join", "users", "mcc", "location", "multi-table"]
+tuned = false
+[[case.turn]]
+question = "How many transactions by female users were at merchants with MCC 5812 at locations in Texas?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t
+JOIN cards c ON c.id = t.card_id
+JOIN users u ON u.id = c.user_id
+JOIN merchants m ON m.id = t.merchant_id
+JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE u.gender = 'Female' AND m.mcc = 5812 AND l.state = 'TX'
+"""

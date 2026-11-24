@@ -1,0 +1,149 @@
+tier = "rules"
+
+[[case]]
+id = "rule-brief-example"
+tests = "The brief's example rule on the real columns: cents, and 'Debit' without prepaid cards"
+tags = ["rule", "cents", "cards", "subquery", "brief-names"]
+tuned = true
+[[case.turn]]
+question = "Propose a rule for debit card transactions over $1,000"
+outcome = "rule_proposed"
+clause = "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')"
+flagged = 350
+flagged_labelled = 238
+true_positives = 2
+false_positives = 236
+
+[[case]]
+id = "rule-amount-threshold"
+tests = "A single amount threshold in dollars; so few rows are flagged that the sample is small"
+tags = ["rule", "cents", "threshold"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags every transaction above $2,500."
+outcome = "rule_proposed"
+clause = "amount_usd_cents > 250000"
+flagged = 10
+flagged_labelled = 7
+true_positives = 0
+false_positives = 7
+require = ["caveat_small_sample"]
+
+[[case]]
+id = "rule-card-type"
+tests = "A rule on a column of cards, reached with a subquery and an exact stored value"
+tags = ["rule", "cards", "subquery", "trap:case-sensitive"]
+tuned = false
+[[case.turn]]
+question = "Write a rule that flags all transactions made with prepaid debit cards."
+outcome = "rule_proposed"
+clause = "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')"
+flagged = 78240
+flagged_labelled = 52603
+true_positives = 99
+false_positives = 52504
+
+[[case]]
+id = "rule-mcc"
+tests = "A rule on the merchant category, which is on merchants and not on transactions"
+tags = ["rule", "mcc", "subquery"]
+tuned = false
+[[case.turn]]
+question = "Give me a rule that flags transactions at department stores, MCC 5311."
+outcome = "rule_proposed"
+clause = "merchant_id IN (SELECT id FROM merchants WHERE mcc = 5311)"
+flagged = 41227
+flagged_labelled = 27729
+true_positives = 290
+false_positives = 27439
+
+[[case]]
+id = "rule-transaction-type-and-amount"
+tests = "Two columns of transactions, with an inclusive threshold"
+tags = ["rule", "cents", "threshold"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule for online transactions of $500 or more."
+outcome = "rule_proposed"
+clause = "transaction_type = 'Online Transaction' AND amount_usd_cents >= 50000"
+flagged = 664
+flagged_labelled = 449
+true_positives = 0
+false_positives = 449
+
+[[case]]
+id = "rule-error-codes"
+tests = "A rule on two exact error values"
+tags = ["rule", "errors", "trap:case-sensitive"]
+tuned = false
+[[case.turn]]
+question = "Flag transactions that had a bad CVV or a bad expiration date error."
+outcome = "rule_proposed"
+clause = "errors IN ('Bad CVV', 'Bad Expiration')"
+flagged = 1103
+flagged_labelled = 744
+true_positives = 0
+false_positives = 744
+
+[[case]]
+id = "rule-location"
+tests = "The known-good rule: city with state, through the location key; it catches all labelled fraud"
+tags = ["rule", "location", "subquery", "trap:city-state"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags transactions at merchant locations in Rome, Italy."
+outcome = "rule_proposed"
+clause = "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')"
+flagged = 2431
+flagged_labelled = 1598
+true_positives = 1360
+false_positives = 238
+
+[[case]]
+id = "rule-time-of-day"
+tests = "A rule on the hour taken from the timestamp, both ends included"
+tags = ["rule", "date", "hour"]
+tuned = false
+[[case.turn]]
+question = "Create a rule for transactions made at night, from 01:00 up to and including 04:59."
+outcome = "rule_proposed"
+clause = "CAST(strftime('%H', date) AS INTEGER) BETWEEN 1 AND 4"
+flagged = 39019
+flagged_labelled = 26280
+true_positives = 2
+false_positives = 26278
+
+[[case]]
+id = "rule-combined"
+tests = "A combined rule: two transaction columns and a subquery that itself joins cards to users"
+tags = ["rule", "cards", "users", "subquery", "cents", "multi-table"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule: online transactions over $200 made with credit cards whose owner has a credit score below 650."
+outcome = "rule_proposed"
+clause = """
+transaction_type = 'Online Transaction'
+AND amount_usd_cents > 20000
+AND card_id IN (
+  SELECT c.id FROM cards c JOIN users u ON u.id = c.user_id
+  WHERE c.card_type = 'Credit' AND u.credit_score < 650
+)
+"""
+flagged = 349
+flagged_labelled = 237
+true_positives = 0
+false_positives = 237
+
+[[case]]
+id = "rule-negative-amounts"
+tests = "A rule on negative amounts, where 'more than $300' means below -30000 cents"
+tags = ["rule", "cents", "negative-amounts"]
+tuned = false
+[[case.turn]]
+question = "Flag refunds of more than $300, that is, transactions with a negative amount below -$300."
+outcome = "rule_proposed"
+clause = "amount_usd_cents < -30000"
+flagged = 3514
+flagged_labelled = 2321
+true_positives = 6
+false_positives = 2315

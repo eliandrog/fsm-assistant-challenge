@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-error-codes",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "errors IN ('Bad CVV', 'Bad Expiration')",
+          "explanation": "Flags transactions whose recorded error is either a bad CVV or a bad expiration date.",
+          "assumptions": [
+            "Read 'bad expiration date error' as the error value 'Bad Expiration' in transactions.errors.",
+            "Transactions with other errors, or no error (NULL), are not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 207
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJXxX9uDHzb8Jr8eoee",
+    "request_hash": "676f8813099c33cb264170437349a75eb1d50dc34deab1b22eb78e7dce1dddf9"
+  }
+}

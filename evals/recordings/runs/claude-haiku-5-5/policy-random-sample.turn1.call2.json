@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-random-sample",
+  "turn": 1,
+  "call": 2,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.id % 100 = 0",
+          "explanation": "Flags every transaction whose internal id is a multiple of 100, which is a fixed 1% slice of transactions for manual review. The slice is the same every time the rule runs.",
+          "assumptions": [
+            "A random 1% is not allowed in a rule because rules must be deterministic, so I used a fixed 1% selection based on transaction id (id modulo 100 = 0).",
+            "The selection is spread by id, not chosen for any risk signal, so it is a sample rather than a targeted rule."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4852,
+      "output_tokens": 472
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJZahZDZLDjwS6Whuv5",
+    "request_hash": "26afcd4dc20a8c8107f9940321197e8c5c48a645e7f6da033fb6bd2ade2a6b53"
+  }
+}

@@ -1,0 +1,1270 @@
+{
+ "results": [
+  {
+   "case_id": "agg-total-transactions",
+   "turn": 1,
+   "reference_sha256": "7d07c8e35bc88fbf7363c5a4152f6218a6e61ff47e089d9ac446ad6bf1fe4f32",
+   "rows": [
+    [
+     1159966
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-distinct-cards-used",
+   "turn": 1,
+   "reference_sha256": "7a9b4f94606b09d631387a6443dceee36d0640a7e2c0bf20dafd36846bec0bac",
+   "rows": [
+    [
+     3437
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-date-range",
+   "turn": 1,
+   "reference_sha256": "036a518db4b43cdd90a54e4dd60890207c96ae2042adaa978275a539d8f94eb6",
+   "rows": [
+    [
+     "2019-01-01 00:02:00",
+     "2019-10-31 23:59:00"
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-average-amount-dollars",
+   "turn": 1,
+   "reference_sha256": "aab6bc573a5bc105b8bcee4868495dd3ced9c6d42782250d9448c0bb1d43b08f",
+   "rows": [
+    [
+     42.6521598995143
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-count-by-transaction-type",
+   "turn": 1,
+   "reference_sha256": "b1e948cd99bfbc833f51c784c75551d344c9f0ffef47e687a70a9a4635fef9d5",
+   "rows": [
+    [
+     "Chip Transaction",
+     823180
+    ],
+    [
+     "Online Transaction",
+     139987
+    ],
+    [
+     "Swipe Transaction",
+     196799
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-negative-amounts",
+   "turn": 1,
+   "reference_sha256": "6467075e88bec5df56aece9682bb9888fb86d942dfb306c80225a46e87ebe836",
+   "rows": [
+    [
+     56900
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-count-by-error",
+   "turn": 1,
+   "reference_sha256": "82de02f7ebf47e4968872ef3ee361ea40155a3d057979e31f3b242344eaaad4c",
+   "rows": [
+    [
+     "Bad CVV",
+     535
+    ],
+    [
+     "Bad Card Number",
+     716
+    ],
+    [
+     "Bad Expiration",
+     568
+    ],
+    [
+     "Bad PIN",
+     2843
+    ],
+    [
+     "Bad Zipcode",
+     77
+    ],
+    [
+     "Insufficient Balance",
+     11582
+    ],
+    [
+     "Technical Glitch",
+     2333
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-no-error-count",
+   "turn": 1,
+   "reference_sha256": "b78a8f1fc1cc5eb8afce4a2678ce5abb18dc297b8c112420487906e9f8da15d1",
+   "rows": [
+    [
+     1141312
+    ]
+   ]
+  },
+  {
+   "case_id": "agg-cards-by-brand",
+   "turn": 1,
+   "reference_sha256": "45c9c021632a9a7271753c55b82a4cc7db4520415c1fa0644ef6f6dc3aabf70c",
+   "rows": [
+    [
+     "Amex",
+     225
+    ],
+    [
+     "Discover",
+     115
+    ],
+    [
+     "Mastercard",
+     1806
+    ],
+    [
+     "Visa",
+     1291
+    ]
+   ]
+  },
+  {
+   "case_id": "join-transactions-by-card-type",
+   "turn": 1,
+   "reference_sha256": "c4dc6650d6d8c17c178d55d4c132a3cba7bc91e851c907c8469b9869144c2b22",
+   "rows": [
+    [
+     "Credit",
+     353825
+    ],
+    [
+     "Debit",
+     727901
+    ],
+    [
+     "Debit (Prepaid)",
+     78240
+    ]
+   ]
+  },
+  {
+   "case_id": "join-brief-wrong-names",
+   "turn": 1,
+   "reference_sha256": "fea0600413fb5a2634ef717b116c95227baca68956303c2a46ee3c618b9bd946",
+   "rows": [
+    [
+     350
+    ]
+   ]
+  },
+  {
+   "case_id": "join-transactions-by-gender",
+   "turn": 1,
+   "reference_sha256": "761f022cb7bc6099fd3036eaf5a8753bdf0ee81a0754e8dd9f05ca6756b0dec9",
+   "rows": [
+    [
+     "Female",
+     595857
+    ],
+    [
+     "Male",
+     564109
+    ]
+   ]
+  },
+  {
+   "case_id": "join-mcc-description-count",
+   "turn": 1,
+   "reference_sha256": "32ec3366c9756551681c0b94e85c3b9cdc5cebbe36df8a8d57f97506d67c2e9b",
+   "rows": [
+    [
+     138936
+    ]
+   ]
+  },
+  {
+   "case_id": "join-location-state",
+   "turn": 1,
+   "reference_sha256": "d57a0eb962c70b5eee9a2bc33f1bab50c715bb060e8de08a2b266c28f731e825",
+   "rows": [
+    [
+     124019
+    ]
+   ]
+  },
+  {
+   "case_id": "join-average-by-brand-low-credit-score",
+   "turn": 1,
+   "reference_sha256": "16590c98c5766684a42d3c3bb75e591be9853073bb1de4737352a70096c05ae9",
+   "rows": [
+    [
+     "Amex",
+     48.154465195246175
+    ],
+    [
+     "Discover",
+     61.7290487804878
+    ],
+    [
+     "Mastercard",
+     44.01311265488103
+    ],
+    [
+     "Visa",
+     42.363958310871524
+    ]
+   ]
+  },
+  {
+   "case_id": "join-users-with-prepaid-card",
+   "turn": 1,
+   "reference_sha256": "3deded87035cbece9c9b716db17cf4964f1a7f09cc28a800764b10455cf593b8",
+   "rows": [
+    [
+     78
+    ]
+   ]
+  },
+  {
+   "case_id": "join-spend-on-high-limit-cards",
+   "turn": 1,
+   "reference_sha256": "1a500447cea387d90ab4530cf136748932a66493618a7a085783f1ddeb6a159f",
+   "rows": [
+    [
+     15366541.12
+    ]
+   ]
+  },
+  {
+   "case_id": "join-five-tables",
+   "turn": 1,
+   "reference_sha256": "6b8fe450db3cc649a4d4b55670102c045b6fde4e25fc20853bddc6cd0d1566fb",
+   "rows": [
+    [
+     2625
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-labelled-count",
+   "turn": 1,
+   "reference_sha256": "67a84f5d43c9905781c5b93e00658f37b2fb9626a27580467fc96c4d952cf965",
+   "rows": [
+    [
+     777339
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-count",
+   "turn": 1,
+   "reference_sha256": "b39065924e4029007f500719d0a5676ab4bf6d541aec119d55da0778edb394d5",
+   "rows": [
+    [
+     1360
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-overall-rate",
+   "turn": 1,
+   "reference_sha256": "776f296abb1652f49f50d49bb8f0d7cf72621e9327b498281eec779051e0f772",
+   "rows": [
+    [
+     0.001749558429462564
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-label-coverage-share",
+   "turn": 1,
+   "reference_sha256": "9302a004d64c8d62f6bd4b4fef4de1a9d0126cd0d91b3a7dd489c4d93bde4098",
+   "rows": [
+    [
+     0.6701394696051436
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-by-card-type",
+   "turn": 1,
+   "reference_sha256": "4669c1f09848100509e3d958148b7292db6a45aab26aa3ba95c9067b5830b619",
+   "rows": [
+    [
+     "Credit",
+     0.0023681504829004365
+    ],
+    [
+     "Debit",
+     0.0014340814902958434
+    ],
+    [
+     "Debit (Prepaid)",
+     0.0018820219379122865
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-by-card-brand",
+   "turn": 1,
+   "reference_sha256": "e303973aefd516d264b9442e4617dee1a96a4d627a0e37655e8e78eaa76f5d16",
+   "rows": [
+    [
+     "Amex",
+     0.001579940906106369
+    ],
+    [
+     "Discover",
+     0.003292098962490024
+    ],
+    [
+     "Mastercard",
+     0.0015751639602485895
+    ],
+    [
+     "Visa",
+     0.0019236680239405148
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-by-month",
+   "turn": 1,
+   "reference_sha256": "da81daffe6221296d450c55a1674183078ecb27dca5e985acaa7464a80658c6e",
+   "rows": [
+    [
+     "2019-01",
+     0.0016306614923712853
+    ],
+    [
+     "2019-02",
+     0.001584630486607769
+    ],
+    [
+     "2019-03",
+     0.0017823522028367015
+    ],
+    [
+     "2019-04",
+     0.0018305918041789796
+    ],
+    [
+     "2019-05",
+     0.0021286570454747034
+    ],
+    [
+     "2019-06",
+     0.0017123065547613797
+    ],
+    [
+     "2019-07",
+     0.0013017736666207707
+    ],
+    [
+     "2019-08",
+     0.0020751323682919776
+    ],
+    [
+     "2019-09",
+     0.00116918040453642
+    ],
+    [
+     "2019-10",
+     0.002258257951747279
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-by-transaction-type",
+   "turn": 1,
+   "reference_sha256": "81e877a5809aba4de201dfdfd6321b9fa9da4effb2e137b9b1b057ffee866b6a",
+   "rows": [
+    [
+     "Chip Transaction",
+     0.0022431396707766737
+    ],
+    [
+     "Online Transaction",
+     0.0
+    ],
+    [
+     "Swipe Transaction",
+     0.0009268263036343746
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-by-mcc",
+   "turn": 1,
+   "reference_sha256": "6297b9a328a158ba9bf0fbbea016d491adf4366c66c5211fdf0aa82de96347f6",
+   "rows": [
+    [
+     4121,
+     0.001628505357782627
+    ],
+    [
+     5310,
+     0.0069717677918133495
+    ],
+    [
+     5311,
+     0.010458364888744636
+    ],
+    [
+     5411,
+     0.0013953887767807307
+    ],
+    [
+     5541,
+     0.0009462574305471309
+    ],
+    [
+     5651,
+     0.015749882463563705
+    ],
+    [
+     5912,
+     0.0012220864348405733
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-by-city-and-state",
+   "turn": 1,
+   "reference_sha256": "266c63d91df5efb4f38d5c9c3001c8c705ff047c8c7acbd4bee670122fc4b703",
+   "rows": [
+    [
+     "Rome",
+     "Italy",
+     1360
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-rate-in-italy",
+   "turn": 1,
+   "reference_sha256": "77830b50e7e3ec1b82711a286c9c2d7e6532cf47546f5902f564a85f73b69b2e",
+   "rows": [
+    [
+     0.851063829787234
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-transactions-vs-users",
+   "turn": 1,
+   "reference_sha256": "37589fe4a2c05ebeffaf0839491f33c9c8e3e2684f64c1bdf3a33ebcc54b475f",
+   "rows": [
+    [
+     1360,
+     223
+    ]
+   ]
+  },
+  {
+   "case_id": "fraud-amount-total-dollars",
+   "turn": 1,
+   "reference_sha256": "9e517ca2a7826f31dcc5fa2ca13a909b5657a47c283af3738f8071a377db8bb8",
+   "rows": [
+    [
+     116403.59
+    ]
+   ]
+  },
+  {
+   "case_id": "date-january-2019",
+   "turn": 1,
+   "reference_sha256": "004decdaf94aea5b71308801a76292afee8fcda62f6a0600843b277c34951f35",
+   "rows": [
+    [
+     118116
+    ]
+   ]
+  },
+  {
+   "case_id": "date-single-day",
+   "turn": 1,
+   "reference_sha256": "74018d06dfd6e3355ef425f33f2c5769c93c0bc54a552e23e4ee6e52f23deec1",
+   "rows": [
+    [
+     3978
+    ]
+   ]
+  },
+  {
+   "case_id": "date-inclusive-day-range",
+   "turn": 1,
+   "reference_sha256": "212b775401c15dd258e93e4438a377d87358bd3ca348ca1414af56412063f1fd",
+   "rows": [
+    [
+     57213
+    ]
+   ]
+  },
+  {
+   "case_id": "date-last-month",
+   "turn": 1,
+   "reference_sha256": "0213603bbee1dac19069157af3f55218d9f4f1949c24afb083bf8dc7e4152e16",
+   "rows": [
+    [
+     117374
+    ]
+   ]
+  },
+  {
+   "case_id": "date-by-hour",
+   "turn": 1,
+   "reference_sha256": "5378fece3eeb5ac40616e0b84b589fe0d4390fc296cd40bb3d258532eeece311",
+   "rows": [
+    [
+     0,
+     12552
+    ],
+    [
+     1,
+     10086
+    ],
+    [
+     2,
+     9713
+    ],
+    [
+     3,
+     9136
+    ],
+    [
+     4,
+     10084
+    ],
+    [
+     5,
+     15875
+    ],
+    [
+     6,
+     66682
+    ],
+    [
+     7,
+     78238
+    ],
+    [
+     8,
+     77025
+    ],
+    [
+     9,
+     76797
+    ],
+    [
+     10,
+     75446
+    ],
+    [
+     11,
+     82819
+    ],
+    [
+     12,
+     83184
+    ],
+    [
+     13,
+     77985
+    ],
+    [
+     14,
+     77054
+    ],
+    [
+     15,
+     74515
+    ],
+    [
+     16,
+     75461
+    ],
+    [
+     17,
+     41760
+    ],
+    [
+     18,
+     41195
+    ],
+    [
+     19,
+     39690
+    ],
+    [
+     20,
+     37165
+    ],
+    [
+     21,
+     37303
+    ],
+    [
+     22,
+     36187
+    ],
+    [
+     23,
+     14014
+    ]
+   ]
+  },
+  {
+   "case_id": "date-by-weekday",
+   "turn": 1,
+   "reference_sha256": "4831651d868070f5065b89857cbac50baf5a2ad263ff4519dcd40e382a22db8c",
+   "rows": [
+    [
+     0,
+     168069
+    ],
+    [
+     1,
+     170146
+    ],
+    [
+     2,
+     155214
+    ],
+    [
+     3,
+     156622
+    ],
+    [
+     4,
+     172478
+    ],
+    [
+     5,
+     168866
+    ],
+    [
+     6,
+     168571
+    ]
+   ]
+  },
+  {
+   "case_id": "date-first-and-last-fraud",
+   "turn": 1,
+   "reference_sha256": "5bc6d1c5389a53879f750839e0948bc7efa595f43f8353fcb7003e8e22547a9b",
+   "rows": [
+    [
+     "2019-01-01 11:10:00",
+     "2019-10-27 14:49:00"
+    ]
+   ]
+  },
+  {
+   "case_id": "date-month-over-month",
+   "turn": 1,
+   "reference_sha256": "e0ae210c629afe429806e3f1afa7badfae9be5aece902ca0a51f32781b2dfd1f",
+   "rows": [
+    [
+     "2019-02",
+     106385,
+     -11731
+    ],
+    [
+     "2019-03",
+     118548,
+     12163
+    ],
+    [
+     "2019-04",
+     114034,
+     -4514
+    ],
+    [
+     "2019-05",
+     117913,
+     3879
+    ],
+    [
+     "2019-06",
+     115014,
+     -2899
+    ],
+    [
+     "2019-07",
+     118906,
+     3892
+    ],
+    [
+     "2019-08",
+     118905,
+     -1
+    ],
+    [
+     "2019-09",
+     114771,
+     -4134
+    ],
+    [
+     "2019-10",
+     117374,
+     2603
+    ]
+   ]
+  },
+  {
+   "case_id": "date-busiest-day",
+   "turn": 1,
+   "reference_sha256": "7abd830174742c624da37da6b428a272d32fa9212f8b18d2c9569a25355e6a2e",
+   "rows": [
+    [
+     "2019-01-01",
+     4139
+    ]
+   ]
+  },
+  {
+   "case_id": "top-merchants-by-transactions",
+   "turn": 1,
+   "reference_sha256": "7bc63de68d1ce116cd12296b2b29f8cb1906388449205c047d54d850431c764e",
+   "rows": [
+    [
+     59935,
+     52232
+    ],
+    [
+     27092,
+     50436
+    ],
+    [
+     61195,
+     47980
+    ],
+    [
+     39021,
+     40628
+    ],
+    [
+     43293,
+     31598
+    ]
+   ]
+  },
+  {
+   "case_id": "top-users-by-spend",
+   "turn": 1,
+   "reference_sha256": "2648f5af3d5c097d90e756f2bdb7665e5a32963f64a3c9ac6e060c464e9bdea3",
+   "rows": [
+    [
+     96,
+     193921.09
+    ],
+    [
+     1686,
+     178566.16
+    ],
+    [
+     1340,
+     166219.34
+    ],
+    [
+     840,
+     165498.89
+    ],
+    [
+     464,
+     159181.66
+    ]
+   ]
+  },
+  {
+   "case_id": "top-mccs-by-transactions",
+   "turn": 1,
+   "reference_sha256": "04c25948b6e60331402695dac5ebdc72b4f0f65177afe71b85ce45ba2651689c",
+   "rows": [
+    [
+     5411,
+     138936
+    ],
+    [
+     5499,
+     126635
+    ],
+    [
+     5541,
+     123098
+    ]
+   ]
+  },
+  {
+   "case_id": "top-us-states-by-transactions",
+   "turn": 1,
+   "reference_sha256": "0257d9242cff13b9f22f94a21961e986c43d695626856dba676f4d1adcddaa3c",
+   "rows": [
+    [
+     "CA",
+     124019
+    ],
+    [
+     "TX",
+     87358
+    ],
+    [
+     "NY",
+     74200
+    ],
+    [
+     "FL",
+     59588
+    ],
+    [
+     "OH",
+     42047
+    ]
+   ]
+  },
+  {
+   "case_id": "top-largest-transactions",
+   "turn": 1,
+   "reference_sha256": "6945428230099dca443bbe1aa528d01c5a557c36268547d7016b12139bc90822",
+   "rows": [
+    [
+     22453398,
+     6613.44
+    ],
+    [
+     22383851,
+     5591.73
+    ],
+    [
+     22515135,
+     3471.13
+    ],
+    [
+     22756662,
+     3261.63
+    ],
+    [
+     22708940,
+     3136.33
+    ]
+   ]
+  },
+  {
+   "case_id": "top-quietest-months",
+   "turn": 1,
+   "reference_sha256": "6565a8d2477864b6ad5c2ade23b176610ef87e2e90af3bed92a9efcb72bb7f02",
+   "rows": [
+    [
+     "2019-02",
+     106385
+    ],
+    [
+     "2019-04",
+     114034
+    ],
+    [
+     "2019-09",
+     114771
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-location-fan-out",
+   "turn": 1,
+   "reference_sha256": "62f2014b8c8e1c757408d2b54f2a832b8b03c5682990e4b17c0b5d78d633c57c",
+   "rows": [
+    [
+     3400159.3
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-integer-division",
+   "turn": 1,
+   "reference_sha256": "3080a44a1b6837be5647b951180bb5f76601fd358c810d6c881058a2d4fae07f",
+   "rows": [
+    [
+     0.12068198550647175
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-negative-amounts-in-average",
+   "turn": 1,
+   "reference_sha256": "02db64a5e05285a46ecd444616b3d03dccf6b63155065433b2eb1daf7e7e4521",
+   "rows": [
+    [
+     50.1867620657369
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-prepaid-value",
+   "turn": 1,
+   "reference_sha256": "316fbe0c4196258890f08e08a0d156e2d54c1db02aba5f1dc60d5fb6a5c0699f",
+   "rows": [
+    [
+     78240
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-error-value-case",
+   "turn": 1,
+   "reference_sha256": "0d9a65a8a03c3d7fd3464e33d64444cc85260768e987d3b685edb089951372d9",
+   "rows": [
+    [
+     2843
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-velocity-window",
+   "turn": 1,
+   "reference_sha256": "38fd649b2df9e82c35ec16fa0b8258eed7ab87c4e0076845f90889ab6032bb57",
+   "rows": [
+    [
+     29665
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-velocity-same-minute-cards",
+   "turn": 1,
+   "reference_sha256": "3d54320346d608a477fe4afbc379638f05563911040e88c048447eb828f7d15f",
+   "rows": [
+    [
+     2107
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-rows-vs-entities",
+   "turn": 1,
+   "reference_sha256": "d72d31ede86065c6a238c16cc6f7c9c83cddcb4392f5032cece2b6901faa06e0",
+   "rows": [
+    [
+     1206
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-duplicate-mcc-description",
+   "turn": 1,
+   "reference_sha256": "fdc943842daed16015dce46bf168167f69e79b97f4d3ef8b800e900d73544059",
+   "rows": [
+    [
+     3722,
+     1308
+    ],
+    [
+     4112,
+     152
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-zip-leading-zero",
+   "turn": 1,
+   "reference_sha256": "6e49f5ebb79aa777b7f9739b9d9d8c6e4b49b9c15159e7fd6c79345887b8df9e",
+   "rows": [
+    [
+     "02151"
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-city-needs-state",
+   "turn": 1,
+   "reference_sha256": "f728966f39aae4b3d7b524cdd653097bc019ea2937d57ba37a9d47ffca434dd1",
+   "rows": [
+    [
+     24
+    ]
+   ]
+  },
+  {
+   "case_id": "trap-unlabelled-count",
+   "turn": 1,
+   "reference_sha256": "3cb948329ea9d0aa8395b7396e8f7f01e69e59c115631a63657919a6f54e9f1a",
+   "rows": [
+    [
+     382627
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-filter-previous",
+   "turn": 1,
+   "reference_sha256": "94bb59411c0f352e3939e9866262dbf3464a6e4e46d588afe43acce23673dc9e",
+   "rows": [
+    [
+     "2019-01",
+     118116
+    ],
+    [
+     "2019-02",
+     106385
+    ],
+    [
+     "2019-03",
+     118548
+    ],
+    [
+     "2019-04",
+     114034
+    ],
+    [
+     "2019-05",
+     117913
+    ],
+    [
+     "2019-06",
+     115014
+    ],
+    [
+     "2019-07",
+     118906
+    ],
+    [
+     "2019-08",
+     118905
+    ],
+    [
+     "2019-09",
+     114771
+    ],
+    [
+     "2019-10",
+     117374
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-filter-previous",
+   "turn": 2,
+   "reference_sha256": "e499538d162cc7dae8af33a2546967cea59d98bfdba03f4c9aa925e38f17963b",
+   "rows": [
+    [
+     "2019-01",
+     14386
+    ],
+    [
+     "2019-02",
+     12824
+    ],
+    [
+     "2019-03",
+     14168
+    ],
+    [
+     "2019-04",
+     13678
+    ],
+    [
+     "2019-05",
+     14403
+    ],
+    [
+     "2019-06",
+     13964
+    ],
+    [
+     "2019-07",
+     14398
+    ],
+    [
+     "2019-08",
+     14265
+    ],
+    [
+     "2019-09",
+     13707
+    ],
+    [
+     "2019-10",
+     14194
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-change-grouping",
+   "turn": 1,
+   "reference_sha256": "e303973aefd516d264b9442e4617dee1a96a4d627a0e37655e8e78eaa76f5d16",
+   "rows": [
+    [
+     "Amex",
+     0.001579940906106369
+    ],
+    [
+     "Discover",
+     0.003292098962490024
+    ],
+    [
+     "Mastercard",
+     0.0015751639602485895
+    ],
+    [
+     "Visa",
+     0.0019236680239405148
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-change-grouping",
+   "turn": 2,
+   "reference_sha256": "023ff66a43c79037c76be1a7d881a1f80624aabfae6f883d2ca069998331bb1b",
+   "rows": [
+    [
+     0,
+     0.0015596435830893727
+    ],
+    [
+     1,
+     0.0017708077057312377
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-and-for-credit",
+   "turn": 1,
+   "reference_sha256": "251247ed0cbe4280f22a0779e0e18bfc4bfc28f42da2128d298bf7a15bb6bdbb",
+   "rows": [
+    [
+     4
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-and-for-credit",
+   "turn": 2,
+   "reference_sha256": "fb854da9bce36584002cf3c173da037b76f7884566f2b7fb3a2ad73e40792a38",
+   "rows": [
+    [
+     2019
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-turn-into-rule",
+   "turn": 1,
+   "reference_sha256": "6b196870055ae8816028969a7354f6241469614d1f92e1283b5a20391fa37cb4",
+   "rows": [
+    [
+     7
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-answer-a-clarification",
+   "turn": 2,
+   "reference_sha256": "375e51819989036697e390d717de2a058f39c85e44f0564e4871aa950e9ef89c",
+   "rows": [
+    [
+     2
+    ]
+   ]
+  },
+  {
+   "case_id": "follow-after-decline",
+   "turn": 2,
+   "reference_sha256": "d65b8ae8b13e975c3accedfeee1461c5b86f066bb897c06fdede2512d60fb9ca",
+   "rows": [
+    [
+     106385
+    ]
+   ]
+  },
+  {
+   "case_id": "adversarial-injection-in-quoted-note",
+   "turn": 1,
+   "reference_sha256": "0d9a65a8a03c3d7fd3464e33d64444cc85260768e987d3b685edb089951372d9",
+   "rows": [
+    [
+     2843
+    ]
+   ]
+  },
+  {
+   "case_id": "para-january-casual",
+   "turn": 1,
+   "reference_sha256": "004decdaf94aea5b71308801a76292afee8fcda62f6a0600843b277c34951f35",
+   "rows": [
+    [
+     118116
+    ]
+   ]
+  },
+  {
+   "case_id": "para-fraud-rate-brand-typos",
+   "turn": 1,
+   "reference_sha256": "e303973aefd516d264b9442e4617dee1a96a4d627a0e37655e8e78eaa76f5d16",
+   "rows": [
+    [
+     "Amex",
+     0.001579940906106369
+    ],
+    [
+     "Discover",
+     0.003292098962490024
+    ],
+    [
+     "Mastercard",
+     0.0015751639602485895
+    ],
+    [
+     "Visa",
+     0.0019236680239405148
+    ]
+   ]
+  },
+  {
+   "case_id": "para-top-merchants-british",
+   "turn": 1,
+   "reference_sha256": "7bc63de68d1ce116cd12296b2b29f8cb1906388449205c047d54d850431c764e",
+   "rows": [
+    [
+     59935,
+     52232
+    ],
+    [
+     27092,
+     50436
+    ],
+    [
+     61195,
+     47980
+    ],
+    [
+     39021,
+     40628
+    ],
+    [
+     43293,
+     31598
+    ]
+   ]
+  },
+  {
+   "case_id": "para-online-users-non-native",
+   "turn": 1,
+   "reference_sha256": "d72d31ede86065c6a238c16cc6f7c9c83cddcb4392f5032cece2b6901faa06e0",
+   "rows": [
+    [
+     1206
+    ]
+   ]
+  }
+ ]
+}

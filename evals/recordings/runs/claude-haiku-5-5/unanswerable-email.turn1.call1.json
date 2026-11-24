@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-email",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database holds no email addresses: the users table has birth date, gender, address, coordinates, income, debt and credit score, but no email field. I can't provide customer emails. I can show customer-level fraud patterns, such as fraud rates by credit score or income band, if that helps."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 162
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJUKQQ8aQyaUUFMwMip",
+    "request_hash": "4b2f2d628372128d05e6ba8e96599b070a4263a3c2389a9d5460259d67495c9a"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-high-value",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "\"High value\" isn't defined in the data. Which threshold do you mean?",
+          "suggestions": [
+            "Transactions of $1,000 or more",
+            "Transactions in the top 1% of amounts",
+            "Transactions above the 95th percentile for the card's own spending"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4612,
+      "output_tokens": 170
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJTkRX9bsKzuNu4qGxw",
+    "request_hash": "793910da14c5c621fe13615f92015af4453d6202340f24127a4e328b7ff14058"
+  }
+}

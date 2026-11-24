@@ -1,0 +1,140 @@
+tier = "follow_ups"
+
+[[case]]
+id = "follow-filter-previous"
+tests = "A follow-up that adds a filter to the previous query and keeps its grouping"
+tags = ["follow-up", "date", "group-by", "ordered"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made in each month of 2019, in month order?"
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT strftime('%Y-%m', date) AS month, count(*)
+FROM transactions
+GROUP BY month
+ORDER BY month
+"""
+[[case.turn]]
+question = "Only the online ones."
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT strftime('%Y-%m', date) AS month, count(*)
+FROM transactions
+WHERE transaction_type = 'Online Transaction'
+GROUP BY month
+ORDER BY month
+"""
+
+[[case]]
+id = "follow-change-grouping"
+tests = "A follow-up that keeps the measure and swaps the grouping column"
+tags = ["follow-up", "labels", "rate", "fraction", "group-by"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate by card brand?"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT c.card_brand, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+GROUP BY c.card_brand
+"""
+[[case.turn]]
+question = "Break that down by whether the card has a chip instead."
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT c.has_chip, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+GROUP BY c.has_chip
+"""
+
+[[case]]
+id = "follow-and-for-credit"
+tests = "An elliptical follow-up that swaps one filter value and keeps the rest"
+tags = ["follow-up", "join", "cards", "cents"]
+tuned = false
+[[case.turn]]
+question = "How many transactions over $500 were made with prepaid debit cards?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE t.amount_usd_cents > 50000 AND c.card_type = 'Debit (Prepaid)'
+"""
+[[case.turn]]
+question = "And for credit cards?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE t.amount_usd_cents > 50000 AND c.card_type = 'Credit'
+"""
+
+[[case]]
+id = "follow-turn-into-rule"
+tests = "A question's filter turned into a rule clause over transactions on the next turn"
+tags = ["follow-up", "rule", "cents"]
+tuned = false
+[[case.turn]]
+question = "How many online transactions over $2,000 are there?"
+outcome = "answered"
+sql = """
+SELECT count(*) FROM transactions
+WHERE transaction_type = 'Online Transaction' AND amount_usd_cents > 200000
+"""
+[[case.turn]]
+question = "Turn that into a rule."
+outcome = "rule_proposed"
+action = "propose_rule"
+clause = "transaction_type = 'Online Transaction' AND amount_usd_cents > 200000"
+flagged = 7
+flagged_labelled = 5
+true_positives = 0
+false_positives = 5
+
+[[case]]
+id = "follow-without-previous-turn"
+tests = "A follow-up with nothing before it: there is no measure to apply 'October' to"
+tags = ["follow-up", "clarification"]
+tuned = false
+[[case.turn]]
+question = "And for October?"
+outcome = "clarification"
+
+[[case]]
+id = "follow-answer-a-clarification"
+tests = "A vague question, then the user's answer to the clarification, which must now be answered"
+tags = ["follow-up", "clarification", "cents"]
+tuned = true
+[[case.turn]]
+question = "How many high value transactions are there?"
+outcome = "clarification"
+[[case.turn]]
+question = "I mean transactions of more than $5,000."
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE amount_usd_cents > 500000"
+
+[[case]]
+id = "follow-after-decline"
+tests = "A read-only follow-up to a declined delete: the date range comes from the declined turn"
+tags = ["follow-up", "destructive", "date", "trap:date-range"]
+tuned = false
+known_limitation = "A declined turn is not remembered (D-23), so the follow-up cannot know which month is meant"
+[[case.turn]]
+question = "Delete all transactions from February 2019."
+outcome = "refused"
+[[case.turn]]
+question = "Fine, don't delete them. Just tell me how many there are."
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-02-01' AND date < '2019-03-01'"

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-vague-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "\"Suspicious\" isn't defined in the data. Which pattern should the rule flag?",
+          "suggestions": [
+            "Transactions above a dollar amount threshold (for example, over $1,000), optionally limited to one transaction type",
+            "Transactions that carry an error code (for example, Bad CVV, Bad PIN or Insufficient Balance)",
+            "Quick repeat transactions on the same card (for example, two or more within 5 minutes of the previous one)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 265
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJZoF6qB177BxB7LEWw",
+    "request_hash": "b0e5cbb406d03a2c2945576754144f33fa1bf572c3f5546e0739d602c06439c6"
+  }
+}

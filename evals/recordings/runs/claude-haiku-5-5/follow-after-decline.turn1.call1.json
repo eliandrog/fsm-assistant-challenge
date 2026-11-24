@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "follow-after-decline",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "This database is read-only, so I can't delete transactions, including those from February 2019. I can help you analyse February 2019 transactions instead, for example their count, fraud rate, or the merchant categories where fraud concentrates."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 137
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJTE3ffRdoPB1T3awRZ",
+    "request_hash": "357c0cd39194f06835d5964dded3f4f1ebc4acabaf85b8a0f9ac3319821d3c67"
+  }
+}

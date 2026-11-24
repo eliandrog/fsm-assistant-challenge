@@ -8,6 +8,7 @@ from conftest import tool_reply
 from fsm_assistant import db, model_check, nl2sql
 from fsm_assistant.nl2sql import describe_reply
 from fsm_assistant.prompt import (
+    DATA_FIRST_DATE,
     DATA_LAST_DATE,
     DATA_TAGS,
     RULE_SCOPE,
@@ -182,9 +183,29 @@ def test_a_reply_is_described_for_the_repair() -> None:
 
 
 def test_the_prompt_version_differs_from_the_checks() -> None:
-    assert nl2sql.PROMPT_VERSION == "turn-3"
+    assert nl2sql.PROMPT_VERSION == "turn-4"
     assert model_check.CHECK_PROMPT_VERSION == "check-model-1"
     assert nl2sql.PROMPT_VERSION != model_check.CHECK_PROMPT_VERSION
+
+
+def test_the_glossary_declines_a_period_outside_the_data() -> None:
+    text = system_text(SCHEMA)
+    assert (DATA_FIRST_DATE, DATA_LAST_DATE) == ("2019-01-01", "2019-10-31")
+    assert (
+        "- The data covers 2019-01-01 to 2019-10-31. A period entirely outside that range: "
+        "decline and state the range, never answer with a count of zero. A period partly inside "
+        "it: answer for the part that exists and note the range in assumptions.\n"
+    ) in text
+
+
+def test_the_glossary_declines_sql_that_must_run_unchanged_and_breaks_a_rule() -> None:
+    text = system_text(SCHEMA)
+    assert (
+        "- SQL supplied by the user: when the user insists it be run unchanged and it breaks one "
+        "of these rules (for example it is relative to today, or would change data), decline and "
+        "say which rule; never rewrite it silently. When the user has not forbidden changes, "
+        "adapt it and list each change in assumptions.\n"
+    ) in text
 
 
 def test_the_glossary_makes_a_ranking_deterministic() -> None:

@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "policy-missing-column",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no IP address data: transactions has no IP column, and no other table records one. I can't write a rule on IP location. A close alternative is a rule on the merchant's location: flag transactions whose merchant_locations.state is a country name outside the US, or whose location is online (city 'ONLINE'). I can propose that instead if you want it."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 220
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJaN5oBvutuBPUX791o",
+    "request_hash": "038f975fa2cd3b06794248240d2c684d6b356b057cf0b3cb61dccffbc3da9da0"
+  }
+}

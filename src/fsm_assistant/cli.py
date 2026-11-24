@@ -10,13 +10,20 @@ Claude, which is billed, unless `--replay-dir` names a folder of recorded
 replies. `graph` prints the turn graph as a Mermaid diagram. `check-model`,
 whose logic is in `model_check.py`, sends nothing unless `--yes-spend` is
 given; its `--replay` re-prints a recorded run with no key and no request.
+`eval`, whose logic is in `evals/command.py`, runs the evaluation suite under
+the same rule: nothing is sent without `--yes-spend`, and `--replay` re-runs
+a recorded run offline.
 
 Exit codes. 0: the command did its job; for `ask`, the turn was answered,
 proposed a rule or asked for clarification. 1: the turn failed. 2: the
 command could not start (a bad argument or setting, no key, an unusable
 recordings folder). 3: `ask` could not answer (the model declined, or the
 scan is not available). 4: `ask` was rejected by the guard. 130: `ask` was
-interrupted with Ctrl-C. `chat` exits 0 whatever its turns ended in.
+interrupted with Ctrl-C. `chat` exits 0 whatever its turns ended in. For
+`eval`: 0 when every selected case that was not skipped passed (and for
+`--list`, or when nothing was sent); 1 when it ran and a case failed; 2 when
+it could not start or a recording is stale; 3 when a replay did not score as
+its record says, or a selected case has no recording.
 """
 
 import argparse
@@ -27,6 +34,9 @@ from pathlib import Path
 
 from fsm_assistant import config, model_check
 from fsm_assistant.config import ConfigError, Settings, load_settings
+from fsm_assistant.evals import command as eval_command
+from fsm_assistant.evals.cases import TIERS
+from fsm_assistant.evals.runner import Selection
 from fsm_assistant.graph import Assistant, TraceStep
 from fsm_assistant.llm import (
     ClaudeModel,
@@ -53,6 +63,12 @@ EXIT_BY_STATUS: dict[Status, int] = {
     "error": 1,
     "cannot_answer": 3,
     "rejected": 4,
+}
+EXIT_BY_FINISH: dict[eval_command.Finish, int] = {
+    "passed": 0,
+    "failed": 1,
+    "cannot_start": EXIT_CANNOT_START,
+    "not_reproduced": 3,
 }
 
 
@@ -104,7 +120,56 @@ def main(argv: Sequence[str] | None = None) -> int:
         action="store_true",
         help="re-print the table from the recorded replies; needs no key and sends nothing",
     )
+    evaluate = commands.add_parser(
+        "eval",
+        help="run the evaluation suite (paid; needs --yes-spend), or replay a recorded run",
+    )
+    evaluate.add_argument("--model", help="Claude model id (default: ANTHROPIC_MODEL)")
+    evaluate.add_argument(
+        "--yes-spend",
+        action="store_true",
+        help="really send the requests; each one is billed to your Anthropic account",
+    )
+    evaluate.add_argument(
+        "--replay",
+        action="store_true",
+        help="re-run the cases from the recorded replies; needs no key and sends nothing",
+    )
+    evaluate.add_argument(
+        "--list", action="store_true", help="print the selected cases and run nothing"
+    )
+    evaluate.add_argument(
+        "--tier", action="append", choices=TIERS, default=[], help="only this tier (repeatable)"
+    )
+    evaluate.add_argument(
+        "--case", action="append", default=[], metavar="ID", help="only this case (repeatable)"
+    )
+    evaluate.add_argument("--tag", help="only cases with this tag")
+    split = evaluate.add_mutually_exclusive_group()
+    split.add_argument("--held-out", action="store_true", help="only held-out cases")
+    split.add_argument("--tuned", action="store_true", help="only tuned cases")
+    evaluate.add_argument("--limit", type=int, metavar="N", help="at most the first N cases")
     arguments = parser.parse_args(argv)
+    if arguments.command == "eval":
+        if arguments.yes_spend and (arguments.replay or arguments.list):
+            evaluate.error("--yes-spend cannot be used with --replay or --list")
+        if arguments.limit is not None and arguments.limit < 1:
+            evaluate.error("--limit must be at least 1")
+        return _evaluate(
+            eval_command.Options(
+                model=arguments.model,
+                spend=arguments.yes_spend,
+                replay=arguments.replay,
+                list_only=arguments.list,
+                selection=Selection(
+                    tiers=tuple(arguments.tier),
+                    case_ids=tuple(arguments.case),
+                    tag=arguments.tag,
+                    split="held_out" if arguments.held_out else "tuned" if arguments.tuned else None,
+                    limit=arguments.limit,
+                ),
+            )
+        )
     if arguments.command == "check-model":
         if arguments.yes_spend and arguments.replay:
             check.error("--yes-spend and --replay cannot be used together")
@@ -206,6 +271,15 @@ def _print_step(step: TraceStep) -> None:
 
 def _live_model(spec: ModelSpec, settings: Settings) -> IntentModel:
     return ClaudeModel.from_settings(spec, settings)
+
+
+def _evaluate(options: eval_command.Options) -> int:
+    try:
+        settings = load_settings()
+    except ConfigError as error:
+        print(f"Cannot start: {error}")
+        return EXIT_CANNOT_START
+    return EXIT_BY_FINISH[eval_command.execute(options, settings, print, live_model=_live_model)]
 
 
 def _check_model(*, model: str | None, spend: bool, replay: bool) -> int:

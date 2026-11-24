@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "top-mccs-by-transactions",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT m.mcc AS mcc_code, c.description, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description ORDER BY transaction_count DESC, m.mcc ASC LIMIT 3",
+          "explanation": "Counts all transactions per merchant category code, using the merchant's MCC and its description, and returns the top three by count with the highest first.",
+          "assumptions": [
+            "Counts all transactions, labelled or not, since the question does not mention fraud labels.",
+            "Ties in count are broken by lower MCC code first."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 312
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJNSpEC5t57qCisuwrS",
+    "request_hash": "863c4e4a9530a9b25730ad776feb8ec36a2d0d6576c0026676ad1778941e7281"
+  }
+}

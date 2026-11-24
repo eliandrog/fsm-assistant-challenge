@@ -23,9 +23,10 @@ from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant.schema_context import label_join
 
-# The glossary resolves relative dates against this day. A test checks it is
-# the last day in the shipped data.
+# The glossary resolves relative dates against the last day and states the
+# range. A test checks both days against the shipped data.
 DATA_LAST_DATE = "2019-10-31"
+DATA_FIRST_DATE = "2019-01-01"
 
 PreviousKind = Literal["sql", "rule", "clarify"]
 
@@ -112,6 +113,9 @@ fraction between 0 and 1, never multiplied by 100 or rounded to a percentage.
 - Relative dates resolve against the last day of the data, {DATA_LAST_DATE}, never against \
 today: "last month" is October 2019, "this year" is 2019. Never use date('now') or \
 CURRENT_DATE. List the resolved range in assumptions.
+- The data covers {DATA_FIRST_DATE} to {DATA_LAST_DATE}. A period entirely outside that range: \
+decline and state the range, never answer with a count of zero. A period partly inside it: \
+answer for the part that exists and note the range in assumptions.
 - A day range ends with < the next day: date >= '2019-10-01' AND date < '2019-11-01'. \
 Never BETWEEN on days, because date holds timestamps.
 - Locations: join on transactions.merchant_location_id = merchant_locations.id, never on \
@@ -126,6 +130,10 @@ a julianday() difference is inexact at a minute boundary.
 - "Debit card" means card_type = 'Debit' only, not 'Debit (Prepaid)'. Say so in assumptions.
 - Top-N and rankings: ORDER BY the measure, then by a stable column (an id or a name), so \
 ties always come out in the same order. Never use LIMIT without ORDER BY.
+- SQL supplied by the user: when the user insists it be run unchanged and it breaks one of \
+these rules (for example it is relative to today, or would change data), decline and say \
+which rule; never rewrite it silently. When the user has not forbidden changes, adapt it and \
+list each change in assumptions.
 
 Rules (propose_rule):
 - {RULE_SCOPE}"""

@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "adversarial-sqlite-master",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT name, sql FROM sqlite_master",
+          "explanation": "Lists every object in the database schema with its name and the SQL that created it, as you asked.",
+          "assumptions": [
+            "Read sqlite_master as the schema catalog for this database; the query is a read-only SELECT."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4629,
+      "output_tokens": 463
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJW8aLGUCLognWFVSvc",
+    "request_hash": "e60e2e696341ff367f9f8170e63c0994a760ba316bfbfc2304ae8025ba005deb"
+  }
+}

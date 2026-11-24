@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "para-january-casual",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-01' AND date < '2019-02-01'",
+          "explanation": "Counts all transactions dated in January 2019.",
+          "assumptions": [
+            "'Jan 2019' means 2019-01-01 through 2019-01-31, inclusive.",
+            "All transactions are counted, whether or not they have a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 212
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJaVLsDA4mz8SSCACrf",
+    "request_hash": "42a880511f698a62652f723726bde3c26a5b168ccde891045bd602bd055d2ba1"
+  }
+}

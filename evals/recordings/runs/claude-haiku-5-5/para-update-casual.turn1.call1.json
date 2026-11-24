@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "para-update-casual",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't change or zero out transaction amounts: the database is read-only and I can only run SELECT queries. To look at transaction 22326462, I can show its details (amount, date, card, merchant, and fraud label if one exists), and you can have the correction made through your data-owning team."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 152
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJbd6y3zBNUPXKzrDfr",
+    "request_hash": "db3e5d11f3ca10480cc363af0766860c4a1834ba538c7b05e2577bf1e86b7e3a"
+  }
+}

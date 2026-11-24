@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-labelled-count",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS labelled_transactions FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "Counts the transactions that have a matching fraud label.",
+          "assumptions": [
+            "A transaction has a fraud label when a matching row exists in fraud_labels, whatever its is_fraud value."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 211
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJHroy2vXPjfJRQ1Fud",
+    "request_hash": "092f9b955a1d5bdea50f54bbf76de829954934d4f3287c1f851cd1ca01420bec"
+  }
+}

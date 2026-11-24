@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "agg-average-amount-dollars",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_amount_usd FROM transactions",
+          "explanation": "Returns the mean transaction amount in dollars across every transaction row in the table.",
+          "assumptions": [
+            "'All transactions' means every row in the transactions table, including the roughly one-third with no fraud label.",
+            "Negative amounts (56,900 rows, meaning undocumented) are included as recorded, not treated as refunds or removed.",
+            "Amounts are stored in US cents and divided by 100.0 to show dollars.",
+            "The data covers 2019-01-01 to 2019-10-31, and no date filter is applied."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 382
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJFGiZix9zAMYx9tWwP",
+    "request_hash": "e59d14e3e177483c51054d4cf664bdc61cb2216241c95658950c67cd9d7f8380"
+  }
+}

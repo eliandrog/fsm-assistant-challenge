@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-overall-rate",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "Computes the fraud rate across all labelled transactions, as a fraction between 0 and 1.",
+          "assumptions": [
+            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions (about 33% of the total) are excluded, not counted as legitimate.",
+            "The full data period 2019-01-01 to 2019-10-31 is included."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4615,
+      "output_tokens": 293
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJJ6Xix6yzirpnodrLX",
+    "request_hash": "5cee591d4e96e460507d44ee2abe67047dd8aad7dce20efe917216765371783c"
+  }
+}

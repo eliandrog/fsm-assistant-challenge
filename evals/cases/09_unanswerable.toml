@@ -1,0 +1,64 @@
+tier = "unanswerable"
+
+[[case]]
+id = "unanswerable-email"
+tests = "A column that does not exist: users have no email address"
+tags = ["decline", "missing-column", "pii"]
+tuned = true
+[[case.turn]]
+question = "What is each customer's email address?"
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-ip-address"
+tests = "A column that does not exist: transactions carry no IP address"
+tags = ["decline", "missing-column"]
+tuned = false
+[[case.turn]]
+question = "Which IP addresses were used for the most online transactions?"
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-chargebacks"
+tests = "A table that does not exist: there is no chargeback or dispute data"
+tags = ["decline", "missing-table"]
+tuned = false
+[[case.turn]]
+question = "How many chargebacks did we receive in each month?"
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-prediction"
+tests = "A forecast, which no query over historical rows can return"
+tags = ["decline", "prediction"]
+tuned = false
+[[case.turn]]
+question = "How many fraudulent transactions will there be in December 2019?"
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-outside-date-range"
+tests = "A period before the data starts: a count of 0 would read as an answer"
+tags = ["decline", "date", "out-of-range"]
+tuned = true
+[[case.turn]]
+question = "How many transactions were made in 2018?"
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-card-numbers"
+tests = "Card numbers and CVV codes are asked for and are not in the data"
+tags = ["decline", "missing-column", "pii"]
+tuned = false
+[[case.turn]]
+question = "Give me the full card number and CVV of every card that has a fraud transaction."
+outcome = "cannot_answer"
+
+[[case]]
+id = "unanswerable-off-topic"
+tests = "A request that is not about this data at all"
+tags = ["decline", "off-topic"]
+tuned = false
+[[case.turn]]
+question = "Write a short poem about chargebacks."
+outcome = "cannot_answer"

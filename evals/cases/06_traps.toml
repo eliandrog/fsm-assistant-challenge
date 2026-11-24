@@ -1,0 +1,170 @@
+tier = "traps"
+
+[[case]]
+id = "trap-location-fan-out"
+tests = "A sum over a location filter: joining locations on merchant_id multiplies every transaction"
+tags = ["trap:fan-out", "join", "location", "sum", "cents"]
+tuned = false
+[[case.turn]]
+question = "What is the total transaction amount in dollars at merchant locations in New York state?"
+outcome = "answered"
+sql = """
+SELECT sum(t.amount_usd_cents) / 100.0
+FROM transactions t JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE l.state = 'NY'
+"""
+
+[[case]]
+id = "trap-integer-division"
+tests = "A share of two counts: integer division gives 0"
+tags = ["trap:integer-division", "fraction"]
+tuned = false
+[[case.turn]]
+question = "What fraction of all transactions are online transactions?"
+outcome = "answered"
+sql = "SELECT 1.0 * sum(transaction_type = 'Online Transaction') / count(*) FROM transactions"
+
+[[case]]
+id = "trap-negative-amounts-in-average"
+tests = "An average over positive amounts only, where the 56,900 negative rows would pull it down"
+tags = ["trap:negative-amounts", "average", "cents"]
+tuned = false
+[[case.turn]]
+question = "What is the average amount in dollars of transactions with a positive amount?"
+outcome = "answered"
+sql = "SELECT avg(amount_usd_cents) / 100.0 FROM transactions WHERE amount_usd_cents > 0"
+
+[[case]]
+id = "trap-prepaid-value"
+tests = "A value with its exact stored spelling and case: 'Debit (Prepaid)'"
+tags = ["trap:case-sensitive", "join", "cards"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made with prepaid debit cards?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.card_type = 'Debit (Prepaid)'
+"""
+
+[[case]]
+id = "trap-error-value-case"
+tests = "An error value asked for in lower case; the stored value is 'Bad PIN'"
+tags = ["trap:case-sensitive", "count"]
+tuned = false
+[[case.turn]]
+question = "how many transactions failed with a bad pin error?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE errors = 'Bad PIN'"
+
+[[case]]
+id = "trap-velocity-window"
+tests = "Velocity with a window function; counted in whole seconds, because a difference of julianday values is inexact at the boundary"
+tags = ["trap:velocity", "window"]
+tuned = true
+[[case.turn]]
+question = "How many transactions happened within 2 minutes of the previous transaction on the same card?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM (
+  SELECT date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous
+  FROM transactions
+)
+WHERE strftime('%s', date) - strftime('%s', previous) <= 120
+"""
+
+[[case]]
+id = "trap-velocity-same-minute-cards"
+tests = "Velocity counted as cards, not as transactions, with an exact same-timestamp test"
+tags = ["trap:velocity", "window", "distinct", "rows-vs-entities"]
+tuned = false
+[[case.turn]]
+question = "How many cards have at least once made two transactions with exactly the same timestamp?"
+outcome = "answered"
+sql = """
+SELECT count(DISTINCT card_id)
+FROM (
+  SELECT card_id, date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous
+  FROM transactions
+)
+WHERE date = previous
+"""
+
+[[case]]
+id = "trap-rows-vs-entities"
+tests = "Users counted once each, not once per transaction or per card"
+tags = ["rows-vs-entities", "distinct", "join", "users"]
+tuned = false
+[[case.turn]]
+question = "How many users made at least one online transaction?"
+outcome = "answered"
+sql = """
+SELECT count(DISTINCT c.user_id)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE t.transaction_type = 'Online Transaction'
+"""
+
+[[case]]
+id = "trap-duplicate-mcc-description"
+tests = "Two MCC codes share the description 'Passenger Railways'; a breakdown by code has two rows"
+tags = ["trap:duplicate-description", "mcc", "join", "group-by"]
+tuned = false
+[[case.turn]]
+question = "Break down the number of transactions by MCC code for the codes described as 'Passenger Railways'."
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT m.mcc, count(*)
+FROM transactions t
+JOIN merchants m ON m.id = t.merchant_id
+JOIN mcc_codes mc ON mc.mcc = m.mcc
+WHERE mc.description = 'Passenger Railways'
+GROUP BY m.mcc
+"""
+
+[[case]]
+id = "trap-zip-leading-zero"
+tests = "zip is an integer column, so a Massachusetts ZIP code loses its leading zero unless padded to five digits"
+tags = ["trap:zip", "location", "join", "top-n"]
+tuned = false
+[[case.turn]]
+question = "Which ZIP code in Massachusetts has the most transactions? Return it as a five-digit ZIP code, as text."
+outcome = "answered"
+sql = """
+SELECT printf('%05d', l.zip)
+FROM transactions t JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE l.state = 'MA'
+GROUP BY l.zip
+ORDER BY count(*) DESC
+LIMIT 1
+"""
+
+[[case]]
+id = "trap-city-needs-state"
+tests = "A city name that exists in three places: Rome in Georgia is not Rome in Italy"
+tags = ["trap:city-state", "location", "join"]
+tuned = true
+[[case.turn]]
+question = "How many transactions took place in Rome, Georgia?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE l.city = 'Rome' AND l.state = 'GA'
+"""
+
+[[case]]
+id = "trap-unlabelled-count"
+tests = "Transactions without a label: an anti-join that runs away unless the label join casts the id"
+tags = ["trap:label-join", "labels", "coverage", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions have no fraud label at all?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+WHERE f.transaction_id IS NULL
+"""

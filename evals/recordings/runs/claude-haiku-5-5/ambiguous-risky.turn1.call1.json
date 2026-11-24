@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-risky",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "\"Risky\" isn't defined in this data. Which of these did you mean?",
+          "suggestions": [
+            "Transactions at or above a dollar amount you choose (for example $1,000 or more)",
+            "Transactions that carry an error code, such as Bad CVV or Bad PIN",
+            "Transactions on online merchants, or on a particular transaction type such as Online Transaction"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 205
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJTXMU77xAsYDCFKrmB",
+    "request_hash": "434a5e03b01803ac1234fa382ddcd6021ee720e1d6085796b781435b8d7fba20"
+  }
+}

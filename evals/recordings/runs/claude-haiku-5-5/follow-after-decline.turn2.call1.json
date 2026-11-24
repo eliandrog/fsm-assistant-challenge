@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-after-decline",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I can count rows, but I can't see what \"them\" refers to. Which set do you want counted?",
+          "suggestions": [
+            "Transactions with a negative amount_usd_cents",
+            "Transactions with an error recorded in the errors column",
+            "Fraud-labelled transactions (is_fraud = 1)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 437
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJTJz52cNUbDjR97WWV",
+    "request_hash": "a47bdca2e7286144a36973e05b79c28436598429cb6bf91915df5f4975559d5c"
+  }
+}

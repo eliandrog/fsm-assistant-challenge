@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-time-of-day",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "CAST(strftime('%H', transactions.date) AS INTEGER) BETWEEN 1 AND 4",
+          "explanation": "Flags every transaction whose timestamp falls from 01:00 up to and including 04:59, on any day.",
+          "assumptions": [
+            "Night is the window you gave, 01:00 to 04:59 inclusive, which covers hours 01, 02, 03 and 04 of the stored timestamp.",
+            "Times are read as stored in transactions.date, with no time zone conversion."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4632,
+      "output_tokens": 457
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJYFHTpnaXUEZukq2s5",
+    "request_hash": "3872812d5882769b5e5acc0cf83265b39458a8a9796b735e058a120bdd367d66"
+  }
+}

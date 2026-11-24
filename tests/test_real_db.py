@@ -14,7 +14,7 @@ from fsm_assistant import db
 from fsm_assistant.config import Settings, load_settings
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import ScriptedModel
-from fsm_assistant.prompt import DATA_LAST_DATE, system_text
+from fsm_assistant.prompt import DATA_FIRST_DATE, DATA_LAST_DATE, system_text
 from fsm_assistant.rules import backtest as backtest_module
 from fsm_assistant.rules.backtest import RuleClauseError, backtest
 from fsm_assistant.sql_guard import ReasonCode, check_query, check_rule_clause
@@ -336,7 +336,7 @@ def test_a_turn_counts_the_transactions(real_settings: Settings) -> None:
     assert result.answer == "count(*): 1,159,966"
     assert result.sql == "SELECT count(*) FROM transactions"
     assert result.caveats == ()
-    assert len(model.requests[0].system) < 7000  # it is sent with every request
+    assert len(model.requests[0].system) < 7500  # it is sent with every request
 
 
 def test_a_turn_shows_the_briefs_rule_with_its_backtest(real_settings: Settings) -> None:
@@ -388,6 +388,7 @@ def test_the_glossarys_last_date_and_velocity_example_hold_on_the_real_data(
     real_db: Path, real_settings: Settings
 ) -> None:
     assert str(scalar(real_db, "SELECT max(date) FROM transactions")).startswith(DATA_LAST_DATE)
+    assert str(scalar(real_db, "SELECT min(date) FROM transactions")).startswith(DATA_FIRST_DATE)
     assert VELOCITY in system_text(build_schema_context(real_db))
     result = Assistant(real_settings, ScriptedModel([sql_reply(VELOCITY)])).run_turn(
         "Cards with two payments within five minutes", "c1"
