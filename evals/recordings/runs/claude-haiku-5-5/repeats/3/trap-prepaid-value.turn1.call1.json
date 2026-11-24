@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-prepaid-value",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS prepaid_debit_transactions FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)'",
+          "explanation": "Counts all transactions made on cards whose type is Debit (Prepaid), labelled or not.",
+          "assumptions": [
+            "'Prepaid debit cards' means card_type = 'Debit (Prepaid)'.",
+            "Counts all transactions regardless of fraud label status, since the question asks for a count of transactions, not a fraud rate.",
+            "Covers the full data range, 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 405
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb4Uc7LL3fVvBikw7ym",
+    "request_hash": "63fb8daddb6ae73e273173079d7d79e7d385eac316fb7cb2c2ee42b6e4edb6fb"
+  }
+}

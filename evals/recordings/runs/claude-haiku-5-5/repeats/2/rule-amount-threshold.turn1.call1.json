@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "rule-amount-threshold",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents > 250000",
+          "explanation": "Flags every transaction whose amount is above $2,500. Refunds and other negative amounts are not flagged.",
+          "assumptions": [
+            "$2,500 is stored as 250000 cents, and 'above' means strictly greater than $2,500.",
+            "Transactions exactly at $2,500 are not flagged.",
+            "Negative amounts are not treated as above the threshold, since they are never greater than 250000."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4623,
+      "output_tokens": 322
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNakB8PaTb77VWH2LVrb",
+    "request_hash": "cc10dfb4b1712ff5f46dbe3ab42c9b302b46a0a7414fc111ace0a5de486916ab"
+  }
+}

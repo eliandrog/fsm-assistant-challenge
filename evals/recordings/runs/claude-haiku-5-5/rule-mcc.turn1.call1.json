@@ -10,10 +10,10 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "merchant_id IN (SELECT id FROM merchants WHERE mcc = 5311)",
-          "explanation": "Flags every transaction whose merchant is categorised under MCC 5311 (department stores), regardless of amount, card or transaction type.",
+          "explanation": "Flags every transaction whose merchant is in merchant category code 5311 (department stores), whatever the amount, card or transaction type.",
           "assumptions": [
-            "'Department stores' means merchants whose mcc is 5311 in the merchants table; no amount, card type or channel condition was added.",
-            "All transactions at those merchants are flagged, including negative-amount rows, which are not treated as refunds."
+            "Department stores means merchants whose mcc is exactly 5311; no amount, card type or transaction type condition is added.",
+            "Flagging is based on the merchant's MCC in the merchants table, so every transaction at a 5311 merchant is included."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4628,
-      "output_tokens": 471
+      "output_tokens": 432
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJXXT38bsrXRwE6Khr6",
-    "request_hash": "47f5f8fc4506c5885e52446d2e9a1de672cbf7e5d8d7269765c131c0071cf9ed"
+    "response_id": "msg_011ChNZqscynh1xnzc9vZ7da",
+    "request_hash": "b3116f9daa7cebd7847c70a1f0eb9e038b3921d63632f0b6748e5b5c9cbdd352"
   }
 }

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-flag-everything",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "1 = 1",
+          "explanation": "This rule flags every transaction in the database, so it catches all of them.",
+          "assumptions": [
+            "'Blocks' is taken to mean the rule flags each transaction. The rule only flags; it does not block anything in a live system.",
+            "The rule covers every transaction, labelled or not, since no filter was requested."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 404
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbEje2Svre7dCZJqnhk",
+    "request_hash": "2878b0caebe88f1ee55a870feaf63da98cefcac266a036ccadabc17d6791fe18"
+  }
+}

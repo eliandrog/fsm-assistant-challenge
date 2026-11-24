@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-duplicate-mcc-description",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.mcc, c.description, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc WHERE c.description = 'Passenger Railways' GROUP BY c.mcc, c.description ORDER BY c.mcc, c.description",
+          "explanation": "Counts all transactions for each MCC code described as 'Passenger Railways', one row per code.",
+          "assumptions": [
+            "Counts every transaction, labelled or not, since the request asks for a transaction count rather than a fraud rate.",
+            "Matches the description 'Passenger Railways' exactly, as case-sensitive text.",
+            "Covers the full data period, 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 682
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNafAaGRim9bMr3RnCkQ",
+    "request_hash": "6d0af55cb5623fd2f3e5843f3a4bd9018d72d0bf79912de3f5281eb45a167c2c"
+  }
+}

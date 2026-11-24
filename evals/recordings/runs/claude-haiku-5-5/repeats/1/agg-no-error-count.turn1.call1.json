@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-no-error-count",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transactions_without_error FROM transactions WHERE errors IS NULL",
+          "explanation": "Counts all transactions where the errors column is NULL, meaning no error was recorded.",
+          "assumptions": [
+            "No error recorded means transactions.errors IS NULL, covering all transactions whether or not they carry a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4618,
+      "output_tokens": 194
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa7oNBwrsRsaYGAFxNx",
+    "request_hash": "69d4d06d3212a8edf4ee77768f3ec98f4a04a5895e8584de32ed57d435a1222e"
+  }
+}

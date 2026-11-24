@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-fading-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "card_id IN (SELECT id FROM cards WHERE card_brand = 'Amex')",
+          "explanation": "Flags every transaction made with an American Express card, matched through the card's brand in the cards table.",
+          "assumptions": [
+            "'American Express' is taken to be the card_brand value 'Amex'.",
+            "The rule covers all transactions on Amex cards in the full data range, regardless of card type, transaction type or amount."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 327
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbDbKvmD5m1pL9MiW5Z",
+    "request_hash": "c46522a083af91d3e40c91cf8f3b33cf927d1c7ae5357696a155e2ee2cc04f19"
+  }
+}

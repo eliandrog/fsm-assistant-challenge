@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-credit-limit-card-types",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_spent_usd\nFROM transactions t\nWHERE t.card_id IN (SELECT c.id FROM cards c WHERE c.credit_limit_usd_cents > 2000000)",
+          "explanation": "Sums the amount of every transaction made on cards with a credit limit above $20,000, converted from cents to dollars.",
+          "assumptions": [
+            "Credit limit above $20,000 means credit_limit_usd_cents > 2000000.",
+            "All transactions on those cards are included, whether or not they carry a fraud label.",
+            "Negative amounts (56,900 rows in the data, meaning undocumented) are included as recorded, so they reduce the total; they are not treated as refunds or removed.",
+            "The whole data period 2019-01-01 to 2019-10-31 is included, since no date range was specified."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 522
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa3mNGeD4KJ2EznXN5N",
+    "request_hash": "54141843010119cb81c6f8c4f88d931b6a331ac7c622bb91114d880302ee03c9"
+  }
+}

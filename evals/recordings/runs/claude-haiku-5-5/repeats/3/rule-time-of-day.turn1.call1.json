@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "rule-time-of-day",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "strftime('%H', transactions.date) IN ('01', '02', '03', '04')",
+          "explanation": "Flags transactions whose timestamp falls from 01:00 up to and including 04:59 on any day in the data.",
+          "assumptions": [
+            "Time is the transaction's own timestamp in transactions.date, with no timezone conversion.",
+            "'Up to and including 04:59' means any transaction whose hour is 01, 02, 03 or 04.",
+            "The window applies to every day in the data (2019-01-01 to 2019-10-31)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4632,
+      "output_tokens": 448
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbBrGJ1L8Mdq5umLq2H",
+    "request_hash": "077ca6f91ba8bdfe8444f7c0e402d14b81b2b44fa67e153f47f6ba50061b66ee"
+  }
+}

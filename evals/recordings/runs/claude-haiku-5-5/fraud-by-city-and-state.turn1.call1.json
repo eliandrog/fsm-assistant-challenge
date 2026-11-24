@@ -9,13 +9,13 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT ml.city AS city, ml.state AS state, COUNT(*) AS fraud_count\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchant_locations ml ON ml.id = t.merchant_location_id\nWHERE f.is_fraud = 1\nGROUP BY ml.city, ml.state\nORDER BY fraud_count DESC, ml.city, ml.state",
-          "explanation": "Counts the labelled fraud transactions for each city and state, with the largest counts first. Online purchases appear as their own row labelled ONLINE, since they have no city.",
+          "sql": "SELECT ml.city, ml.state, COUNT(*) AS fraud_count\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchant_locations ml ON ml.id = t.merchant_location_id\nWHERE f.is_fraud = 1 AND ml.city <> 'ONLINE'\nGROUP BY ml.city, ml.state\nORDER BY fraud_count DESC, ml.city, ml.state",
+          "explanation": "Counts the fraud-labelled transactions for each city and state, most frequent first. Online transactions are left out because they have no city.",
           "assumptions": [
             "Fraud means fraud_labels.is_fraud = 1; only labelled transactions are counted.",
-            "The location is the transaction's merchant location (merchant_location_id), not the cardholder's home address.",
-            "Online transactions (city 'ONLINE', no state) are kept as their own row rather than dropped.",
-            "Covers the full data range, 2019-01-01 to 2019-10-31."
+            "Online transactions (city 'ONLINE', no state) are excluded because they have no physical city; they are not included in the city counts.",
+            "The city is taken from the transaction's merchant location (transactions.merchant_location_id), and the state is shown alongside it because city names can repeat across states.",
+            "The full data range (2019-01-01 to 2019-10-31) is used, since no period was specified."
           ]
         }
       }
@@ -24,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4637,
-      "output_tokens": 810
+      "output_tokens": 957
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJKg66ttXj3tpbADKby",
-    "request_hash": "35056f521eec5b7f617274289002b7ee75e839bfcf0445636066dc2f98e163c0"
+    "response_id": "msg_011ChNZdPFLLNZacPakm36rg",
+    "request_hash": "22779e70d1074f5ff9b8befc7644573d759b53d533571feb875ed47950975155"
   }
 }

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "policy-random-sample",
+  "turn": 1,
+  "call": 2,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.id % 100 = 0",
+          "explanation": "Flags every transaction whose internal ID is a multiple of 100, which gives a fixed 1% sample for manual review. The same transactions are flagged every time, so it is a deterministic stand-in for a random pick.",
+          "assumptions": [
+            "random() is not allowed in a rule, so the 1% sample is taken by transaction id modulo 100 instead of a true random draw.",
+            "The sample is 1% of transactions by id, not of any particular segment, card or time period.",
+            "Transaction ids are assumed to be spread evenly enough that the sample comes out close to 1%."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4853,
+      "output_tokens": 640
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaQPpKgaBZvFr84G1eP",
+    "request_hash": "3011ff80ba13023d9984ee2a303ddda07cf95851ea828eda15755a7c22717ed8"
+  }
+}

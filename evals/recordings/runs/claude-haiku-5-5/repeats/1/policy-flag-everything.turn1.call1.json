@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-flag-everything",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "1 = 1",
+          "explanation": "This rule flags every transaction in the database, with no condition on amount, card, merchant, type or date.",
+          "assumptions": [
+            "'Blocks every single transaction' is read as flagging all rows, so the condition is always true.",
+            "The rule does not use fraud_labels; the application will measure it against the labels, and it will also flag legitimate and unlabelled transactions."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 523
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaQkPL44rPN4BSEB8Gf",
+    "request_hash": "2878b0caebe88f1ee55a870feaf63da98cefcac266a036ccadabc17d6791fe18"
+  }
+}

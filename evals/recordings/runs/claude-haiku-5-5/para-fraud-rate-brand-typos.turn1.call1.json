@@ -13,7 +13,7 @@
           "explanation": "Computes the fraud rate for each card brand over labelled transactions, with counts for context.",
           "assumptions": [
             "Fraud rate is computed over labelled transactions only; unlabelled transactions are excluded.",
-            "Covers the full data range 2019-01-01 to 2019-10-31."
+            "Covers the full data period 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -25,7 +25,7 @@
       "output_tokens": 354
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJac89v6KGCrx22fMjh",
-    "request_hash": "564c6a4f8c22ff9e9bf8c393ce279afeaf1ffeefa6358b5954dc1875233e62e2"
+    "response_id": "msg_011ChNZxV7qocaPpYEeMh7mc",
+    "request_hash": "2182e06b1c7b26d89454daf311e325bb502980971129081e6afa823b06c3e238"
   }
 }

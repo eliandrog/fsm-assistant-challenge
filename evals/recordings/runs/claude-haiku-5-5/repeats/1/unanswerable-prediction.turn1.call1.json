@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-prediction",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The transaction data only covers 2019-01-01 to 2019-10-31, so December 2019 is outside the range and there are no December transactions to count. I can't forecast future fraud from this data either. I can instead show fraud counts for October 2019 or monthly fraud counts across January to October 2019 so you can see the trend."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4623,
+      "output_tokens": 224
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaJLyG12FEJ8P7n5wrE",
+    "request_hash": "52e260f2bf3cd3950b60f0a6f6c0616e3ff14c473e645e273de58e19d296b8dc"
+  }
+}

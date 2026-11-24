@@ -9,11 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) INNER JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'Italy'",
-          "explanation": "Computes the fraud rate over labelled transactions at merchant locations whose state is Italy, along with the counts behind it.",
+          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'Italy'",
+          "explanation": "Computes the fraud rate over labelled transactions at merchant locations whose state field is Italy, along with the counts behind it.",
           "assumptions": [
-            "Italy is matched on merchant_locations.state = 'Italy', since the schema says non-US countries are stored in the state column.",
-            "Only labelled transactions are counted; unlabelled transactions are excluded rather than treated as legitimate."
+            "Italy is matched against merchant_locations.state, where non-US countries are stored, and no city filter is applied.",
+            "Only labelled transactions are counted; unlabelled ones are excluded from the denominator."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4627,
-      "output_tokens": 377
+      "output_tokens": 361
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJKyFii2Hui7VCnMoTn",
-    "request_hash": "cde55d80c68e764c0ac7f6acaf0a5fd6209914893d98c5ffc30cedc13cd04630"
+    "response_id": "msg_011ChNZdkv59pNADLNyTDJMQ",
+    "request_hash": "ce97223629ba60e2f5710b348555eabf6d65aaee4f5c71888a7a0ade420996e9"
   }
 }

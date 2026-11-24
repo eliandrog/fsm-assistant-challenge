@@ -12,8 +12,8 @@
           "sql": "SELECT COUNT(*) AS bad_pin_transactions FROM transactions WHERE errors = 'Bad PIN'",
           "explanation": "Counts all transactions whose error field is 'Bad PIN'.",
           "assumptions": [
-            "'Failed with a bad pin error' means transactions.errors = 'Bad PIN', across the whole data period 2019-01-01 to 2019-10-31.",
-            "All transactions are counted, whether or not they have a fraud label."
+            "'Failed with a bad pin error' means transactions.errors = 'Bad PIN', across the full data range 2019-01-01 to 2019-10-31.",
+            "All transactions are counted, whether or not they carry a fraud label."
           ]
         }
       }
@@ -25,7 +25,7 @@
       "output_tokens": 233
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJPr7UAPjjJDiV2Gq4H",
-    "request_hash": "bb96e90ead10a4a7fb45f4261cb457b148cd7e4099d16a8f0eaa4c3a8a91cfc4"
+    "response_id": "msg_011ChNZhfrapUvQnjdZcfVzt",
+    "request_hash": "0cb32cc26de89ac6aaa726433fe5e4b177595d6752540039e4a4d734800de1f3"
   }
 }

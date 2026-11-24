@@ -9,13 +9,13 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 50000",
-          "explanation": "Counts all transactions above $500 made on cards whose type is prepaid debit, whether or not they carry a fraud label.",
+          "sql": "SELECT COUNT(*) AS prepaid_transactions_over_500 FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 50000",
+          "explanation": "Counts transactions above $500 made on prepaid debit cards, across the full data period.",
           "assumptions": [
-            "'Prepaid debit cards' means card_type = 'Debit (Prepaid)' only, not 'Debit'.",
-            "'Over $500' means amount_usd_cents > 50000 (strictly greater than $500.00).",
-            "All transactions are counted, including those with no fraud label; no fraud filter applied.",
-            "The whole data period (2019-01-01 to 2019-10-31) is included, since no period was specified."
+            "'Prepaid debit cards' means card_type = 'Debit (Prepaid)'.",
+            "'Over $500' means amount_usd_cents strictly greater than 50000 (exactly $500.00 is excluded).",
+            "All transactions are counted, labelled or not, since the question asks for a count and not a fraud rate.",
+            "The period is the full data range, 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -24,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4625,
-      "output_tokens": 481
+      "output_tokens": 599
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJSAP7obpupK9bYrbmp",
-    "request_hash": "5407cacfd9cdd11631f94e02c910ec1b856e008f2ed5d91a91d466bc354c67f0"
+    "response_id": "msg_011ChNZjzaX9L5rYocabyMUs",
+    "request_hash": "99f82505d75440c003efc9e4a0167f67cc5b84e0cec6f0278cfcddcf31dd43d8"
   }
 }

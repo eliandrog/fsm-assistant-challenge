@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-location-by-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+          "explanation": "Flags every transaction whose merchant location is in Rome, Italy, across all months in the data, so you can review them month by month.",
+          "assumptions": [
+            "Rome, Italy is matched on city = 'Rome' and state = 'Italy' exactly, with case-sensitive text as stored; spelling variants such as 'ROME' or 'Roma' are not included.",
+            "The rule has no date filter, so it covers all months from January to October 2019. Month-by-month review is done by you on the flagged set.",
+            "Matching is on merchant_location_id, the transaction's own location, not on the merchant's id."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4642,
+      "output_tokens": 559
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbCiZiTsjK6jjeuairV",
+    "request_hash": "b7fce35b717ab6a6d89e44673a9086c17cb0a7196de5f63da04f75730449038c"
+  }
+}

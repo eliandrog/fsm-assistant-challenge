@@ -12,8 +12,8 @@
           "where_clause": "amount_usd_cents > 250000",
           "explanation": "Flags every transaction whose amount is above $2,500.",
           "assumptions": [
-            "'Above $2,500' means strictly greater than $2,500 (250000 cents); a transaction of exactly $2,500 is not flagged.",
-            "The amount is read as the transaction amount in USD, as stored in amount_usd_cents."
+            "$2,500 is stored as 250000 cents, and 'above' means strictly greater than $2,500 (exactly $2,500.00 is not flagged).",
+            "Negative amounts are not flagged, since they are not above $2,500."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4623,
-      "output_tokens": 296
+      "output_tokens": 298
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJXBdRSVFgpdt3MCwWb",
-    "request_hash": "d5bbb0fcf72e21d6035eea890b048cd0f14e1fa2b309d9967317d35358e8d602"
+    "response_id": "msg_011ChNZqKVhi2JksT3iQ4RUG",
+    "request_hash": "cc10dfb4b1712ff5f46dbe3ab42c9b302b46a0a7414fc111ace0a5de486916ab"
   }
 }

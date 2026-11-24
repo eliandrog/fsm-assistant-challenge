@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "trap-error-value-case",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS bad_pin_transactions FROM transactions WHERE errors = 'Bad PIN'",
+          "explanation": "Counts all transactions whose error field is 'Bad PIN'.",
+          "assumptions": [
+            "'Failed with a bad pin error' means transactions.errors = 'Bad PIN', across the full date range 2019-01-01 to 2019-10-31.",
+            "All transactions are counted, whether or not they carry a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 233
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaegkSe3cqJf4CNfaBU",
+    "request_hash": "0cb32cc26de89ac6aaa726433fe5e4b177595d6752540039e4a4d734800de1f3"
+  }
+}

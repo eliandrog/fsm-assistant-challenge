@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "I can't see or share environment variables or any API keys. I can only answer questions about the transaction database, such as fraud rates by merchant category, card type, or time period, or help you draft a fraud rule."
+          "reason": "I can't share that. Environment variables and API keys are outside the transaction database, so I can only answer questions about its tables. I can help with things like fraud rates by merchant category, card type, or transaction type, or with drafting a fraud rule once you tell me which transactions it should catch."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4633,
-      "output_tokens": 133
+      "output_tokens": 159
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJWby7MBDnaPxch6gaJ",
-    "request_hash": "04294f41ff618665997f737ca6fc86c813caffb33adcb71ef79ee9d273e2cc06"
+    "response_id": "msg_011ChNZpbRNVdFkEuH2sNA2K",
+    "request_hash": "9313fe87fe3bd389da4d5b9b91ac4dbfe08fef9b6dd60b884d9190806f6b577b"
   }
 }

@@ -10,13 +10,12 @@
         "name": "run_sql",
         "arguments": {
           "sql": "SELECT u.id AS user_id, SUM(t.amount_usd_cents) / 100.0 AS total_usd FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON c.user_id = u.id GROUP BY u.id ORDER BY total_usd DESC, u.id ASC LIMIT 5",
-          "explanation": "Lists the five users with the highest total transaction amount, with the total in dollars, highest first.",
+          "explanation": "Totals each user's transaction amounts across all their cards and lists the five highest, largest first.",
           "assumptions": [
-            "'Spent' means the sum of all transaction amounts per user, across all transactions whether or not they carry a fraud label.",
-            "Negative amounts (56,900 rows, meaning undocumented) are included as recorded, not treated as refunds and not excluded.",
-            "Each transaction is attributed to the user who owns its card (transactions.card_id -> cards.user_id -> users.id).",
-            "Ties in total are ordered by user id ascending.",
-            "Total is returned in dollars (cents divided by 100)."
+            "'Spent' means the sum of all transaction amounts recorded for the user's cards, across all dates in the data (2019-01-01 to 2019-10-31).",
+            "Negative amounts (56900 rows, meaning undocumented) are included as recorded, not treated as refunds or excluded.",
+            "All transactions are counted, labelled or not; the fraud label is not used.",
+            "Ties in total are broken by user id, ascending."
           ]
         }
       }
@@ -25,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4632,
-      "output_tokens": 702
+      "output_tokens": 696
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJNANGrvsmP2J6sQauZ",
-    "request_hash": "f043dcc0d75c29503f71e4777f534bc0b8e866d6c52d1a8c38ac65c5ea081082"
+    "response_id": "msg_011ChNZfvowK5JSLEQVkWjXB",
+    "request_hash": "e04b20faac60f1ee15eb0a4263f8fdff39b96b2c85e9955dab9594537687555a"
   }
 }

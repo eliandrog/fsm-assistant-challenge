@@ -9,11 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT 1.0 * COUNT(f.transaction_id) / COUNT(*) AS labelled_fraction FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
-          "explanation": "Returns the share of all transactions that have a row in fraud_labels, as a fraction between 0 and 1. It counts labelled transactions, not fraud.",
+          "sql": "SELECT\n  (SELECT COUNT(*) FROM transactions t WHERE EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))) AS labelled_transactions,\n  (SELECT COUNT(*) FROM transactions) AS total_transactions,\n  1.0 * (SELECT COUNT(*) FROM transactions t WHERE EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))) / (SELECT COUNT(*) FROM transactions) AS labelled_fraction",
+          "explanation": "Counts transactions that have a matching fraud label, divides by all transactions, and returns the fraction as a value between 0 and 1.",
           "assumptions": [
-            "'Have a fraud label' means a matching row exists in fraud_labels, whatever its is_fraud value.",
-            "All transactions are counted, from 2019-01-01 to 2019-10-31, with no other filter."
+            "'Have a fraud label' means a matching row exists in fraud_labels, whatever its is_fraud value (0 or 1).",
+            "The fraction is over all transactions in the transactions table, not only labelled ones."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4620,
-      "output_tokens": 647
+      "output_tokens": 666
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJJG7SWCX9ukN8s2xJf",
-    "request_hash": "eaf27da607a4e0c712e606a6f0cc5b1fa79bb0442774f760e1c73c23cff9a5cc"
+    "response_id": "msg_011ChNZbzxNJR9A6V8r7beYU",
+    "request_hash": "6bf0d3ed7fa8c64b7a964b087c1871c7c6b50355e55753c1c789e758014174ad"
   }
 }

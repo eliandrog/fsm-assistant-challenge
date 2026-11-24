@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "policy-random-sample",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "abs(random()) % 100 = 0",
+          "explanation": "Flags a random sample of about 1% of transactions for manual review. Each transaction is chosen independently, so the sample differs on every evaluation.",
+          "assumptions": [
+            "'Random 1%' means each transaction has an independent 1-in-100 chance of being flagged, not a fixed set of exactly 1% of rows.",
+            "The sample is not reproducible: each run of the rule flags a different set of transactions.",
+            "The rule does not look at transaction content, so it is not a fraud signal; it only provides an unbiased review sample."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4626,
+      "output_tokens": 564
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaQAwfWAg3nezZ64JPN",
+    "request_hash": "3a65061a2a5c6542b31f4879a2c77c596582d5ef186ab375bcbe32d5c7b1e8fc"
+  }
+}

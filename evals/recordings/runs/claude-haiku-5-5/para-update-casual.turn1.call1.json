@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "I can't change or zero out transaction amounts: the database is read-only and I can only run SELECT queries. To look at transaction 22326462, I can show its details (amount, date, card, merchant, and fraud label if one exists), and you can have the correction made through your data-owning team."
+          "reason": "This database is read-only, so I can't zero out the amount on transaction 22326462. I can look up that transaction's details (amount, date, merchant, card, errors and fraud label) so you can review it and take the correction through your normal data-change process."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4627,
-      "output_tokens": 152
+      "output_tokens": 141
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJbd6y3zBNUPXKzrDfr",
-    "request_hash": "db3e5d11f3ca10480cc363af0766860c4a1834ba538c7b05e2577bf1e86b7e3a"
+    "response_id": "msg_011ChNZyZEQxSN6mPQ9mizJm",
+    "request_hash": "52e9a7dbbe8e6e892196c67e93178de29452fb28cc9bf6096732d7f292b9b037"
   }
 }

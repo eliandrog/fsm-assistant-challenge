@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-count-by-error",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT errors, COUNT(*) AS transaction_count FROM transactions WHERE errors IS NOT NULL GROUP BY errors ORDER BY transaction_count DESC, errors",
+          "explanation": "Counts transactions for each non-null error value, most frequent first.",
+          "assumptions": [
+            "Counted all transactions with a non-NULL errors value, whether or not they have a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4622,
+      "output_tokens": 209
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNawh32Foh6f64AzHz2Z",
+    "request_hash": "933f10ed879d7084efcb9aabb06e473a127c112ccba03a91226ec6c695c4bdf0"
+  }
+}

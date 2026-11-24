@@ -10,9 +10,9 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
-          "explanation": "Flags every transaction made on a card whose type is prepaid debit, so all transactions on 'Debit (Prepaid)' cards are caught.",
+          "explanation": "Flags every transaction made on a card whose type is prepaid debit, regardless of amount, channel or merchant.",
           "assumptions": [
-            "'Prepaid debit card' is read as card_type = 'Debit (Prepaid)'. Plain 'Debit' cards are not included."
+            "'Prepaid debit cards' is taken to mean card_type = 'Debit (Prepaid)'. Plain 'Debit' cards are not included."
           ]
         }
       }
@@ -21,10 +21,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4627,
-      "output_tokens": 418
+      "output_tokens": 420
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJXLD7LXQhNb7JQkRn3",
-    "request_hash": "4b0661018ce74d9772ff576cabe885e72e52cc59d8200e267db7a86f2e06cb73"
+    "response_id": "msg_011ChNZqYsct2GtrS62xE64U",
+    "request_hash": "c32e9e9efe2af26f7f7dc262b1bf77c1d25ac6a8120b2e13f543b3b96ed9a7f9"
   }
 }

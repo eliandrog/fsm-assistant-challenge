@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-location-fan-out",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_amount_usd\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE ml.state = 'NY'",
+          "explanation": "Sums the amount of all transactions whose merchant location is in New York state, shown in dollars.",
+          "assumptions": [
+            "New York state means merchant_locations.state = 'NY' (two-letter code), joined on merchant_location_id.",
+            "All transactions are included regardless of fraud label, including the negative amounts, which are summed as stored.",
+            "The period is the full data range, 2019-01-01 to 2019-10-31, since no date filter was given."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 428
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaDsc6kzfiNHkbuXJT9",
+    "request_hash": "4c0ac7e0a9cfcfdb39194e4133620f1f06f3f0b1945a7fbab5a65fd40e3accc7"
+  }
+}

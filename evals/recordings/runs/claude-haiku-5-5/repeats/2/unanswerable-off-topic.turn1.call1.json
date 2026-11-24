@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-off-topic",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can only help with questions about this transaction database and with fraud rules built from it, so I can't write a poem. I can instead count chargeback-related signals in the data, such as transactions with errors or fraud-label rates by merchant category."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 147
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNainHBLcunfnXAeE8BM",
+    "request_hash": "20e0cef23d28f4cf389a149d31fc6beb03eae03b8be91dcbca587421a2c31ec2"
+  }
+}

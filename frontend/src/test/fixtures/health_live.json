@@ -8,7 +8,7 @@
   },
   "key_configured": true,
   "model_id": "claude-opus-5-5",
-  "prompt_version": "turn-4",
+  "prompt_version": "turn-5",
   "tracing": {
     "enabled": true,
     "destination": "project 'fsm-assistant'"

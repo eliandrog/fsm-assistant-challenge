@@ -9,11 +9,11 @@
       {
         "name": "ask_clarification",
         "arguments": {
-          "question": "What do you mean by \"best customers\"? The data supports several readings.",
+          "question": "What does \"best customers\" mean here? The data can rank them in more than one way.",
           "suggestions": [
-            "Highest total spend: users ranked by the sum of their transaction amounts",
-            "Most active: users ranked by number of transactions",
-            "Highest credit score or income: users ranked by their profile figures"
+            "Highest total spend: users ranked by the sum of their card transactions in amount",
+            "Most frequent: users ranked by number of transactions",
+            "Most valuable and low-risk: users ranked by spend, with their fraud rate on labelled transactions shown alongside"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4612,
-      "output_tokens": 209
+      "output_tokens": 232
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJUCwy7yvSxpA2E2Xv1",
-    "request_hash": "d40d61f4483da16c2d90cdceb33f2ef0d40f782156ef1841dbe25e628e33c1f6"
+    "response_id": "msg_011ChNZnLinV47Ch7p62i2Zi",
+    "request_hash": "40eca328a4b105e5ccc4323050549e47af8b7d7f1f9c7541d405fa02d81d57a5"
   }
 }

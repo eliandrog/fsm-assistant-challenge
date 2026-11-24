@@ -9,11 +9,11 @@
       {
         "name": "ask_clarification",
         "arguments": {
-          "question": "How far back should \"recent\" reach? The data runs from 2019-01-01 to 2019-10-31.",
+          "question": "How far back should \"recent\" reach? The data runs to 2019-10-31, so I can count back from there.",
           "suggestions": [
-            "The last 7 days (2019-10-25 to 2019-10-31)",
-            "October 2019 (the last month of data)",
-            "The last 100 transactions by date, with their amounts, types and labels"
+            "Last 7 days (25 Oct to 31 Oct 2019)",
+            "Last 30 days (2 Oct to 31 Oct 2019)",
+            "Calendar October 2019 (the last full month)"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4615,
-      "output_tokens": 254
+      "output_tokens": 376
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJTr18uPXFzijpBHo7q",
-    "request_hash": "01fc6fdf79d0475231827516224ef7483f6291280232bf6bbc7045c0f6b6e659"
+    "response_id": "msg_011ChNZmuWDnjZmUxjUbH1Z2",
+    "request_hash": "9508736d09deeb3172b6d0534a1a2d130f75d4d4c36657bb6146684f5bb334c5"
   }
 }

@@ -9,12 +9,12 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT c.card_type AS card_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_type ORDER BY c.card_type",
-          "explanation": "Computes the fraud rate across labelled transactions for each card type, with counts for context.",
+          "sql": "SELECT c.card_type AS card_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_type ORDER BY c.card_type",
+          "explanation": "Computes the fraud rate over labelled transactions for each card type (Credit, Debit, Debit (Prepaid)), with the labelled transaction and fraud counts shown alongside.",
           "assumptions": [
-            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions are excluded.",
-            "Card type is taken from the card used for each transaction, and 'Debit (Prepaid)' is reported as its own type, separate from 'Debit'.",
-            "Full data range 2019-01-01 to 2019-10-31 is used, as no period was specified."
+            "Fraud rate is computed over labelled transactions only; unlabelled transactions are excluded.",
+            "Card type is taken from the card used on each transaction (cards.card_type).",
+            "'Debit' and 'Debit (Prepaid)' are reported as separate card types, not merged."
           ]
         }
       }
@@ -23,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4617,
-      "output_tokens": 415
+      "output_tokens": 411
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJJUnSZcjg5ifXJeLt5",
-    "request_hash": "3127ddf91a8e1cafb05cb371b052e4b9c53c4766dc0af6868b8e1bc16564f284"
+    "response_id": "msg_011ChNZcFvmpdvYqpq8Sf82Y",
+    "request_hash": "279ea44fe1f8e3ee0d10cb07a67c8415278780f45877cfd29224bc02ed7e25e4"
   }
 }

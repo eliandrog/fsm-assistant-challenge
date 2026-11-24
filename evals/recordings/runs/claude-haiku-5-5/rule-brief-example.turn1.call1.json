@@ -10,11 +10,11 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
-          "explanation": "Flags transactions on debit cards where the amount is over $1,000.",
+          "explanation": "Flags transactions over $1,000 made on debit cards. Prepaid debit cards are not included.",
           "assumptions": [
             "'Debit card' means card_type = 'Debit' only, excluding 'Debit (Prepaid)'.",
-            "'Over $1,000' means strictly greater than 100000 cents.",
-            "Transactions with no label are not counted as legitimate; the rule's measured performance uses labelled rows only."
+            "'Over $1,000' means strictly greater than $1,000 (amount_usd_cents > 100000).",
+            "Amounts are in US cents, so 100000 cents equals $1,000."
           ]
         }
       }
@@ -23,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4622,
-      "output_tokens": 468
+      "output_tokens": 454
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJWyoH2sJXE7QeGa4JU",
-    "request_hash": "6f21bbb570233e51c22edfdc8a0aafb2f12576ead535dadb2dba4a853827e3b7"
+    "response_id": "msg_011ChNZq1EMLEEnhBfgoNPfi",
+    "request_hash": "bce47d89dd2c980ab274de01f2e5368a70227ec9be7f6d106d64fe9954a1463c"
   }
 }

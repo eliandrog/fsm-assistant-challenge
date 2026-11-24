@@ -10,11 +10,10 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
-          "explanation": "Flags online transactions with an amount over $2,000.",
+          "explanation": "Flags online transactions whose amount is over $2,000.",
           "assumptions": [
-            "'Over $2,000' means amount_usd_cents > 200000 (strictly greater than $2,000.00), as in the earlier query.",
-            "Amounts are in integer US cents, so $2,000 is 200000.",
-            "Negative amounts are not over $2,000 and are not flagged, so no special handling of the undocumented negative rows was added."
+            "'Over $2,000' means amount_usd_cents > 200000 (strictly greater than $2,000.00), with amounts in integer cents.",
+            "Negative amounts are not excluded, so they would not match this rule since they are below the threshold."
           ]
         }
       }
@@ -23,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4771,
-      "output_tokens": 252
+      "output_tokens": 220
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJSgKhSfTfwm1abtRd8",
-    "request_hash": "eb23b3d902d0e5e0d5712813221003c19d1cc1ffc2214943b238241b3a5fecbd"
+    "response_id": "msg_011ChNZkUkBaGEQmiTxT64YM",
+    "request_hash": "415fa2ff5185b032b583eb8d217d56101ba55f44ea1779a411f3d7ac25cb8fc8"
   }
 }

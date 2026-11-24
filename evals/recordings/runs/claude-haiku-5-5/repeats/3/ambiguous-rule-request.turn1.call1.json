@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-rule-request",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "Which transactions should the rule catch? It needs a concrete condition before I can propose and measure it.",
+          "suggestions": [
+            "Transactions above a certain amount, for example over $1,000",
+            "Online transactions, or a specific transaction type such as Online Transaction",
+            "Transactions on a card with several transactions within 5 minutes of the previous one (velocity)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 332
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb7zivtt6j6FX2N5kC3",
+    "request_hash": "75f82e23431bf35e7e180e79b152b981a7c02bf97da368e0f503ef2b5a7e6c60"
+  }
+}

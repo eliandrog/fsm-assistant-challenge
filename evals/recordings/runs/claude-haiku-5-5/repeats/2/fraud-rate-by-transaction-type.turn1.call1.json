@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-transaction-type",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT t.transaction_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.transaction_type IN ('Chip Transaction', 'Online Transaction', 'Swipe Transaction') GROUP BY t.transaction_type ORDER BY t.transaction_type",
+          "explanation": "Computes the fraud rate separately for chip, online and swipe transactions, using only labelled transactions.",
+          "assumptions": [
+            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions are excluded rather than treated as legitimate.",
+            "Each of the three transaction types is reported separately, with the labelled count and fraud count alongside the rate."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 407
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaaJ2MB7Xf9APCsLXh8",
+    "request_hash": "3c0292fe103e8006c70a5597e22d2dec1680e2e2759208a349be2cb6379b2bac"
+  }
+}

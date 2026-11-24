@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-date-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT MIN(date) AS earliest_transaction, MAX(date) AS latest_transaction FROM transactions",
+          "explanation": "Returns the earliest and latest transaction timestamps across all transactions in the database.",
+          "assumptions": [
+            "No filters applied; the range covers all transactions, labelled or not."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 180
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNawJ2fn7rYtMYpGpG4Y",
+    "request_hash": "0cd9f741d94486ef6a1608655b7688a281b0700307dfdcabe1281abc4dc74b6f"
+  }
+}

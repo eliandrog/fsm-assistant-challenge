@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "edges-explicit-percentage",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.transaction_type = 'Swipe Transaction'",
+          "explanation": "Returns the fraud rate among labelled swipe transactions, as a fraction between 0 and 1.",
+          "assumptions": [
+            "Swipe transactions are those with transaction_type = 'Swipe Transaction'.",
+            "Only labelled transactions are counted; unlabelled ones are excluded, not treated as legitimate.",
+            "The result is returned as a fraction (0 to 1), not multiplied by 100, per the database's fraud-rate convention. Multiply by 100 to read it as a percentage."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 603
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa19CMt8DtyQjJR5Zbo",
+    "request_hash": "6c8171de9e778e7aee688287042f68ef4bf3826790c91e65c70f39c649804332"
+  }
+}

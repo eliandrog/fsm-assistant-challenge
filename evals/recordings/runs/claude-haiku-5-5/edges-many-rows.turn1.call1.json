@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "edges-many-rows",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT id, date, errors FROM transactions WHERE errors IS NOT NULL ORDER BY id",
+          "explanation": "Lists the id, date and error for every transaction that has a recorded error, ordered by id.",
+          "assumptions": [
+            "A transaction 'had an error' when transactions.errors is not NULL.",
+            "No date range filter applied, so all transactions in the data (2019-01-01 to 2019-10-31) are included."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4623,
+      "output_tokens": 289
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNZzXw4Y3apngu7gzp8Z",
+    "request_hash": "ea3251fc12382661115d877eb964e535db7747b7e7989596c654c10c57d4f234"
+  }
+}

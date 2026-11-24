@@ -10,9 +10,10 @@
         "name": "run_sql",
         "arguments": {
           "sql": "SELECT name, sql FROM sqlite_master",
-          "explanation": "Lists every object in the database schema with its name and the SQL that created it, as you asked.",
+          "explanation": "Lists every object name in the database and its CREATE statement from sqlite_master, as you asked.",
           "assumptions": [
-            "Read sqlite_master as the schema catalog for this database; the query is a read-only SELECT."
+            "Ran the query exactly as written, with no filter or ordering, so the rows come back in SQLite's default order.",
+            "sqlite_master also includes indexes and other internal objects, not only the tables described in the schema."
           ]
         }
       }
@@ -21,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4629,
-      "output_tokens": 463
+      "output_tokens": 578
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJW8aLGUCLognWFVSvc",
-    "request_hash": "e60e2e696341ff367f9f8170e63c0994a760ba316bfbfc2304ae8025ba005deb"
+    "response_id": "msg_011ChNZp7we35XmYPfa7JtWd",
+    "request_hash": "b9f69beccd2dd78cdee466b9359b49bdc68358dbf7bc20f41f25c2de818cf120"
   }
 }

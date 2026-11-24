@@ -10,10 +10,10 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "errors IN ('Bad CVV', 'Bad Expiration')",
-          "explanation": "Flags transactions whose recorded error is either a bad CVV or a bad expiration date.",
+          "explanation": "Flags every transaction whose recorded error is either a bad CVV or a bad expiration date. Transactions with no error, or with any other error, are not flagged.",
           "assumptions": [
-            "Read 'bad expiration date error' as the error value 'Bad Expiration' in transactions.errors.",
-            "Transactions with other errors, or no error (NULL), are not flagged."
+            "Matches the error values exactly as written: 'Bad CVV' and 'Bad Expiration'.",
+            "A transaction is flagged if its errors field equals either value; no other error types are included."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4628,
-      "output_tokens": 207
+      "output_tokens": 343
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJXxX9uDHzb8Jr8eoee",
-    "request_hash": "676f8813099c33cb264170437349a75eb1d50dc34deab1b22eb78e7dce1dddf9"
+    "response_id": "msg_011ChNZrV1ECN8fhBmnBSfmt",
+    "request_hash": "723f122740cff66dd310fbbd568e512558cdd2577bc49498ff956cadb5548466"
   }
 }

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-recent",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "How far back should \"recent\" reach, and what about the transactions do you want to see?",
+          "suggestions": [
+            "Last 7 days of data (25 to 31 October 2019), a count and total amount by transaction type",
+            "October 2019 overall, broken down by merchant category with transaction counts and fraud rate on labelled rows",
+            "The 20 most recent transactions with amount, type, merchant and any error code"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4615,
+      "output_tokens": 319
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNahp7HnEbXyz6c2fZQY",
+    "request_hash": "9508736d09deeb3172b6d0534a1a2d130f75d4d4c36657bb6146684f5bb334c5"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "case_id": "scan-hotspots-casual",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "profile_fraud",
+        "arguments": {}
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 27
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaqfWpsTKXwaK5GNHZZ",
+    "request_hash": "b4e090572f48d3405a1b13f0342ee1b8507181ff09800ee1a500a227160b0bca"
+  }
+}

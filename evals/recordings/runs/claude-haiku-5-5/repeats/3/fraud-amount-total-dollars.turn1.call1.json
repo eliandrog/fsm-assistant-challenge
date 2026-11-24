@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-amount-total-dollars",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_dollars FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+          "explanation": "Sums the amounts of all transactions labelled as fraud and converts the total from cents to dollars.",
+          "assumptions": [
+            "Only transactions with a fraud label of is_fraud = 1 are counted; unlabelled transactions are excluded.",
+            "Amounts are summed as recorded, including any negative amounts, which are not treated as refunds."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 344
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb1TyLPhWT17DPWQPe6",
+    "request_hash": "00141a67c8a030c7ff4ac30f12f0c815046c44539320e361d58607782ef9f05e"
+  }
+}

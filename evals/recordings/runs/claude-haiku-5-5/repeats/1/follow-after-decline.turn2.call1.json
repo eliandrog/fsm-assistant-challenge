@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-after-decline",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I don't have the earlier message, so I'm not sure what \"them\" refers to. Which group should I count?",
+          "suggestions": [
+            "Transactions with a negative amount (about 56,900 rows)",
+            "Transactions with an error code recorded in the errors column",
+            "Transactions with no fraud label (the 67% unlabelled set)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 389
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaHSvf4XKVj4paDngwt",
+    "request_hash": "fd9474d7271620ff5f72d2c2779b69d3bfa00a464a908fe3427d32df68172c24"
+  }
+}

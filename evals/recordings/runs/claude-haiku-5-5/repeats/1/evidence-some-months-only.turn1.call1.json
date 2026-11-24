@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-some-months-only",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents > 50000 AND date >= '2019-06-01' AND date < '2019-09-01'",
+          "explanation": "Flags transactions over $500 that were made in June, July or August 2019.",
+          "assumptions": [
+            "'Over $500' means strictly greater than $500, i.e. amount_usd_cents > 50000.",
+            "June, July and August 2019 are read as 2019-06-01 up to but not including 2019-09-01, since the data covers 2019-01-01 to 2019-10-31.",
+            "Amounts are compared as stored; negative amounts never exceed $500, so they are not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4631,
+      "output_tokens": 389
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaP12LwX3WGf7Rx2ED5",
+    "request_hash": "286c4ae346b711f48bb77bb18042ecdd06f691e0fd4612c21e1f285cc5beb452"
+  }
+}

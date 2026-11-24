@@ -10,9 +10,10 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
-          "explanation": "Flags every transaction made on a card whose type is prepaid debit, so any purchase paid with a prepaid debit card is caught.",
+          "explanation": "Flags every transaction made on a prepaid debit card. It does not flag ordinary debit or credit cards.",
           "assumptions": [
-            "'Prepaid debit card' is read as card_type = 'Debit (Prepaid)'. Plain 'Debit' and 'Credit' cards are not included."
+            "'Prepaid debit card' is taken to mean card_type = 'Debit (Prepaid)'. Plain 'Debit' cards and Credit cards are not flagged.",
+            "No amount, date, channel or error condition is added, so the rule flags all prepaid debit transactions regardless of size."
           ]
         }
       }
@@ -21,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4627,
-      "output_tokens": 447
+      "output_tokens": 454
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJbCGygGZPnZMjTpWjo",
-    "request_hash": "d1ae0410cbfeb3c8096171f234fd18356cdf41a007018e65523d5a98fcfe18da"
+    "response_id": "msg_011ChNZy3Kq38xmuwa5V9vxd",
+    "request_hash": "5d46571aceed7b63a1e932417f4cd12fbb20ced4012a621590d3ea764eb1ac19"
   }
 }

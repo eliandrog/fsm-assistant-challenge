@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "trap-unlabelled-count",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS unlabelled_transactions FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.transaction_id IS NULL",
+          "explanation": "Counts transactions that have no matching row in fraud_labels, using a left join on the label key.",
+          "assumptions": [
+            "'No fraud label at all' means no row exists in fraud_labels for the transaction; a label of 0 counts as labelled, not unlabelled."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4618,
+      "output_tokens": 253
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaFWRgddc15wZvCNhvN",
+    "request_hash": "e0a4ef660bc9c60bf1371402b2321cbb6c490fc3f7980736883e968afaaa722c"
+  }
+}

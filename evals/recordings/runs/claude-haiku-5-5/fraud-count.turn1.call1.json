@@ -9,10 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT SUM(f.is_fraud) AS fraud_transactions FROM fraud_labels f WHERE f.is_fraud = 1",
-          "explanation": "Counts the labelled transactions marked as fraud (is_fraud = 1) in the fraud labels table.",
+          "sql": "SELECT (SELECT COUNT(*) FROM fraud_labels WHERE is_fraud = 1) AS fraud_labels_total, (SELECT COUNT(*) FROM fraud_labels f JOIN transactions t ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1) AS fraud_labelled_transactions",
+          "explanation": "Counts the fraud-labelled records, both across all labels and restricted to those that match a transaction.",
           "assumptions": [
-            "Counted over the fraud_labels table; every label row is a labelled transaction, and the count covers all dates in the data (2019-01-01 to 2019-10-31)."
+            "A transaction is 'labelled as fraud' when its fraud_labels row has is_fraud = 1.",
+            "No date range applied; the count covers the full data period 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -21,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4618,
-      "output_tokens": 231
+      "output_tokens": 519
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJHyczXFtPeppe9N8qW",
-    "request_hash": "8bd605c72f40cd328c66f052b00276e5a54f390a5ae17854d65ffa55d396c54c"
+    "response_id": "msg_011ChNZbXxu8KERrDDgS36MY",
+    "request_hash": "4e6466ea17f3bd9723cec5e80ff3cc0164754933f03bd88575beacae9c7a3abb"
   }
 }

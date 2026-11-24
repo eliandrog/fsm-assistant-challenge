@@ -10,10 +10,10 @@
         "name": "run_sql",
         "arguments": {
           "sql": "SELECT m.id AS merchant_id, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id GROUP BY m.id ORDER BY transaction_count DESC, m.id ASC LIMIT 5",
-          "explanation": "Counts all transactions per merchant id and returns the five merchants with the most, highest first.",
+          "explanation": "Counts all transactions per merchant and returns the five merchants with the highest counts, highest first, with ties broken by merchant id.",
           "assumptions": [
-            "All transactions are counted, labelled or not, including those with negative amounts and those with errors.",
-            "Ties in count are broken by lower merchant id."
+            "All transactions are counted, including those without a fraud label and those with negative amounts.",
+            "Ties in transaction count are ordered by merchant id ascending."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4636,
-      "output_tokens": 261
+      "output_tokens": 276
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJN32zZwkjTJCZYSwAJ",
-    "request_hash": "55ca5ab5683fb514eabece8a7537ebc5baab07ec74dbda2d3a3a70b5cdb04790"
+    "response_id": "msg_011ChNZfo8af7n7rXHgXLPc4",
+    "request_hash": "3c24a4591f052bfbcb4ba879a249cb909694937be4008a439dc30427dca97d7c"
   }
 }

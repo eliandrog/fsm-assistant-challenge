@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "trap-zip-leading-zero",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT printf('%05d', ml.zip) AS zip_code, COUNT(*) AS txn_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'MA' AND ml.zip IS NOT NULL GROUP BY ml.zip ORDER BY txn_count DESC, ml.zip ASC LIMIT 1",
+          "explanation": "Counts all transactions by ZIP code for Massachusetts merchant locations and returns the ZIP with the highest count, formatted as a five-digit text value.",
+          "assumptions": [
+            "Location is the transaction's merchant location (merchant_location_id), with state = 'MA'.",
+            "Counts all transactions regardless of fraud label, since the question asks for total transactions.",
+            "Locations with NULL ZIP are excluded.",
+            "ZIP is stored as an integer, so it is zero-padded to five digits as text (leading zeros restored)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4643,
+      "output_tokens": 582
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNafPsy2t4bbPeQGLPLY",
+    "request_hash": "89482e65e43f292a19cac29418d5ea837e873c5f3acf7ef0c16b6f73721a3d4c"
+  }
+}

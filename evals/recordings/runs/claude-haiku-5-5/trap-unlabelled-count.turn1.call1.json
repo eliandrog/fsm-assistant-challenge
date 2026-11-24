@@ -9,11 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT COUNT(*) AS unlabelled_transactions FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.transaction_id IS NULL",
-          "explanation": "Counts transactions that have no matching row in fraud_labels, out of all transactions.",
+          "sql": "SELECT COUNT(*) AS unlabelled_transactions FROM transactions t WHERE NOT EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))",
+          "explanation": "Counts transactions that have no matching row in fraud_labels, across the full 2019-01-01 to 2019-10-31 range.",
           "assumptions": [
-            "'No fraud label at all' means no row in fraud_labels for that transaction id, regardless of is_fraud value.",
-            "Counted across the full transactions table, 2019-01-01 to 2019-10-31."
+            "'No fraud label at all' means no row exists in fraud_labels for the transaction, regardless of is_fraud value.",
+            "No date filter applied; covers the whole data range 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4618,
-      "output_tokens": 271
+      "output_tokens": 291
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJRGxj8LLQrCPzFpWha",
-    "request_hash": "b86efec7d15dfa61fc9fd88ab08bdfae7fe56c94f7b1c21b46fc9fec9a6853a8"
+    "response_id": "msg_011ChNZj8vYG6fnSdGFixq3i",
+    "request_hash": "e0a4ef660bc9c60bf1371402b2321cbb6c490fc3f7980736883e968afaaa722c"
   }
 }

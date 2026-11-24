@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "follow-turn-into-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS online_over_2000_count FROM transactions WHERE transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
+          "explanation": "Counts all online transactions whose amount is above $2,000, whether or not they carry a fraud label.",
+          "assumptions": [
+            "'Online transactions' means transaction_type = 'Online Transaction'.",
+            "'Over $2,000' means amount_usd_cents > 200000, strictly greater than $2,000.",
+            "Counts every transaction in the table, including those with no fraud label, since the question asks for a count and not a fraud rate.",
+            "Covers the full data range 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 433
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaguHKLZBarFY4hFhgV",
+    "request_hash": "3012d04e5f309ddd0c59c9afa377ea174623ca19e16d1f87d4b01e989c9e8a4b"
+  }
+}

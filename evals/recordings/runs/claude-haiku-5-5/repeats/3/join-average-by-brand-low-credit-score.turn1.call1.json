@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "join-average-by-brand-low-credit-score",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.card_brand, AVG(t.amount_usd_cents) / 100.0 AS avg_amount_usd, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON c.user_id = u.id WHERE u.credit_score < 600 GROUP BY c.card_brand ORDER BY c.card_brand",
+          "explanation": "Returns the average transaction amount in dollars for each card brand, limited to cardholders whose credit score is below 600, with the number of transactions behind each average.",
+          "assumptions": [
+            "Includes all transactions, labelled or not, since the question does not mention fraud labels.",
+            "Includes negative amounts as recorded (their meaning is undocumented), so they lower the averages.",
+            "Card brand comes from the card used for each transaction; the user's credit score comes from the cardholder's user record.",
+            "Users with a NULL credit score are excluded because they are not below 600."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4634,
+      "output_tokens": 723
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaxk5s2aW8RPLRxvvbo",
+    "request_hash": "f417a73cb03e811b84031bf3c4c7ee682593dff85e3314f818c43e4e92d7666a"
+  }
+}

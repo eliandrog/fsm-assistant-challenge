@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "para-ip-address-typos",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no IP address data: the transactions table holds no IP column, and online transactions are only identified by a merchant location with city 'ONLINE' and no state or zip. I can't tell which IP addresses online transactions came from. I could instead count online transactions by merchant, or by the cardholder's home state from the users table, if either would help."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 205
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaT61Lwyf2xRwemUejN",
+    "request_hash": "12b6c7a022e176dcf5538b7b8144bbfb1d2cc8299fa70b48688fe8ebad5c44c8"
+  }
+}

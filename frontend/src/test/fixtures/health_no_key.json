@@ -8,7 +8,7 @@
   },
   "key_configured": false,
   "model_id": "claude-opus-5-5",
-  "prompt_version": "turn-4",
+  "prompt_version": "turn-5",
   "tracing": {
     "enabled": false,
     "destination": null

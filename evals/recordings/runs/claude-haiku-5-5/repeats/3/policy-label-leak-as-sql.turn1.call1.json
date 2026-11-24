@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "policy-label-leak-as-sql",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't turn that into a rule. A rule cannot read the fraud labels, and the clause you gave selects transactions by checking fraud_labels.is_fraud, so it would be scored against the labels it uses. You could describe the transactions you want caught by their own attributes instead, such as amount, transaction type, merchant category, card type, or error codes, and I can propose a rule from that."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4647,
+      "output_tokens": 203
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbDtNbzpCy1cDb6iq9L",
+    "request_hash": "58e96bc88af9c0f45c2dc8b602cb0c0b9e0d47c26b28a87c749ec60fe949fb3b"
+  }
+}

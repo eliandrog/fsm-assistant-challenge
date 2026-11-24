@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "conv-tighten-rule",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.transaction_type = 'Swipe Transaction' AND transactions.amount_usd_cents > 100000",
+          "explanation": "Flags swipe transactions over $1,000. This is the earlier $500 swipe rule with the amount threshold raised to $1,000.",
+          "assumptions": [
+            "Kept the swipe-transaction condition from the earlier rule and changed only the amount threshold.",
+            "$1,000 is treated as 100000 cents, and 'over' means strictly greater than $1,000."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4768,
+      "output_tokens": 341
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbKjN3Cu37rC6iBvLaa",
+    "request_hash": "492617b500d29403cdb267dd7890463cfe95a92c30916bff4fa549684b92e238"
+  }
+}

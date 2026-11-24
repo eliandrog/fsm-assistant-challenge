@@ -9,11 +9,11 @@
       {
         "name": "ask_clarification",
         "arguments": {
-          "question": "\"High value\" isn't defined in this data. Which threshold did you mean?",
+          "question": "\"High value\" is not defined in the data. Which threshold do you mean?",
           "suggestions": [
-            "Transactions of $1,000 or more",
-            "Transactions in the top 1% by amount",
-            "Transactions above a dollar amount you specify (for example $500)"
+            "Amount of $1,000 or more per transaction",
+            "Amount of $500 or more per transaction",
+            "Top 1% of transactions by amount"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4614,
-      "output_tokens": 171
+      "output_tokens": 163
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJSyFg8o7Ma7yC4xGwX",
-    "request_hash": "28c329b03d5a82163e14c5f503aff7a3803064f7f5a992d03314ca4802a1dfcf"
+    "response_id": "msg_011ChNZkwrqEnfrohLYHFBYd",
+    "request_hash": "68bb10a6b0056c8c8f6f4cc10d0684dd0b6ed88509a5768ef4d4fb5ec1886004"
   }
 }

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-negative-amounts-in-average",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_amount_usd FROM transactions WHERE amount_usd_cents > 0",
+          "explanation": "Returns the average amount in dollars across all transactions whose amount is strictly positive.",
+          "assumptions": [
+            "Positive means amount_usd_cents > 0; zero and negative amounts are excluded.",
+            "All transactions are included, labelled or not, since the question does not mention fraud labels.",
+            "Amount is converted from cents to dollars by dividing by 100.0."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 381
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb4KoXxN1kEVDVRuUKc",
+    "request_hash": "ed43e5d11e6f425d1d405118c23a9d5f043ade0b50cb812aa76acab781270268"
+  }
+}

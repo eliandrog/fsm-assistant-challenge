@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-card-type",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.card_type AS card_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_type ORDER BY c.card_type",
+          "explanation": "Computes the fraud rate for each card type over labelled transactions, with the counts behind each rate.",
+          "assumptions": [
+            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions are excluded.",
+            "Card type is taken from the card used on each transaction, with all three values ('Credit', 'Debit', 'Debit (Prepaid)') shown separately."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 388
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa9bCkjE1hE4LDJwhii",
+    "request_hash": "279ea44fe1f8e3ee0d10cb07a67c8415278780f45877cfd29224bc02ed7e25e4"
+  }
+}

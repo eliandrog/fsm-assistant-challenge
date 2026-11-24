@@ -9,13 +9,12 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT ROUND(SUM(t.amount_usd_cents) / 100.0, 2) AS total_amount_usd, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.credit_limit_usd_cents > 2000000",
-          "explanation": "Sums the amount in dollars of all transactions on cards whose credit limit is above $20,000, and gives the transaction count alongside it.",
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_amount_usd FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.credit_limit_usd_cents > 2000000",
+          "explanation": "Sums the transaction amounts, in dollars, for all transactions on cards whose credit limit is above $20,000.",
           "assumptions": [
-            "'Above $20,000' is a credit limit strictly greater than 2,000,000 cents.",
-            "All transactions are included, whether labelled or not, since the question names no fraud filter.",
-            "Negative amounts (56,900 rows in the data) are included as recorded in the sum; they are not treated as refunds or excluded.",
-            "The full period 2019-01-01 to 2019-10-31 is covered, since no date range was given."
+            "Credit limit above $20,000 means credit_limit_usd_cents > 2000000 (20,000 dollars in cents).",
+            "The total includes all transactions regardless of label status, and includes negative amounts as recorded.",
+            "No date filter is applied, so the total covers the full data range 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -24,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4632,
-      "output_tokens": 480
+      "output_tokens": 318
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJHNqiybgdPCQezRxo5",
-    "request_hash": "8286eb70878ad08e56737e02fa4e914453b7245c8df24074f2320102cd778ab9"
+    "response_id": "msg_011ChNZazUZoMiESwXu6D4zG",
+    "request_hash": "cb2a0b08a37235f75e0a4defd220c0554f1825a676d893b78e9d00b7a8e5748f"
   }
 }

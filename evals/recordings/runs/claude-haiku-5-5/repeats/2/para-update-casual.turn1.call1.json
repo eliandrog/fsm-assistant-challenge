@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "para-update-casual",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't change data here. The database is read-only, so I can't zero out the amount on transaction 22326462. I can look up that transaction's details, such as its amount, date, merchant and error code, so you can check it before raising the correction with whoever maintains the ledger."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 148
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNasD8NxMGqVekC1WUiB",
+    "request_hash": "52e9a7dbbe8e6e892196c67e93178de29452fb28cc9bf6096732d7f292b9b037"
+  }
+}

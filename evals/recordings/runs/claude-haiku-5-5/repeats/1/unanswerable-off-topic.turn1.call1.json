@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-off-topic",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can only answer questions about the transaction database, such as fraud rates, patterns, or rules built from transaction data. A poem about chargebacks is outside that scope. I can instead look at chargeback-related data if the database holds it, or show where fraud concentrates by merchant category or card type."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 135
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaJc3NE25aWLotufuxc",
+    "request_hash": "20e0cef23d28f4cf389a149d31fc6beb03eae03b8be91dcbca587421a2c31ec2"
+  }
+}

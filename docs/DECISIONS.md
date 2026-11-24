@@ -36,6 +36,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-29 | The fraud scan: chosen by the model, computed by code | Accepted |
 | D-30 | Evaluation hardening: exact counts, write attempts reported by the guard, run identity, repeats and rescoring | Accepted; refines D-25 |
 | D-31 | Two interfaces over one result: the terminal, and a local web chat over an HTTP API | Accepted |
+| D-32 | Prompt version `turn-5`, and the recorded runs of the suite as it is now | Accepted; refines D-25, D-29 and D-30 |
 
 ## Template
 
@@ -569,7 +570,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-22: The prompt: one system text, a fixed glossary, and a repair paragraph
 
-**Status:** Accepted. Builds the prompt side of D-16. Refined by D-26 (two glossary lines added after the first recorded evaluation run; `PROMPT_VERSION` is now `turn-4`).
+**Status:** Accepted. Builds the prompt side of D-16. Refined by D-26 (two glossary lines added after the first recorded evaluation run; `PROMPT_VERSION` became `turn-4`). Refined by D-32 (`PROMPT_VERSION` is now `turn-5`; the system text is unchanged).
 
 **Context:** The model had the tools (D-21) and no instructions beyond their descriptions. The exploratory checks and the recorded `check-model` replies showed where a model goes wrong on this data without being told: a fraud rate returned as a rounded percentage, "debit card" read two ways by two models, "last month" read against today, a day range written with `BETWEEN`, a rule clause that uses a column of another table, and a threshold invented for "risky".
 
@@ -712,7 +713,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-25: The evaluation suite: results compared with pinned references, recorded runs replayed through the real code
 
-**Status:** Accepted. Refined by D-29 (the scan tier has six cases; a case a recorded run skipped is reported as not recorded once it can run). Refined by D-30.
+**Status:** Accepted. Refined by D-29 (the scan tier has six cases; a case a recorded run skipped is reported as not recorded once it can run). Refined by D-30. Refined by D-32 (a third run, of all 146 cases, and a repeated run of the held-out cases are recorded; the second run's report and `run.json` are kept under `evals/results/history/`).
 
 **Context:** The brief asks for an initial evaluation suite and for a way to show a stakeholder that the tool is effective and safe. The turn (D-23) and its result (D-24) are built. A live model call costs money, cannot be reproduced from a seed, and a reviewer may have no key.
 
@@ -885,7 +886,7 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 
 ## D-29: The fraud scan: chosen by the model, computed by code
 
-**Status:** Accepted. Builds the scan side of D-16. Refines D-23, D-24, D-25 and D-27.
+**Status:** Accepted. Builds the scan side of D-16. Refines D-23, D-24, D-25 and D-27. Refined by D-32 (the text a follow-up to a scan is given, added here without a new prompt version, is named by `turn-5`; the six scan cases have a recorded run).
 
 **Context:** Every other action needs the analyst to arrive with a question. The brief asks how the tool can help an FSM "explore the data and uncover suspicious patterns", and the first question of an exploration is "where is the fraud?". D-16 gave that question a tool, `profile_fraud`, with no arguments, and D-23 routed it to "not available yet". Three facts about the data shape what a useful answer is. Fraud is rare: 1,360 of 777,339 labelled transactions. All of it is at merchant locations in one city, Rome, Italy, so anything more common there (chip transactions, some merchant categories, some hours, a PIN error) has a raised fraud rate without being a signal of its own. And among 9,417 segments, small ones with a handful of frauds have the most dramatic rates.
 
@@ -934,7 +935,7 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 
 ## D-30: Evaluation hardening: exact counts, write attempts reported by the guard, run identity, repeats and rescoring
 
-**Status:** Accepted. Refines D-25.
+**Status:** Accepted. Refines D-25. Refined by D-32 (the run of the suite as it is now and the repeated run this entry calls for are recorded).
 
 **Context:** An independent review of the suite reproduced every reported figure and found no wrong reference. It also found places where a wrong or unsafe turn could have passed. None of them fired in the two recorded runs, so no reported count was wrong because of them; each could have let a later failure through. The review also asked what a record says about how it was made, and how "a sample, not a rate" would ever get data.
 
@@ -1017,3 +1018,32 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 - **Not built:** authentication, conversations kept on the server, streaming, charts, and accept or reject on a rule card (still an open point).
 - **How far it has been checked.** By tests with scripted model replies, and over HTTP in the offline demo. Its page has been reviewed in a real browser in the offline demo, 1400px wide, in the dark theme: the start screen, the scan answer with its table, notes, caveats and suggestion chips, and the rule card with the month table and the weakest month highlighted. A width problem in the scan table was found there and fixed. It has also been run live through the browser on `claude-haiku-5-5`, with the server started by `fsm-assistant serve` and hosted tracing on: six turns in two conversations, each answered with one model request. They were a three-table query ("What is the fraud rate by card type?", asked in both conversations with the same result), a clarification, a declined delete, the scan chosen for "Where is fraud concentrated?", and a rule proposed by clicking the scan's first suggestion chip, shown with its backtest and month table; the turns and what the page showed for each are listed in [`ARCHITECTURE.md`](ARCHITECTURE.md#a-live-run-of-the-web-chat). That is a handful of questions asked once on one model, by us, in one browser 1400px wide in the dark theme: it is not an evaluation and says nothing about other questions. `claude-opus-5-5` has not been run through the web chat, and narrow or mobile layouts and the light theme have not been reviewed in a browser.
 - **The interface adds a second toolchain.** Node and npm are needed to build or change the page, though not to run the terminal commands, the tests or the evaluation.
+
+## D-32: Prompt version `turn-5`, and the recorded runs of the suite as it is now
+
+**Status:** Accepted. Refines D-25, D-29 and D-30.
+
+**Context:** D-30 ended with "the next recorded run is what counts": the two recorded runs predated the corrected scorers, the rule evidence by month and the scan, and 29 of the 146 cases had no recording. One more thing stood in the way of recording. D-29 added prompt text, the paragraph a turn after a scan is given, and left `PROMPT_VERSION` at `turn-4`, because the system text, the tools and every request the recorded runs had made were unchanged and the recordings stayed valid. That was true of the recordings. It also meant that a run recorded with the scan cases would carry the label of a run made before that text existed, against the convention that a change to the prompt text takes a new version.
+
+**Decision:**
+
+- **`PROMPT_VERSION` becomes `turn-5`.** It names the system text and the tool descriptions of `turn-4`, unchanged, together with the scan follow-up text of D-29. That the system text had not changed was checked before raising the number: the `turn-4` replies, each stored with a hash of its request, still replayed against the code. The tool descriptions and schemas are not touched, so the `check-model` recordings stay valid.
+- **The `turn-4` run is kept as history.** Its report and `run.json` are in `evals/results/history/turn-4-claude-haiku-5-5/`, as the first run's are, unchanged and not rescored. Its replies were replaced by the new run's, since a record holds the replies of one prompt version.
+- **Two runs were recorded on `claude-haiku-5-5`**, with nothing in the prompt, the cases or the scorers changed for them or because of them:
+  - all 146 cases, asked once: 144 passed and 2 failed, `fraud-label-coverage-share` (`value_mismatch`: the two counts returned before the fraction) and `follow-after-decline` (the marked known limitation);
+  - the 119 held-out cases, three times each: 117 passed all three repetitions, `date-month-over-month` passed one of three (`value_mismatch`: the previous month looked up after January had been filtered out), and `follow-after-decline` passed none.
+- **The failing cases are reported, not fixed.** No prompt line was written for them and no case option or scorer was loosened.
+
+**Alternatives rejected:**
+
+- Recording under `turn-4`: the record would then claim a prompt version that predates text some of its turns were sent.
+- Rebuilding the `turn-4` record with `eval --rescore` and adding the 29 missing cases to it with a filtered run: the cheapest route, and one that leaves a record made of two runs under one label, with the same question about the scan text.
+- Letting `fraud-label-coverage-share` accept extra columns in any position: the figure was right, and the case could be argued either way. Changing it after seeing it fail is the adjustment D-26 already had to account for, and one asking in four is not a reason.
+
+**Consequences:**
+
+- The figures to report are those of the two `turn-5` runs, as counts per tier with tuned and held-out apart (`evals/README.md`, "The suite as it is now"). They are one model's, and `claude-opus-5-5` has still not been run on the suite.
+- The earlier totals (109 of 117, 116 of 117) are not comparable with 144 of 146: the suite has 29 more cases in the run and stricter scorers. Of the 117 cases the `turn-4` run also asked, 116 ended the same way and one went from pass to fail.
+- The repetitions showed what one run hides. `date-month-over-month` passed in the full run and failed in two repetitions of three; `fraud-label-coverage-share` failed in the full run and passed in all three. A held-out case has now been asked four times, a tuned case once.
+- A replay of the record exits 0: all 146 cases have a recording and score as recorded. The same holds for each of the three repetitions.
+- The `turn-4` run can no longer be replayed. What remains of it is its report and its `run.json`, which keeps the SQL and the clause each turn ran.

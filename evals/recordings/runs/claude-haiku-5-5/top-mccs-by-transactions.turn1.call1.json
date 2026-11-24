@@ -9,10 +9,10 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT m.mcc AS mcc_code, c.description, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description ORDER BY transaction_count DESC, m.mcc ASC LIMIT 3",
-          "explanation": "Counts all transactions per merchant category code, using the merchant's MCC and its description, and returns the top three by count with the highest first.",
+          "sql": "SELECT m.mcc AS mcc_code, c.description AS category, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description ORDER BY transaction_count DESC, m.mcc ASC LIMIT 3",
+          "explanation": "Counts all transactions by merchant category code and returns the three with the most, highest first, with their descriptions.",
           "assumptions": [
-            "Counts all transactions, labelled or not, since the question does not mention fraud labels.",
+            "Counts all transactions, labelled or not, since the question does not restrict to labelled rows.",
             "Ties in count are broken by lower MCC code first."
           ]
         }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4635,
-      "output_tokens": 312
+      "output_tokens": 309
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJNSpEC5t57qCisuwrS",
-    "request_hash": "863c4e4a9530a9b25730ad776feb8ec36a2d0d6576c0026676ad1778941e7281"
+    "response_id": "msg_011ChNZgDXn2z2HyH37hkbkV",
+    "request_hash": "cdef77611c233a39e31778b182071b0039f072b29fcc9be03cc2613cda6bf0ee"
   }
 }

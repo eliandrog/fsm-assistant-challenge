@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-chargebacks",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no chargeback data: none of the tables records chargebacks. The closest available measure is the fraud label (fraud_labels.is_fraud = 1), which marks transactions as fraud but is not a record of chargebacks received. I can instead show the number of fraud-labelled transactions per month for 2019, if that would help."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 217
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb8METnqVNRe5F1WuTe",
+    "request_hash": "4089b3ad6bc16408b77097192d4d519ab27ea10a6d9c98d814059be8beeeb9c4"
+  }
+}

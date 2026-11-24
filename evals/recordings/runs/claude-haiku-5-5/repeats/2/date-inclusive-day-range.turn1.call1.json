@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "date-inclusive-day-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-03-01' AND date < '2019-03-16'",
+          "explanation": "Counts all transactions dated from 1 March 2019 through 15 March 2019, inclusive.",
+          "assumptions": [
+            "Date range is 2019-03-01 00:00:00 up to but not including 2019-03-16, so both 1 and 15 March are included.",
+            "All transactions are counted, including those without a fraud label and those with negative amounts."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 247
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaboGX6EM1GwvYgmmYg",
+    "request_hash": "acd792df606767079c6542738df6d978882b6d5a1472678a76484b5e6cc6ae9b"
+  }
+}

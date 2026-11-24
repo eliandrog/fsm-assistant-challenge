@@ -9,14 +9,13 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT printf('%05d', ml.zip) AS zip_code, COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'MA' AND ml.zip IS NOT NULL GROUP BY ml.zip ORDER BY transaction_count DESC, ml.zip ASC LIMIT 1",
-          "explanation": "Finds the Massachusetts ZIP code with the most transactions, returned as a zero-padded five-digit text value.",
+          "sql": "SELECT printf('%05d', ml.zip) AS zip_code, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE ml.state = 'MA' AND ml.zip IS NOT NULL\nGROUP BY ml.zip\nORDER BY transaction_count DESC, ml.zip\nLIMIT 1",
+          "explanation": "Finds the Massachusetts ZIP code with the most transactions, counted over all transactions at MA merchant locations, and returns it as a zero-padded five-digit text value.",
           "assumptions": [
-            "Counts all transactions regardless of whether they have a fraud label.",
-            "Location is taken from transactions.merchant_location_id joined to merchant_locations, with state = 'MA'.",
+            "Counts all transactions, labelled or not, at merchant locations in state 'MA'.",
             "Transactions at locations with a NULL ZIP are excluded.",
-            "ZIP is stored as an integer, so it is zero-padded to five digits (e.g. 2139 becomes '02139').",
-            "Ties would go to the lower ZIP code."
+            "ZIP is stored as an integer, so it is zero-padded to five digits with printf('%05d') to restore leading zeros (e.g. 02139).",
+            "Ties, if any, are broken by the smaller ZIP code."
           ]
         }
       }
@@ -25,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4643,
-      "output_tokens": 585
+      "output_tokens": 771
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJQssfradCxnW7bDReV",
-    "request_hash": "cdc5b7a8a295a833bb44c0921e3de48d07b70411ab17f10b2aa89038abe2e6f7"
+    "response_id": "msg_011ChNZijKi7fEWA7tM2exfb",
+    "request_hash": "89482e65e43f292a19cac29418d5ea837e873c5f3acf7ef0c16b6f73721a3d4c"
   }
 }

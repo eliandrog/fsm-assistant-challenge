@@ -10,10 +10,11 @@
         "name": "run_sql",
         "arguments": {
           "sql": "SELECT 1.0 * SUM(CASE WHEN transaction_type = 'Online Transaction' THEN 1 ELSE 0 END) / COUNT(*) AS online_fraction FROM transactions",
-          "explanation": "Returns the share of all transactions whose type is Online Transaction, as a fraction between 0 and 1.",
+          "explanation": "Returns the share of all transactions whose transaction_type is 'Online Transaction', as a fraction between 0 and 1.",
           "assumptions": [
-            "'All transactions' means every row in the transactions table, including those without a fraud label (not restricted to labelled rows).",
-            "Transaction type is taken from transactions.transaction_type; 'Online Transaction' is the online category."
+            "'All transactions' means every row in the transactions table, including the roughly 33% with no fraud label, since this is not a fraud rate.",
+            "The fraction is returned as a value between 0 and 1, not as a percentage.",
+            "The full data period 2019-01-01 to 2019-10-31 is included."
           ]
         }
       }
@@ -22,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4619,
-      "output_tokens": 368
+      "output_tokens": 464
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJPMkew2vE8i9sKN6Hf",
-    "request_hash": "1541e2c4150cefca5884cb71de74d5397c98a703907a91f5516f0c417b6cc3f1"
+    "response_id": "msg_011ChNZhAC8K45T62kKyXdnK",
+    "request_hash": "7d63bc3ed60ec4d2051d53d8de9b301b8730845f49b6d6e1317c3f96bfceb608"
   }
 }

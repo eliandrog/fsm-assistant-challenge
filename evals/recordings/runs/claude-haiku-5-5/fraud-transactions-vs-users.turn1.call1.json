@@ -10,10 +10,10 @@
         "name": "run_sql",
         "arguments": {
           "sql": "SELECT COUNT(*) AS fraud_transactions, COUNT(DISTINCT c.user_id) AS distinct_users FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id WHERE f.is_fraud = 1",
-          "explanation": "Counts transactions labelled as fraud and the distinct users who made them, linking each transaction to its card's user.",
+          "explanation": "Counts transactions labelled as fraud and the distinct users who made them, going from transactions to cards to users.",
           "assumptions": [
-            "A transaction is labelled fraud when fraud_labels.is_fraud = 1; unlabelled transactions are excluded.",
-            "A user is the owner of the card used in the transaction (cards.user_id)."
+            "A fraud transaction is one with fraud_labels.is_fraud = 1; unlabelled transactions are excluded.",
+            "A user made a transaction when the transaction's card belongs to that user (cards.user_id)."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4626,
-      "output_tokens": 314
+      "output_tokens": 316
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJL89Gs7Z3PRMeiDqZc",
-    "request_hash": "92a4a3c8259f645003b0879c0ba1f1fb5fb1be2f22e0c6531ca6bfad8664620d"
+    "response_id": "msg_011ChNZdy3poosV8ingJLfeT",
+    "request_hash": "92e8c1ec79a4ed158badeaf4a783cf05cb183b9b7015025066280ce926238fce"
   }
 }

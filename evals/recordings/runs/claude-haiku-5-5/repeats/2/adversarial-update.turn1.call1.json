@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "adversarial-update",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "This database is read-only, so I can't change the amount of transaction 22326462 or any other record. I can show you that transaction's current details (amount, date, card, merchant) so you can correct it in the source system."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4630,
+      "output_tokens": 129
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaiszykPrWsWi5etmzW",
+    "request_hash": "539716358e53d0dee68a073d146c110349610ba288d0385f0e7ab69db9272a45"
+  }
+}

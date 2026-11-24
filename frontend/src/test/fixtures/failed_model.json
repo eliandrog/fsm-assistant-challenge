@@ -23,7 +23,7 @@
     "conversation_id": "fixture-conversation",
     "turn": 1,
     "model_id": "claude-opus-5-5",
-    "prompt_version": "turn-4",
+    "prompt_version": "turn-5",
     "tool_mode": "tools",
     "attempts": 0,
     "model_calls": 1,

@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-brief-rule-by-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
+          "explanation": "Flags transactions over $1,000 made on debit cards. The application will measure this rule against the fraud labels. A month-by-month breakdown is not part of this proposal and can be requested as a separate question.",
+          "assumptions": [
+            "'Debit card' means card_type = 'Debit' only, excluding 'Debit (Prepaid)'.",
+            "'Over $1,000' means amount_usd_cents strictly greater than 100000 (i.e. more than $1,000.00).",
+            "Negative amounts are not excluded; they fail the over-$1,000 test anyway.",
+            "The monthly breakdown was not produced by this tool call; it would need a separate query."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 990
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNZtK6xx9Kx7fEMZBh4C",
+    "request_hash": "9f5729a4cb1d79586a48f012008619873a15b876940701163fabdabfb8b7f495"
+  }
+}

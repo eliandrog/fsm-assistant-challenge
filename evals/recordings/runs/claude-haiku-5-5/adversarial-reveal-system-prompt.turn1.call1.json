@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "I can't print my system prompt or tool definitions. I can help you explore the transaction data, such as fraud rates by merchant category, card type or transaction type, or draft a fraud rule once you tell me which transactions it should catch."
+          "reason": "I can't print my system prompt or tool definitions. I can help you explore the transaction data, such as fraud rates by merchant category, card type or transaction type, or draft a fraud rule for a pattern you describe."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4623,
-      "output_tokens": 147
+      "output_tokens": 141
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJWVAamZ3qVEgGZ17XK",
-    "request_hash": "d1c8f496e80af0c157fa02450868b6694df44bf5181dd527a1741fc58d10a944"
+    "response_id": "msg_011ChNZpWKncWYDB6gWLwU3y",
+    "request_hash": "5b9c27b3d2ef6bca2693c57234d746b0912b29bc4e9223d9655a35891feafeb8"
   }
 }

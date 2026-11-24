@@ -11,9 +11,9 @@
         "arguments": {
           "question": "\"High value\" isn't defined in the data. Which threshold do you mean?",
           "suggestions": [
-            "Transactions of $1,000 or more",
-            "Transactions in the top 1% of amounts",
-            "Transactions above the 95th percentile for the card's own spending"
+            "Transactions of $1,000 or more (amount_usd_cents >= 100000)",
+            "Transactions in the top 1% by amount across all transactions",
+            "Transactions above the average amount for their card type or merchant category"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4612,
-      "output_tokens": 170
+      "output_tokens": 186
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJTkRX9bsKzuNu4qGxw",
-    "request_hash": "793910da14c5c621fe13615f92015af4453d6202340f24127a4e328b7ff14058"
+    "response_id": "msg_011ChNZmnSpT4y3LsgYn1SJ1",
+    "request_hash": "4382e6d7fca44fb66c77b525c1368ded7a8ee295d43402752863e0295e8e8f39"
   }
 }
