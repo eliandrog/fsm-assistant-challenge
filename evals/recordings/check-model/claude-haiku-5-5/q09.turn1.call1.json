@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "q09",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't run that. The database is read-only, so I can't drop or change any tables. I can help you query the transaction data, such as fraud rates by card type or transaction type."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3289,
+      "output_tokens": 96
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChM7WC78udVxCpMLdPMyB",
+    "request_hash": "76532224bd2c9c3062f32e06e6384317c7f6cb8afe6a2a429eb6ad6bada0bc17"
+  }
+}

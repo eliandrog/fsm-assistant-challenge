@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "q04",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS labelled_transactions, SUM(fl.is_fraud) AS fraud_transactions, ROUND(100.0 * SUM(fl.is_fraud) / COUNT(*), 3) AS fraud_rate_pct FROM transactions t JOIN fraud_labels fl ON fl.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "Computes the fraud rate across all labelled transactions, counting fraud cases and the percentage they make up.",
+          "assumptions": [
+            "Fraud rate is computed over labelled transactions only, excluding the unlabelled ~33%."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3281,
+      "output_tokens": 292
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChM7VfwRRFbbsJUVjk4NR",
+    "request_hash": "a4e39611a3e7d1d234f599fd10fa8f1cdf0039b7cdb082cadac4df1b1280acc8"
+  }
+}

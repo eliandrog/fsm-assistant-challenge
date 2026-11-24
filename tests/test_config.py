@@ -19,8 +19,6 @@ def test_defaults() -> None:
     settings = load()
     assert settings.db_path == config.PROJECT_ROOT / "data" / "data.db"
     assert settings.db_path.is_absolute()
-    assert settings.ollama_host == "http://localhost:11434"
-    assert settings.ollama_model is None
     assert settings.row_cap == config.DEFAULT_ROW_CAP
     assert settings.query_timeout_seconds == config.DEFAULT_QUERY_TIMEOUT_SECONDS
     assert settings.max_result_bytes == db.DEFAULT_MAX_RESULT_BYTES == 5_000_000
@@ -34,16 +32,12 @@ def test_environment_overrides() -> None:
     settings = load(
         {
             "FSM_DB_PATH": "/tmp/other.db",
-            "OLLAMA_HOST": "http://example:1234/",
-            "OLLAMA_MODEL": "qwen3:14b",
             "FSM_ROW_CAP": "50",
             "FSM_QUERY_TIMEOUT_SECONDS": "2.5",
             "FSM_MAX_RESULT_BYTES": "20000",
         }
     )
     assert settings.db_path == Path("/tmp/other.db")
-    assert settings.ollama_host == "http://example:1234"
-    assert settings.ollama_model == "qwen3:14b"
     assert settings.row_cap == 50
     assert settings.query_timeout_seconds == 2.5
     assert settings.max_result_bytes == 20_000
@@ -56,9 +50,9 @@ def test_relative_db_path_is_resolved_against_the_project_not_the_cwd(tmp_path: 
 
 
 def test_empty_values_count_as_unset() -> None:
-    settings = load({"FSM_DB_PATH": "", "OLLAMA_MODEL": "  ", "FSM_ROW_CAP": ""})
+    settings = load({"FSM_DB_PATH": "", "ANTHROPIC_MODEL": "  ", "FSM_ROW_CAP": ""})
     assert settings.db_path == config.DEFAULT_DB_PATH
-    assert settings.ollama_model is None
+    assert settings.anthropic_model == config.DEFAULT_ANTHROPIC_MODEL
     assert settings.row_cap == config.DEFAULT_ROW_CAP
 
 
@@ -81,7 +75,6 @@ def test_the_model_holds_the_rules_for_values_built_in_code() -> None:
         ("row_cap", 1.5),
         ("query_timeout_seconds", float("inf")),
         ("max_result_bytes", -1),
-        ("ollama_host", "localhost:11434"),
     ]:
         with pytest.raises(ValidationError, match=field):
             Settings.model_validate({**fields, field: value})
@@ -89,21 +82,11 @@ def test_the_model_holds_the_rules_for_values_built_in_code() -> None:
 
 def test_the_first_invalid_variable_in_field_order_is_the_one_named() -> None:
     with pytest.raises(ConfigError) as error:
-        load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many", "OLLAMA_HOST": "localhost"})
-    assert str(error.value) == "OLLAMA_HOST must start with http:// or https://, got 'localhost'"
-    with pytest.raises(ConfigError) as error:
         load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many"})
     assert str(error.value) == "FSM_ROW_CAP must be a number, got 'many'"
     with pytest.raises(ConfigError) as error:
         load({"FSM_MAX_RESULT_BYTES": "0"})
     assert str(error.value) == "FSM_MAX_RESULT_BYTES must be greater than zero, got '0'"
-
-
-def test_missing_model_fails_only_when_a_model_is_requested() -> None:
-    settings = load()  # loading without OLLAMA_MODEL is fine
-    with pytest.raises(ConfigError, match="OLLAMA_MODEL"):
-        settings.require_model()
-    assert load({"OLLAMA_MODEL": "qwen3:14b"}).require_model() == "qwen3:14b"
 
 
 def test_missing_db_file_is_not_an_error_at_load_time() -> None:
@@ -123,7 +106,6 @@ def test_missing_db_file_is_not_an_error_at_load_time() -> None:
         ("FSM_QUERY_TIMEOUT_SECONDS", "nan", "greater than zero"),
         ("FSM_MAX_RESULT_BYTES", "5MB", "must be a number"),
         ("FSM_MAX_RESULT_BYTES", "0", "greater than zero"),
-        ("OLLAMA_HOST", "localhost:11434", "http://"),
     ],
 )
 def test_invalid_values_name_the_variable(name: str, value: str, message: str) -> None:
@@ -135,14 +117,14 @@ def test_invalid_values_name_the_variable(name: str, value: str, message: str) -
 def test_parse_env_file() -> None:
     text = """
         # a comment
-        OLLAMA_MODEL=qwen3:14b
+        ANTHROPIC_MODEL=claude-haiku-5-5
         FSM_ROW_CAP = 25
         QUOTED="with spaces"
         SINGLE='x=y'
         EMPTY=
     """
     assert parse_env_file(text) == {
-        "OLLAMA_MODEL": "qwen3:14b",
+        "ANTHROPIC_MODEL": "claude-haiku-5-5",
         "FSM_ROW_CAP": "25",
         "QUOTED": "with spaces",
         "SINGLE": "x=y",
@@ -158,11 +140,11 @@ def test_parse_env_file_rejects_other_syntax(line: str) -> None:
 
 def test_env_file_is_read_and_the_environment_wins(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text("FSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
+    env_file.write_text("FSM_ROW_CAP=25\nANTHROPIC_MODEL=from-file\n")
     assert load(env_file=env_file).row_cap == 25
     settings = load({"FSM_ROW_CAP": "7"}, env_file)
     assert settings.row_cap == 7
-    assert settings.ollama_model == "from-file"
+    assert settings.anthropic_model == "from-file"
 
 
 def test_missing_env_file_is_ignored(tmp_path: Path) -> None:
@@ -176,22 +158,22 @@ def test_os_environ_is_the_default_source(monkeypatch: pytest.MonkeyPatch) -> No
 
 def test_env_example_is_a_valid_env_file() -> None:
     values = parse_env_file((config.PROJECT_ROOT / ".env.example").read_text())
-    assert {"FSM_DB_PATH", "OLLAMA_HOST", "OLLAMA_MODEL", "FSM_ROW_CAP",
+    assert {"FSM_DB_PATH", "FSM_ROW_CAP",
             "FSM_QUERY_TIMEOUT_SECONDS", "FSM_MAX_RESULT_BYTES"} <= values.keys()
     load_settings({}, config.PROJECT_ROOT / ".env.example")
 
 
 def test_an_empty_environment_variable_does_not_hide_the_env_file(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_text("FSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
-    settings = load({"FSM_ROW_CAP": "", "OLLAMA_MODEL": "   "}, env_file)
+    env_file.write_text("FSM_ROW_CAP=25\nANTHROPIC_MODEL=from-file\n")
+    settings = load({"FSM_ROW_CAP": "", "ANTHROPIC_MODEL": "   "}, env_file)
     assert settings.row_cap == 25
-    assert settings.ollama_model == "from-file"
+    assert settings.anthropic_model == "from-file"
 
 
 def test_env_file_with_a_byte_order_mark(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
-    env_file.write_bytes(b"\xef\xbb\xbfFSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
+    env_file.write_bytes(b"\xef\xbb\xbfFSM_ROW_CAP=25\nANTHROPIC_MODEL=from-file\n")
     settings = load(env_file=env_file)
     assert settings.row_cap == 25
-    assert settings.ollama_model == "from-file"
+    assert settings.anthropic_model == "from-file"

@@ -13,8 +13,9 @@ Instructions for any AI agent working in this repo. Read this file before doing 
 - **One task, one branch, one pull request.** Each task ships as its own branch and pull request, and its docs are updated in the same pull request: the decision entries it settles, the status it flips from Proposed to Built in `docs/ARCHITECTURE.md`, the current-state paragraph below and the README sections it affects. Only the user merges.
 - **No dates about our work in docs** (no "as of", "last updated", dated decision entries). Dates that are facts about the data are fine.
 - **Record decisions** in `docs/DECISIONS.md` (next D-number; never rewrite old entries), then update `docs/ARCHITECTURE.md` to match. Do not settle an item listed under "Open points" without the user.
-- **No new dependencies without asking.** One runtime dependency is installed: `pydantic` (v2), approved for typed, immutable data models (D-19). The dev tools are `pytest` and `mypy`. The model provider is decided: Anthropic (Claude), through `langchain-anthropic`, with `langgraph` for the turn graph (D-14, D-15). Those two packages are approved and are added by the task that builds the model layer, not before. Nothing else is added without asking: no `langchain` meta-package, no direct `anthropic` SDK, no second provider.
-- **No paid model call without the user's go-ahead for that run.** Tests never call a model.
+- **No new dependencies without asking.** Three runtime dependencies are installed: `pydantic` (v2), for typed, immutable data models (D-19); `langchain-anthropic` (1.7), the Claude client; and `langgraph` (1.2), for the turn graph (D-14, D-15, D-20). The dev tools are `pytest` and `mypy`. Nothing else is added without asking: no `langchain` meta-package, no direct dependency on the `anthropic` SDK (it is installed because the wrapper needs it; the package does not import it), no `pydantic-settings`, no second provider. Only `llm.py` imports LangChain or LangSmith.
+- **No paid model call without the user's go-ahead for that run.** Tests never call a model, and run with network connections refused. The one command that calls Claude, `fsm-assistant check-model`, sends nothing without `--yes-spend`; do not pass that flag unless the user has said to for that run.
+- **Hosted tracing stays off.** `llm.py` forces LangSmith tracing off around every model call (D-20). Do not enable it; opt-in tracing is a later task.
 
 ## What this project is
 
@@ -24,7 +25,7 @@ A take-home submission for Checkout.com's "Fraud Success Manager Assistant Chall
 2. Help turn an insight into a **rule**: a valid SQL `WHERE` clause over the `transactions` table, backtested against `fraud_labels`.
 3. Ship with an initial evaluation suite, and a README that justifies the design, covers GenAI limitations, and describes offline and online metrics.
 
-Current state: the data layer and the SQL guard are built, and the target design is written down. `config.py`, `db.py` (`run_query` to execute, `inspect_query` to compile without running), `schema_context.py`, `sql_scan.py` (the SQL text scanner), `sql_guard.py` (`check_query`, `check_rule_clause`) and `rules/backtest.py` are implemented and tested. `backtest` applies the guard's rule policy itself; nothing else calls the guard yet. The package and the tests are fully annotated and pass `mypy` in strict mode, and every structured value it passes between modules is a frozen pydantic model. Everything else is proposed: the other modules are docstring-only, the only runtime dependency is `pydantic`, and there is no model call, turn graph, rule proposal or evaluation suite yet. The design they will follow is in `docs/ARCHITECTURE.md`; decisions D-14 to D-16 (Claude, a fixed LangGraph graph, five tools) are made but not built. `config.py`, `.env.example` and some placeholder docstrings still mention the earlier local provider (Ollama); they are replaced when the model layer is built.
+Current state: the data layer, the SQL guard and the model layer are built, and the target design is written down. `config.py`, `db.py` (`run_query` to execute, `inspect_query` to compile without running), `schema_context.py`, `sql_scan.py` (the SQL text scanner), `sql_guard.py` (`check_query`, `check_rule_clause`) and `rules/backtest.py` are implemented and tested. `backtest` applies the guard's rule policy itself; nothing else calls the guard yet. The model layer: `llm.py` (the `IntentModel` interface with a live Claude client, a recording wrapper, a replaying one and a scripted one for tests), the built part of `nl2sql.py` (the five tool schemas, the typed actions, the fallback `Intent` object and `check_shape`), `model_check.py` (the paid measurement of how often a model replies with exactly one valid tool call: its questions, run, summary, replay and text) and one command in `cli.py`, `check-model`, which runs it. It has been run once on each of `claude-opus-5-5` and `claude-haiku-5-5`: 11 of 11 on both, so `tools` is confirmed as the default output mode (D-16, D-21) and structured output stays as the fallback behind `FSM_TOOL_MODE`. It is a small check (eleven questions, a minimal system message, the shape of the reply and not the correctness of the SQL). The replies and a `summary.json` per model are in `evals/recordings/check-model/<model id>/`; `uv run fsm-assistant check-model --replay` and `uv run fsm-assistant check-model --replay --model claude-haiku-5-5` re-print the results offline with no key. The package and the tests are fully annotated and pass `mypy` in strict mode, and every structured value it passes between modules is a frozen pydantic model. Everything else is proposed: the other modules are docstring-only, and there is no prompt, turn graph, chat, rule proposal or evaluation suite yet, so nothing calls the model in a turn. The design they will follow is in `docs/ARCHITECTURE.md`; D-15 (a fixed LangGraph graph) is decided and not built, and two LangGraph behaviours it relies on are pinned by `tests/test_langgraph_spikes.py`.
 
 ## Where to find things
 
@@ -38,7 +39,7 @@ Current state: the data layer and the SQL guard are built, and the target design
 | `data/` | `data.db` (SQLite, about 100 MB, WAL mode) and `schema.sql`. Read-only |
 | `src/fsm_assistant/` | The package. One module per architecture component; each docstring states its responsibility |
 | `tests/` | pytest tests (offline, no model calls). Unit tests use small fixture databases; `test_real_db.py` runs against `data/data.db` and is skipped if it is missing |
-| `evals/` | Evaluation suite (empty; see `evals/README.md`) |
+| `evals/` | Evaluation suite (not built; see `evals/README.md`). `recordings/check-model/` holds the recorded replies of the `check-model` run on two models |
 | `.env.example` | Names of the environment variables |
 
 New project docs go in `docs/`. `README.md` stays at the root because the brief requires it.
@@ -47,7 +48,8 @@ New project docs go in `docs/`. `README.md` stays at the root because the brief 
 
 ```bash
 uv sync                  # create .venv, install the package (editable) and dev tools
-uv run fsm-assistant     # run the entry point (placeholder for now)
+uv run fsm-assistant     # print the help; `check-model` is the one command (paid with --yes-spend)
+uv run fsm-assistant check-model --replay   # re-print the recorded check offline, no key
 uv run pytest            # run the tests
 uv run mypy              # type-check src/ and tests/ (strict)
 ```
@@ -56,7 +58,9 @@ Python 3.13, managed by uv. The package uses a `src/` layout built with `uv_buil
 
 ## Conventions
 
-- One responsibility per module, matching `docs/ARCHITECTURE.md`. Only `db.py` opens the database (every query goes through `db.run_query`); only `llm.py` talks to a model provider.
+- One responsibility per module, matching `docs/ARCHITECTURE.md`. Only `db.py` opens the database (every query goes through `db.run_query`); only `llm.py` talks to a model provider. Everything else uses `llm.IntentModel` and its plain request and reply types.
+- `cli.py` is a thin entry point: argument parsing, wiring settings to the module that does the work, printing and exit codes. A command's logic lives in its own module (`check-model` in `model_check.py`), which returns values and text and never prints; `cli` imports that module, never the other way round.
+- The API key is `Settings.anthropic_api_key`, a `SecretStr`. Only `llm.py` reads its value. Never put it in a message, a log line, an exception or a recording.
 - Safety is enforced in code, not only in the prompt. Model-written SQL reaches `db` only after `sql_guard` accepted it: `db.inspect_query` has no timeout, and the guard's text limits are what bound a compile. A rule is measured only through `backtest`, which applies the rule policy itself.
 - Numbers shown to the user (counts, fraud rates, precision, recall) come from executed SQL, never from model text.
 - **Typed code, pydantic data (D-19).** `uv run mypy` must pass before a change is done, as `uv run pytest` must.
@@ -67,7 +71,7 @@ Python 3.13, managed by uv. The package uses a `src/` layout built with `uv_buil
   - Exceptions stay ordinary exception classes with typed attributes.
   - Private working state that is updated in place and never leaves its module (`sql_guard._OpenCall`) may be a plain class.
   - No `# type: ignore` without an error code and a reason on the same line. In a test it is for a line that is ill-typed on purpose (assigning to a frozen field); an optional value is narrowed with `assert x is not None`, not ignored.
-- Tests run offline. No test calls a real model; once code depends on one, tests use a scripted fake. Anything that calls a real model belongs in `evals/`.
+- Tests run offline. No test calls a real model: code that depends on one is tested with `llm.ScriptedModel`, and the live client by replacing the one method that performs the HTTP call. Anything that calls a real model belongs in `evals/` or behind `check-model --yes-spend`.
 - Small, explainable changes. Say what changed and why.
 
 ## Data gotchas

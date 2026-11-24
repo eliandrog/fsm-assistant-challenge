@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "q05",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS negative_transactions FROM transactions WHERE amount_usd_cents < 0",
+          "explanation": "Counts the transactions whose amount is negative.",
+          "assumptions": [
+            "'Negative amount' means amount_usd_cents < 0, with no assumption about whether these are refunds."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3282,
+      "output_tokens": 182
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChM7VpU8oxCD5nVgoq2Ee",
+    "request_hash": "4c3820e63934c282d6063cb19652d8b4121459951aa5cdccd1d56ecbe421b4b9"
+  }
+}

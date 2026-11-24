@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "case_id": "q01",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS total_transactions FROM transactions",
+          "explanation": "Counts all rows in the transactions table.",
+          "assumptions": []
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3280,
+      "output_tokens": 130
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChM7VHEBVF8K716Lj79E5",
+    "request_hash": "fab0c2dc0527abffa05a9b0bbee80d926a956911e26215ae8478ead65890a5f5"
+  }
+}
