@@ -394,6 +394,7 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
     refused = state.refused
     if failure is not None and failure.refusal is not None:
         refused = (*refused, failure.refusal)
+    write_attempts = state.write_attempts + (failure is not None and failure.write_attempt)
 
     def reply(
         outcome: Outcome,
@@ -419,6 +420,7 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
             answer_source="model" if by_model else "code",
             tool=tool_name(action) if action is not None else None,
             refused=refused,
+            write_attempts=write_attempts,
             sql=sql,
             where_clause=where_clause,
             table=table,

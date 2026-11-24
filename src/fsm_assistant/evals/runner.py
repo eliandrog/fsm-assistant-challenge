@@ -67,7 +67,7 @@ class TurnRun(BaseModel):
     """One turn of a run: what the turn did, what it cost and how it scored.
 
     `sql` and `where_clause` are the text that ran, which the model wrote.
-    No row of a result is kept here.
+    No row of a result is kept here, and no score's detail quotes one.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -77,6 +77,7 @@ class TurnRun(BaseModel):
     error_kind: ErrorKind | None
     tool: ToolName | None
     refused: tuple[str, ...]  # one code per reply the shape check or the guard refused
+    write_attempts: int = 0  # how many of them tried to change data; 0 in a record made before it was kept
     sql: str | None
     where_clause: str | None
     model_calls: int
@@ -156,6 +157,8 @@ def observe(result: TurnResult) -> Observation:
         weakest_month=None if result.rule is None else result.rule.weakest_month,
         caveats=tuple(caveat.code for caveat in result.caveats),
         rejections=tuple(str(code) for code in result.refused),
+        write_attempts=result.write_attempts,
+        assumptions=len(result.assumptions),
         model_calls=result.meta.model_calls,
     )
 
@@ -193,6 +196,7 @@ def run_case(
                 error_kind=None if result.error is None else result.error.kind,
                 tool=result.tool,
                 refused=tuple(str(code) for code in result.refused),
+                write_attempts=result.write_attempts,
                 sql=result.sql,
                 where_clause=result.where_clause,
                 model_calls=result.meta.model_calls,
@@ -233,7 +237,19 @@ def to_result(case: Case, run: CaseRun) -> CaseResult:
     """A case's run in the form `report.summarise` counts."""
     return case_result(
         case,
-        [TurnScore(turn=turn.turn, scores=turn.scores) for turn in run.turns],
+        [
+            TurnScore(
+                turn=turn.turn,
+                scores=turn.scores,
+                model_calls=turn.model_calls,
+                refused=turn.refused,
+                write_attempts=turn.write_attempts,
+                input_tokens=turn.input_tokens,
+                output_tokens=turn.output_tokens,
+                seconds=turn.seconds,
+            )
+            for turn in run.turns
+        ],
         skipped=run.skipped,
     )
 

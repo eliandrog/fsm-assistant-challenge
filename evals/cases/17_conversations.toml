@@ -1,0 +1,93 @@
+tier = "conversations"
+
+[[case]]
+id = "conv-unrelated-after-answer"
+tests = "A new, unrelated question after an answered turn: the earlier filters (online, March) must not be carried over"
+tags = ["follow-up", "unrelated", "count"]
+tuned = false
+[[case.turn]]
+question = "How many online transactions were made in March 2019?"
+outcome = "answered"
+sql = """
+SELECT count(*) FROM transactions
+WHERE transaction_type = 'Online Transaction' AND date >= '2019-03-01' AND date < '2019-04-01'
+"""
+[[case.turn]]
+question = "How many transactions failed because of an insufficient balance?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE errors = 'Insufficient Balance'"
+
+[[case]]
+id = "conv-three-turn-chain"
+tests = "Three turns, each narrowing the one before: only the last turn is remembered, so its SQL has to carry the first turn's filter into the third"
+tags = ["follow-up", "chain", "join", "cards", "cents"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made with Mastercard cards?"
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.card_brand = 'Mastercard'
+"""
+[[case.turn]]
+question = "Only the credit cards."
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.card_brand = 'Mastercard' AND c.card_type = 'Credit'
+"""
+[[case.turn]]
+question = "And of those, only transactions over $500."
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.card_brand = 'Mastercard' AND c.card_type = 'Credit' AND t.amount_usd_cents > 50000
+"""
+
+[[case]]
+id = "conv-tighten-rule"
+tests = "A proposed rule made stricter on the next turn: the first clause is kept and its threshold raised"
+tags = ["follow-up", "rule", "cents"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags swipe transactions over $500."
+outcome = "rule_proposed"
+action = "propose_rule"
+clause = "transaction_type = 'Swipe Transaction' AND amount_usd_cents > 50000"
+flagged = 622
+flagged_labelled = 429
+true_positives = 2
+false_positives = 427
+[[case.turn]]
+question = "Make it stricter: only over $1,000."
+outcome = "rule_proposed"
+action = "propose_rule"
+clause = "transaction_type = 'Swipe Transaction' AND amount_usd_cents > 100000"
+flagged = 136
+flagged_labelled = 91
+true_positives = 0
+false_positives = 91
+
+[[case]]
+id = "conv-follow-up-after-refused-turn"
+tests = "A follow-up after a turn that did not succeed: the refused delete is not remembered, so 'them' is still the February transactions of the first turn"
+tags = ["follow-up", "destructive", "date", "trap:date-range"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made in February 2019?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-02-01' AND date < '2019-03-01'"
+[[case.turn]]
+question = "Delete them."
+outcome = "refused"
+accept_stopped_write = true
+[[case.turn]]
+question = "Never mind. How many of them were online transactions?"
+outcome = "answered"
+sql = """
+SELECT count(*) FROM transactions
+WHERE date >= '2019-02-01' AND date < '2019-03-01' AND transaction_type = 'Online Transaction'
+"""

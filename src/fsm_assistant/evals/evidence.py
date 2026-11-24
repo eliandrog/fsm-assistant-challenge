@@ -11,12 +11,15 @@ not run.
   the data or in a reference is noticed.
 - `flagged_ids` returns the set of transactions a rule clause flags, and
   `recompute` measures a clause, overall and per calendar month, with
-  statements that share nothing with the two backtest templates (no CTE,
+  statements written differently from the two backtest templates (no CTE,
   inner joins grouped by label, the month taken with `strftime` and each
-  month's totals from statements of their own), so agreement between the
-  two is a check and not a repetition.
-- `judge` asks the guard, again and independently of the turn, about a
-  statement or clause a turn says it executed.
+  month's totals from statements of their own), so an error in a template's
+  arithmetic shows as a disagreement. The two still share the label join,
+  the guard and `db`: an error in one of those is in both, and agreement
+  does not rule it out.
+- `judge` asks the guard again about a statement or clause a turn says it
+  executed. It is the same guard, so this catches a path that ran something
+  without asking it, not a mistake of the guard.
 - `score_turn` runs every scorer that applies to a turn. The runner is a
   loop over cases and turns around it. A database error or a timeout while
   scoring fails that turn with `scoring_error` and does not reach the runner.
@@ -52,6 +55,7 @@ from fsm_assistant.evals.scorers import (
     score_rule_arithmetic,
     score_rule_match,
     score_scan_top,
+    score_truncation,
     score_weakest_month,
 )
 from fsm_assistant.rules.backtest import RuleClauseError, backtest
@@ -124,6 +128,7 @@ def judge(kind: StatementKind, text: str, *, db_path: Path) -> JudgedStatement:
         text=text,
         accepted=decision.accepted,
         reason_code=None if decision.reason_code is None else decision.reason_code.value,
+        attempts_write=decision.attempts_write,
     )
 
 
@@ -366,24 +371,31 @@ def score_turn(
     rule arithmetic and rule match for a turn with a reference clause, with
     the weakest month when the case names one. A
     turn with `or_rule` that proposed a rule is scored as a rule turn: its
-    arithmetic, and whether the rule is one the case accepts.
+    arithmetic, and whether the rule is one the case accepts. A turn with
+    `or_clarification` that asked for clarification is scored as a
+    clarification turn: nothing may have run, and no result is compared.
 
     The scores that read the database are replaced by one `scoring_error`
     when it fails or times out; the detail names the kind of error only,
     because SQLite's message can quote a value from a row.
     """
     as_rule = turn.or_rule is not None and observation.outcome == "rule_proposed"
+    asked = _asked_instead(turn, observation)
     scores: list[Score] = [
         score_outcome(
-            "rule_proposed" if as_rule else turn.outcome,
+            "rule_proposed" if as_rule else "clarification" if asked else turn.outcome,
             observation.outcome,
-            expected_action="propose_rule" if as_rule else turn.action,
+            expected_action="propose_rule" if as_rule else None if asked else turn.action,
             observed_action=observation.action,
         ),
         score_behaviour(
             observed_facts(observation),
-            require=frozenset(turn.require),
-            forbid=turn.forbidden - {"executed"} if as_rule else turn.forbidden,
+            require=frozenset() if asked else frozenset(turn.require),
+            forbid=turn.forbidden - {"executed"}
+            if as_rule
+            else turn.forbidden | {"executed"}
+            if asked
+            else turn.forbidden,
         ),
     ]
     try:
@@ -416,9 +428,16 @@ def _database_scores(
         ("clause", observation.where_clause),
     )
     executed = [judge(kind, text, db_path=db_path) for kind, text in ran if text is not None]
-    scores: list[Score] = [score_guardrail(executed, rejections=observation.rejections)]
+    scores: list[Score] = [
+        score_guardrail(
+            executed,
+            rejections=observation.rejections,
+            write_attempts=observation.write_attempts,
+            accept_stopped_write=turn.accept_stopped_write,
+        )
+    ]
 
-    if turn.sql is not None:
+    if turn.sql is not None and not _asked_instead(turn, observation):
         if pin is None:
             raise ValueError("a turn with a reference query needs its pinned result")
         scores.append(
@@ -428,6 +447,8 @@ def _database_scores(
         )
     if turn.scan_top:
         scores.append(score_scan_top(observation.rows, turn.scan_top))
+    if turn.expect_truncated:
+        scores.append(score_truncation(observation.rows, truncated=observation.truncated))
 
     clause = observation.where_clause
     if clause is not None and not all(statement.accepted for statement in executed):
@@ -473,9 +494,25 @@ def _database_scores(
                 min_flag_rate=turn.or_rule.min_flag_rate,
                 max_flag_rate=turn.or_rule.max_flag_rate,
                 deterministic=clause is None or not _calls_denied_function(clause),
+                reads_only_id=clause is None or _reads_only_id(clause, db_path),
             )
         )
     return scores
+
+
+def _asked_instead(turn: Turn, observation: Observation) -> bool:
+    """Whether the turn asked which reading is meant, where its case accepts that."""
+    return turn.or_clarification and observation.outcome == "clarification"
+
+
+def _reads_only_id(clause: str, db_path: Path) -> bool:
+    """Whether the guard's account of the clause is one table, transactions, and one column, id."""
+    reads = check_rule_clause(clause, db_path=db_path).reads
+    return (
+        reads is not None
+        and reads.tables == {"transactions"}
+        and reads.columns_of("transactions") == {"id"}
+    )
 
 
 def _calls_denied_function(clause: str) -> bool:

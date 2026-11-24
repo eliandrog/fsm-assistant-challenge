@@ -1,0 +1,56 @@
+tier = "relative_dates"
+
+[[case]]
+id = "relative-partly-outside-range"
+tests = "A period that starts inside the data and ends after it: the part that exists is answered and the range is stated, not declined"
+tags = ["date", "relative-date", "out-of-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made between 1 October 2019 and 31 January 2020?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-10-01' AND date < '2020-02-01'"
+require = ["assumptions_stated"]
+
+[[case]]
+id = "relative-this-year"
+tests = "'This year' is 2019, the year the data ends in; the whole data lies in it, so the count equals the total and only a refusal or a filter on today can fail"
+tags = ["date", "relative-date", "count"]
+tuned = true
+[[case.turn]]
+question = "How many transactions have there been this year?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-01-01' AND date < '2020-01-01'"
+require = ["assumptions_stated"]
+
+[[case]]
+id = "relative-last-week"
+tests = "'Last week' with the week's bounds given: the full Monday-to-Sunday week before Thursday 2019-10-31 is 21 to 27 October"
+tags = ["date", "relative-date", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made last week, counting a week from Monday to Sunday?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-10-21' AND date < '2019-10-28'"
+require = ["assumptions_stated"]
+
+[[case]]
+id = "relative-last-30-days"
+tests = "'The last 30 days' ending on the last day of the data, that day included: 2 to 31 October 2019"
+tags = ["date", "relative-date", "trap:date-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made in the last 30 days, counting the most recent day as one of the 30?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-10-02' AND date < '2019-11-01'"
+require = ["assumptions_stated"]
+
+[[case]]
+id = "relative-yesterday"
+tests = "'Yesterday' is the day before the last day of the data, 2019-10-30, not the last day and not the day before today"
+tags = ["date", "relative-date", "trap:date-range", "count"]
+tuned = false
+[[case.turn]]
+question = "How many transactions were made yesterday?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-10-30' AND date < '2019-10-31'"
+require = ["assumptions_stated"]

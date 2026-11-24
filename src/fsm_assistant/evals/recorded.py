@@ -13,11 +13,27 @@ which builds no client, and compares what comes out with `run.json`.
 
 A run of some of the cases is merged into the record: the cases it ran
 replace their own recordings and their own entry, and every other entry and
-file is left as it was. Only a run under other settings (model, effort,
-token limit, output mode, prompt version or schema context) starts the
-record again, because the earlier replies can no longer be replayed: when
-its first case is recorded, the recorded replies of every other case are
+file is left as it was. Only a run under other settings starts the record
+again, because the earlier replies can no longer be replayed: when its
+first case is recorded, the recorded replies of every other case are
 removed, so the folder never holds replies made under two sets of settings.
+
+What counts as the settings of a run (`IDENTITY`): the model, effort, token
+limit, output mode, prompt version and schema context, and, kept since
+later, the row cap, the query timeout, the result-size limit and a digest
+of the system text. The last four are None in a record made before they
+were kept: what that run ran under is then unknown. Such a record is still
+replayed, with a line saying those settings could not be checked;
+`rescore_run` rebuilds it with them, and a live run does not merge into it.
+
+`rescore_run` rebuilds `run.json` from the recorded replies through the real
+graph, guard, database and scorers, with no model. It is how a record is
+brought up to date after a scorer changed: the replies are the recorded
+ones and the scores are the ones the code gives now.
+
+A repeated run keeps each repetition as a whole run of its own, with its
+recordings and its `run.json`, in `repeats/<k>/` under the model's folder
+(`repeat_directory`). It never touches the model's own record.
 
 `run.json` holds no timestamp, no date, no absolute path and no key.
 """
@@ -57,6 +73,7 @@ from fsm_assistant.llm import (
 )
 from fsm_assistant.model_check import LibraryVersions
 from fsm_assistant.nl2sql import model_spec
+from fsm_assistant.prompt import system_text
 from fsm_assistant.schema_context import build_schema_context
 from fsm_assistant.tracing import Tracer
 
@@ -69,8 +86,14 @@ _STOP_AFTER: frozenset[str] = frozenset(
     {"missing_key", "authentication", "permission", "model_not_found"}
 )
 _MODEL_DIRECTORY = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
+REPEATS_FOLDER = "repeats"
 # The settings a recorded reply depends on; a record made under others cannot be replayed.
 _IDENTITY = ("model", "effort", "max_tokens", "tool_mode", "prompt_version", "schema_context_sha256")
+# Kept since later, so None in an older record. The limits decide what a turn
+# returns (a cut result, a timeout and its repair); the system text is the
+# prompt as sent, which catches an edit made without a new prompt version.
+_LATER_IDENTITY = ("row_cap", "query_timeout_seconds", "max_result_bytes", "system_text_sha256")
+IDENTITY = (*_IDENTITY, *_LATER_IDENTITY)
 
 
 class CaseRecord(BaseModel):
@@ -115,7 +138,12 @@ class RunRecord(BaseModel):
     prompt_version: str
     library_versions: LibraryVersions
     schema_context_sha256: str
-    suite_sha256: str  # the case files and pins as they were at the latest live run
+    # None in a record made before these four were kept.
+    row_cap: int | None = None
+    query_timeout_seconds: float | None = None
+    max_result_bytes: int | None = None
+    system_text_sha256: str | None = None
+    suite_sha256: str  # the case files and pins at the latest live run or rescore
     cases: tuple[CaseRecord, ...]
     totals: RunTotals
 
@@ -124,6 +152,11 @@ class RunRecord(BaseModel):
             if record.run.case_id == case_id:
                 return record
         return None
+
+    @property
+    def unknown_settings(self) -> tuple[str, ...]:
+        """The settings this record does not state, because it was made before they were kept."""
+        return tuple(name for name in _LATER_IDENTITY if getattr(self, name) is None)
 
 
 class LiveRun(BaseModel):
@@ -152,7 +185,8 @@ class Replay(BaseModel):
 
     `runs` carry the recorded seconds, since a replay's own timing says
     nothing about the model. `not_recorded` are the selected cases with no
-    usable recording; they were not run.
+    usable recording; they were not run. `unchecked_settings` are the
+    settings the record does not state, which the replay could not compare.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -163,10 +197,28 @@ class Replay(BaseModel):
     changed_cases: tuple[str, ...]  # recorded cases whose definition changed since
     not_recorded: tuple[str, ...]
     differences: tuple[Difference, ...]
+    unchecked_settings: tuple[str, ...] = ()
 
     @property
     def reproduced(self) -> bool:
-        return not self.differences and not self.not_recorded
+        """Every case that was replayed scored as recorded, and at least one was."""
+        return bool(self.runs) and not self.differences
+
+    @property
+    def complete(self) -> bool:
+        """Every selected case had a recording to replay."""
+        return not self.not_recorded
+
+
+class Rescore(BaseModel):
+    """A record rebuilt from its recorded replies, next to the record it replaced."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    record: RunRecord  # as written
+    differences: tuple[Difference, ...]  # cases that score differently now
+    kept_as_recorded: tuple[str, ...]  # not replayable: no reply to score again
+    dropped: tuple[str, ...]  # in the earlier record, no longer in the suite
 
 
 def run_directory(model: str) -> Path | None:
@@ -176,8 +228,19 @@ def run_directory(model: str) -> Path | None:
     return RUN_RECORDINGS_DIR / model
 
 
+def repeat_directory(directory: Path, repetition: int) -> Path:
+    """The folder of one repetition (counted from 1) of a repeated run."""
+    return directory / REPEATS_FOLDER / str(repetition)
+
+
 def schema_digest(settings: Settings) -> str:
     return hashlib.sha256(build_schema_context(settings.db_path).encode("utf-8")).hexdigest()
+
+
+def system_text_digest(settings: Settings) -> str:
+    """A digest of the system message as it is sent for this database."""
+    text = system_text(build_schema_context(settings.db_path))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
 def case_digest(case: Case, suite: Suite) -> str:
@@ -315,19 +378,13 @@ def replay_run(
     Sends nothing and builds no client. Raises `StaleRecording` when there
     is no record, when it was made under other settings, or when a recorded
     reply is missing or no longer answers the request the code now makes
-    (the prompt, a tool, a model setting or the question changed).
+    (the prompt, a tool, a model setting or the question changed). A setting
+    the record does not state is not compared.
     """
     spec = model_spec(settings)
     record = read_record(directory)
     current = _record(spec, settings, (), cases_directory, pins_file)
-    for name in _IDENTITY:
-        was, now = getattr(record, name), getattr(current, name)
-        if was != now:
-            raise StaleRecording(
-                "stale",
-                directory / RUN_FILE,
-                f"the run was recorded with {name} {_shown(was)} and the code now uses {_shown(now)}",
-            )
+    _check_settings(record, current, directory)
     runs: list[CaseRun] = []
     changed: list[str] = []
     not_recorded: list[str] = []
@@ -369,6 +426,77 @@ def replay_run(
         changed_cases=tuple(changed),
         not_recorded=tuple(not_recorded),
         differences=tuple(differences),
+        unchecked_settings=record.unknown_settings,
+    )
+
+
+def rescore_run(
+    suite: Suite,
+    settings: Settings,
+    directory: Path,
+    *,
+    available: frozenset[Feature],
+    on_case: Callable[[CaseRun], None] | None = None,
+    cases_directory: Path = DEFAULT_CASES_DIRECTORY,
+    pins_file: Path = DEFAULT_PINS_FILE,
+) -> Rescore:
+    """Rebuild `run.json` in `directory` from its recorded replies, with no model.
+
+    Every recorded case still in the suite goes through the real graph and
+    scorers again with its recorded replies, and the record is written with
+    the scores that gives, the settings it ran under and each case's present
+    digest. Seconds stay the recorded ones. A case that could not be
+    replayed when it was recorded keeps its entry, and so does a case the
+    run skipped for a feature that has been built since: neither has a
+    reply on file, and a replay names both as not recorded. Raises `StaleRecording`,
+    and writes nothing, when the record was made under other settings or a
+    recorded reply no longer answers its request.
+    """
+    spec = model_spec(settings)
+    record = read_record(directory)
+    current = _record(spec, settings, (), cases_directory, pins_file)
+    _check_settings(record, current, directory)
+    rebuilt: list[CaseRecord] = []
+    differences: list[Difference] = []
+    kept: list[str] = []
+    for case in suite.cases:
+        found = record.find(case.id)
+        if found is None:
+            continue
+        reason = skip_reason(case, available)
+        skipped_then = found.run.skipped is not None and reason is None
+        if not found.replayable or skipped_then:
+            kept.append(case.id)
+            rebuilt.append(found)
+            continue
+        if reason is not None:
+            run = CaseRun(case_id=case.id, skipped=reason)
+        else:
+            watched = _Watched(ReplayModel(spec, directory, case.id))
+            run = _with_recorded_seconds(run_case(case, suite, settings, watched), found.run)
+            if watched.stale is not None:
+                raise watched.stale
+        difference = _difference(found.run, run)
+        if difference is not None:
+            differences.append(Difference(case_id=case.id, detail=difference))
+        rebuilt.append(
+            CaseRecord(case_sha256=case_digest(case, suite), replayable=True, run=run)
+        )
+        if on_case is not None:
+            on_case(run)
+    # The replies were made under the libraries the earlier record names.
+    written = _record(spec, settings, rebuilt, cases_directory, pins_file).model_copy(
+        update={"library_versions": record.library_versions}
+    )
+    write_record(directory, written)
+    in_suite = {case.id for case in suite.cases}
+    return Rescore(
+        record=written,
+        differences=tuple(differences),
+        kept_as_recorded=tuple(kept),
+        dropped=tuple(
+            item.run.case_id for item in record.cases if item.run.case_id not in in_suite
+        ),
     )
 
 
@@ -450,6 +578,10 @@ def _record(
             langgraph=version("langgraph"),
         ),
         schema_context_sha256=schema_digest(settings),
+        row_cap=settings.row_cap,
+        query_timeout_seconds=settings.query_timeout_seconds,
+        max_result_bytes=settings.max_result_bytes,
+        system_text_sha256=system_text_digest(settings),
         suite_sha256=suite_digest(cases_directory, pins_file),
         cases=tuple(cases),
         totals=totals([item.run for item in cases]),
@@ -457,7 +589,22 @@ def _record(
 
 
 def _same_settings(one: RunRecord, other: RunRecord) -> bool:
-    return all(getattr(one, name) == getattr(other, name) for name in _IDENTITY)
+    """A setting one of them does not state is not known to be the same."""
+    return all(getattr(one, name) == getattr(other, name) for name in IDENTITY)
+
+
+def _check_settings(record: RunRecord, current: RunRecord, directory: Path) -> None:
+    """Raise `StaleRecording`, naming the setting, when the record states another value."""
+    for name in IDENTITY:
+        was, now = getattr(record, name), getattr(current, name)
+        if was == now or (was is None and name in _LATER_IDENTITY):
+            continue
+        uses = "the settings now give" if name in _LATER_IDENTITY[:3] else "the code now uses"
+        raise StaleRecording(
+            "stale",
+            directory / RUN_FILE,
+            f"the run was recorded with {name} {_shown(was)} and {uses} {_shown(now)}",
+        )
 
 
 def _shown(value: object) -> str:
@@ -514,7 +661,13 @@ def _difference(recorded: CaseRun, replayed: CaseRun) -> str | None:
                 return (
                     f"turn {was.turn}, {score.scorer}: recorded {recorded_as}, "
                     f"replayed {_verdict(score.passed, score.reason)}"
-                    + (" (the detail differs)" if same_verdict else "")
+                    + (
+                        ""
+                        if not same_verdict or old is None
+                        else " (the note differs)"
+                        if old.note != score.note
+                        else " (the detail differs)"
+                    )
                 )
             return f"turn {was.turn}: the recorded scores are not the replayed ones"
     if len(recorded.turns) != len(replayed.turns):

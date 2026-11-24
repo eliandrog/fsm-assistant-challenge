@@ -1276,6 +1276,182 @@
      1206
     ]
    ]
+  },
+  {
+   "case_id": "relative-partly-outside-range",
+   "turn": 1,
+   "reference_sha256": "c0a12ace7497172d1824f6f76f1ea2c659b54774ad5c811ecc0ff2ce80aa6c61",
+   "rows": [
+    [
+     117374
+    ]
+   ]
+  },
+  {
+   "case_id": "relative-this-year",
+   "turn": 1,
+   "reference_sha256": "b1132a138f49135936ca1226376903717ceaa1a2d2e19c8550720628857f1163",
+   "rows": [
+    [
+     1159966
+    ]
+   ]
+  },
+  {
+   "case_id": "relative-last-week",
+   "turn": 1,
+   "reference_sha256": "8537d73461ab9ca8dfbac5faf1587d34fd7748ed21348ec73db7a8601fedbae9",
+   "rows": [
+    [
+     26598
+    ]
+   ]
+  },
+  {
+   "case_id": "relative-last-30-days",
+   "turn": 1,
+   "reference_sha256": "4b7ed0d0973d53812e492ce34ba689d65c55cf36984421cbb91da656fd0364d6",
+   "rows": [
+    [
+     114011
+    ]
+   ]
+  },
+  {
+   "case_id": "relative-yesterday",
+   "turn": 1,
+   "reference_sha256": "b601c6f97bbd031d51e6032195c4be80d97acb1d0747d94089ea77ef10b10c50",
+   "rows": [
+    [
+     3562
+    ]
+   ]
+  },
+  {
+   "case_id": "edges-zero-rows",
+   "turn": 1,
+   "reference_sha256": "a749468353743e73cd7bdd26c3c2f165fa69c8720bea37dfadcd74efd7a090dd",
+   "rows": []
+  },
+  {
+   "case_id": "edges-fraud-share-of-all",
+   "turn": 1,
+   "reference_sha256": "6194c7e869126ad05b3bdba6b4e0a46b2b16be95207b087e42daf6b1bcc40882",
+   "rows": [
+    [
+     0.001749558429462564
+    ]
+   ]
+  },
+  {
+   "case_id": "edges-explicit-percentage",
+   "turn": 1,
+   "reference_sha256": "68f0984a2691c2ec322b8c290ba01cb23805d76d8498e8cf1e92dcb406e8c817",
+   "rows": [
+    [
+     0.0009268263036343746
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-unrelated-after-answer",
+   "turn": 1,
+   "reference_sha256": "8d2baae8efb1f0ca2a102bedfe3589b9e0c9f4b9f5993a1dcd0541c5e112fbf5",
+   "rows": [
+    [
+     14168
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-unrelated-after-answer",
+   "turn": 2,
+   "reference_sha256": "090be0d65ddd586d9d71c6cced6eb6d76a08af73cb717565a8b82b3006aa8591",
+   "rows": [
+    [
+     11582
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-three-turn-chain",
+   "turn": 1,
+   "reference_sha256": "1e747fb8170b6166139b988b9b9e61ee38a607f92ac0e4ad567b92565e541494",
+   "rows": [
+    [
+     625689
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-three-turn-chain",
+   "turn": 2,
+   "reference_sha256": "363e9baf15fb8c58a2e2934b0a8b1d5be924cd88a001a5dec58ba5e2d754702f",
+   "rows": [
+    [
+     106159
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-three-turn-chain",
+   "turn": 3,
+   "reference_sha256": "545b49397ee83d1c09a61718a0b6189f8d2c1429021508908026f945d42bb310",
+   "rows": [
+    [
+     578
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-follow-up-after-refused-turn",
+   "turn": 1,
+   "reference_sha256": "d65b8ae8b13e975c3accedfeee1461c5b86f066bb897c06fdede2512d60fb9ca",
+   "rows": [
+    [
+     106385
+    ]
+   ]
+  },
+  {
+   "case_id": "conv-follow-up-after-refused-turn",
+   "turn": 3,
+   "reference_sha256": "09dc21a5d689744e76a7d11ed71010c795ed40016288fded3bff4e1ca9520c87",
+   "rows": [
+    [
+     12824
+    ]
+   ]
+  },
+  {
+   "case_id": "debatable-velocity-strict",
+   "turn": 1,
+   "reference_sha256": "cb56d9f101a9d75605960619072646221ce907ff24703fbb1ba4a7cda27561b2",
+   "rows": [
+    [
+     18209
+    ]
+   ]
+  },
+  {
+   "case_id": "debatable-average-rounded",
+   "turn": 1,
+   "reference_sha256": "2148c0387115df08c49fe7f2ded8ed4d85dfb701d5ba81fb074ae270b9fc4e6d",
+   "rows": [
+    [
+     56.73168237050583
+    ]
+   ]
+  },
+  {
+   "case_id": "debatable-credit-limit-card-types",
+   "turn": 1,
+   "reference_sha256": "1a500447cea387d90ab4530cf136748932a66493618a7a085783f1ddeb6a159f",
+   "rows": [
+    [
+     15366541.12
+    ]
+   ]
   }
  ]
 }

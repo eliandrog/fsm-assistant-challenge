@@ -12,8 +12,12 @@ more `[[case.turn]]` tables. What a turn expects depends on its `outcome`:
 
 - `answered`: a reference `sql` of ours, and how to compare a result with it
   (`ordered`, `compare_columns`, `exact_columns`, `allow_extra_columns`,
-  `tolerance`). A scan case has `action = "profile_fraud"` and `scan_top`
-  instead of `sql`.
+  `tolerance`, `scale`, `decimal_places`). A scan case has
+  `action = "profile_fraud"` and `scan_top` instead of `sql`. With
+  `or_clarification`, asking the user which reading is meant passes too.
+  A turn whose full answer is larger than the row cap has
+  `expect_truncated` instead of `sql`: a cut result cannot be pinned, so
+  what is checked is that the turn answers and says the result is cut.
 - `rule_proposed`: a reference `clause`, the four counts its backtest gives,
   and how far the proposed rule's flagged set may differ from the
   reference's (`min_jaccard`, `min_overlap_precision`, `min_overlap_recall`).
@@ -22,7 +26,10 @@ more `[[case.turn]]` tables. What a turn expects depends on its `outcome`:
 - `clarification`, `cannot_answer`, `refused` (declined, or refused twice by
   the guard): no reference. Nothing may be executed in such a turn, unless
   it has an `or_rule` table: then a proposed rule is accepted too, when it is
-  repeatable and its flag rate lies in the table's band.
+  a repeatable sample by transaction id and its flag rate lies in the
+  table's band. A `refused` turn with `accept_stopped_write` is met by
+  either route: the model declines, or it writes the change and the guard
+  stops it.
 
 A case can carry `known_limitation`, one line saying why the system is known
 not to pass it. Such a case is run and counted as any other; the report
@@ -61,6 +68,11 @@ Tier = Literal[
     "rule_policy",
     "scan",
     "paraphrases",
+    "relative_dates",
+    "result_edges",
+    "conversations",
+    "guard_stops",
+    "debatable",
 ]
 TIERS: tuple[Tier, ...] = get_args(Tier)
 
@@ -71,9 +83,11 @@ ExpectedAction = Literal[
 ]
 # Things a turn can be seen to have done. `executed`: a statement or a
 # backtest ran. `repaired`: the turn needed its second model request.
+# `assumptions_stated`: the reply listed at least one assumption.
 Fact = Literal[
     "executed",
     "repaired",
+    "assumptions_stated",
     "caveat_truncated",
     "caveat_label_coverage",
     "caveat_zero_rows",
@@ -91,8 +105,13 @@ type PinCell = str | int | float | None
 
 _NO_EXECUTION: frozenset[ExpectedOutcome] = frozenset({"clarification", "cannot_answer", "refused"})
 _COMPARISON_OPTIONS = frozenset(
-    {"ordered", "compare_columns", "exact_columns", "allow_extra_columns", "tolerance"}
-)
+    {
+        "ordered", "compare_columns", "exact_columns", "allow_extra_columns", "tolerance",
+        "scale", "decimal_places",
+    }
+)  # fmt: skip
+# How a fraction may be returned. `fraction_or_percent` is for a question that asks for a percentage.
+Scale = Literal["fraction", "fraction_or_percent"]
 _ID = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 _TAG = r"^[a-z0-9]+([:_-][a-z0-9]+)*$"
 _Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
@@ -104,6 +123,10 @@ type MonthRow = tuple[Annotated[str, Field(pattern=f"^{_MONTH}$")], _Count, _Cou
 
 def _unset(value: object) -> bool:
     return value is None
+
+
+def _is_default(value: object) -> bool:
+    return value is None or value is False or value == "fraction"
 
 
 class CaseFileError(Exception):
@@ -125,14 +148,18 @@ class Comparison(BaseModel):
     # Neither: the reference's columns lead and further ones may follow, with a note.
     exact_columns: bool = False  # a result wider than the reference fails
     allow_extra_columns: bool = False  # the reference's columns may be in any position
-    tolerance: float = DEFAULT_TOLERANCE
+    tolerance: float = DEFAULT_TOLERANCE  # relative; applies where the reference is a real
+    scale: Scale = "fraction"
+    # A real rounded to this many decimal places, or more, equals the reference.
+    decimal_places: int | None = None
 
 
 class AcceptedRule(BaseModel):
     """A rule that is accepted in place of the refusal a turn expects.
 
-    The rule must be repeatable (no random()) and flag a share of all
-    transactions inside the band, both ends included.
+    The rule must be a repeatable sample by transaction id (no random(), and
+    no column read but `id`) and flag a share of all transactions inside the
+    band, both ends included.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -195,6 +222,18 @@ class Turn(BaseModel):
     exact_columns: bool = False
     allow_extra_columns: bool = False
     tolerance: Annotated[float, Field(ge=0.0, lt=1.0)] = DEFAULT_TOLERANCE
+    # The five options below are left out of the serialised case while unset,
+    # so a case recorded before they existed keeps the digest it had.
+    scale: Scale = Field(default="fraction", exclude_if=_is_default)
+    decimal_places: Annotated[int, Field(ge=1, le=8)] | None = Field(
+        default=None, exclude_if=_is_default
+    )
+    # Asking which reading is meant passes too, where the wording has two.
+    or_clarification: bool = Field(default=False, exclude_if=_is_default)
+    # A refusal by either route: a write the guard stopped passes, with a note.
+    accept_stopped_write: bool = Field(default=False, exclude_if=_is_default)
+    # The full answer is larger than the row cap; no reference result exists.
+    expect_truncated: bool = Field(default=False, exclude_if=_is_default)
 
     clause: str | None = None
     min_jaccard: _Fraction = 1.0
@@ -220,8 +259,18 @@ class Turn(BaseModel):
     @model_validator(mode="after")
     def _fields_match_outcome(self) -> Self:
         scan_turn = self.action == "profile_fraud"
-        if (self.outcome == "answered" and not scan_turn) != (self.sql is not None):
-            raise ValueError("a reference sql goes with outcome answered (not a scan), and only that")
+        open_ended = scan_turn or self.expect_truncated
+        if (self.outcome == "answered" and not open_ended) != (self.sql is not None):
+            raise ValueError(
+                "a reference sql goes with outcome answered (not a scan, not expect_truncated), "
+                "and only that"
+            )
+        if self.expect_truncated and (
+            self.outcome != "answered" or "caveat_truncated" not in self.require
+        ):
+            raise ValueError(
+                'expect_truncated goes with outcome answered and require = ["caveat_truncated"]'
+            )
         if (self.outcome == "rule_proposed") != (self.clause is not None):
             raise ValueError("a reference clause goes with outcome rule_proposed, and only that")
         if bool(self.scan_top) and not scan_turn:
@@ -248,6 +297,10 @@ class Turn(BaseModel):
             raise ValueError("exact_columns and allow_extra_columns exclude each other")
         if self.or_rule is not None and self.outcome != "refused":
             raise ValueError("or_rule goes with outcome refused only")
+        if self.accept_stopped_write and self.outcome != "refused":
+            raise ValueError("accept_stopped_write goes with outcome refused only")
+        if self.or_clarification and self.sql is None:
+            raise ValueError("or_clarification needs a reference sql")
         if self.clause is None and any(
             name.startswith("min_") for name in self.model_fields_set
         ):
@@ -273,6 +326,8 @@ class Turn(BaseModel):
             exact_columns=self.exact_columns,
             allow_extra_columns=self.allow_extra_columns,
             tolerance=self.tolerance,
+            scale=self.scale,
+            decimal_places=self.decimal_places,
         )
 
     @property

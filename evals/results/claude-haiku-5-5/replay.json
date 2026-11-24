@@ -8,6 +8,37 @@
     "schema_context_sha256": "daeca3714a5ffdb81b1cfc8ea9fafc4336c7456571bff802e1546d1db9379ee5",
     "suite_sha256": "606fb75efb03793a41c0f492f38c455607b26ff964ac1d299d97d9d557484b2a"
   },
+  "operations": {
+    "turns": 123,
+    "model_requests": 125,
+    "repairs": 2,
+    "refusals": [
+      {
+        "code": "not_deterministic",
+        "by": "guard",
+        "count": 1
+      },
+      {
+        "code": "table_not_allowed",
+        "by": "guard",
+        "count": 1
+      }
+    ],
+    "write_attempts": 0,
+    "seconds_p50": 2.075,
+    "seconds_p95": 3.881,
+    "seconds_max": 6.228,
+    "input_tokens": 579530,
+    "output_tokens": 42582,
+    "input_tokens_per_turn": 4711.6,
+    "output_tokens_per_turn": 346.2,
+    "cost": {
+      "input_usd_per_million": 0.1,
+      "output_usd_per_million": 0.5,
+      "run_usd": 0.079244,
+      "per_turn_usd": 0.000644
+    }
+  },
   "overall": {
     "name": "all",
     "cases": 117,
@@ -15,6 +46,7 @@
     "failed": 1,
     "skipped": 0,
     "with_extra_columns": 5,
+    "stopped_by_guard": 2,
     "known_limitation": 1
   },
   "by_tier": [
@@ -25,6 +57,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -34,6 +67,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 2,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -43,6 +77,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -52,6 +87,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -61,6 +97,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -70,6 +107,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -79,6 +117,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 1
     },
     {
@@ -88,6 +127,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -97,6 +137,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -106,6 +147,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -115,6 +157,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -124,6 +167,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -133,6 +177,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     }
   ],
@@ -144,6 +189,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -153,6 +199,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 5,
+      "stopped_by_guard": 2,
       "known_limitation": 1
     }
   ],
@@ -164,6 +211,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -173,6 +221,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -182,6 +231,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -191,6 +241,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -200,6 +251,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 2,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -209,6 +261,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -218,6 +271,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -227,6 +281,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 2,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -236,6 +291,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -245,6 +301,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -254,6 +311,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -263,6 +321,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -272,6 +331,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 1
     },
     {
@@ -281,6 +341,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -290,6 +351,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -299,6 +361,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 1
     },
     {
@@ -308,6 +371,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -317,6 +381,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -326,6 +391,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -335,6 +401,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -344,6 +411,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -353,6 +421,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 1
     },
     {
@@ -362,6 +431,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -371,6 +441,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -380,6 +451,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -389,6 +461,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -398,6 +471,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -407,6 +481,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -416,6 +491,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 3,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -425,6 +501,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -434,6 +511,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -443,6 +521,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 2,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -452,6 +531,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -461,6 +541,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -470,6 +551,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -479,6 +561,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -488,6 +571,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -497,6 +581,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -506,6 +591,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -515,6 +601,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -524,6 +611,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -533,6 +621,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -542,6 +631,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -551,6 +641,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -560,6 +651,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -569,6 +661,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -578,6 +671,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -587,6 +681,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -596,6 +691,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -605,6 +701,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -614,6 +711,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -623,6 +721,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -632,6 +731,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -641,6 +741,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -650,6 +751,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -659,6 +761,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -668,6 +771,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -677,6 +781,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -686,6 +791,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -695,6 +801,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
@@ -704,6 +811,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -713,6 +821,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -722,6 +831,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -731,6 +841,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -740,6 +851,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -749,6 +861,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -758,6 +871,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -767,6 +881,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -776,6 +891,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 1
     },
     {
@@ -785,6 +901,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -794,6 +911,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -803,6 +921,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -812,6 +931,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -821,6 +941,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -830,6 +951,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -839,6 +961,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -848,6 +971,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -857,6 +981,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -866,6 +991,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -875,6 +1001,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -884,6 +1011,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -893,6 +1021,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     }
   ],
@@ -904,6 +1033,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -913,6 +1043,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 2,
       "known_limitation": 0
     },
     {
@@ -922,6 +1053,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -931,6 +1063,7 @@
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 5,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -940,6 +1073,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -949,6 +1083,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -958,6 +1093,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     }
   ],

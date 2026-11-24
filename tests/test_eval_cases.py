@@ -136,6 +136,20 @@ def test_a_duplicate_id_is_rejected_across_files(tmp_path: Path) -> None:
         (case('tags = ["Not A Tag"]\n[[case.turn]]\nquestion = "q"\noutcome = "clarification"'), "tags"),
         (case('paraphrase_of = "x"\n[[case.turn]]\nquestion = "q"\noutcome = "clarification"'), "paraphrase_of is given"),
         (turn('outcome = "clarification"').replace('id = "one"', 'id = "Not An Id"'), "id"),
+        (turn('outcome = "clarification"\nscale = "fraction_or_percent"'), "comparison options need a reference sql"),
+        (turn('outcome = "answered"\nsql = "SELECT 1"\nscale = "percent"'), "scale"),
+        (turn('outcome = "answered"\nsql = "SELECT 1"\ndecimal_places = 0'), "decimal_places"),
+        (turn('outcome = "clarification"\nor_clarification = true'), "or_clarification needs a reference sql"),
+        (turn('outcome = "cannot_answer"\naccept_stopped_write = true'), "accept_stopped_write goes with"),
+        (turn('outcome = "answered"\nexpect_truncated = true'), "expect_truncated goes with"),
+        (
+            turn('outcome = "answered"\nsql = "SELECT 1"\nexpect_truncated = true\nrequire = ["caveat_truncated"]'),
+            "a reference sql goes with outcome answered",
+        ),
+        (
+            turn('outcome = "clarification"\nexpect_truncated = true\nrequire = ["caveat_truncated"]'),
+            "expect_truncated goes with",
+        ),
     ],
 )
 def test_a_malformed_file_is_rejected_with_its_name(tmp_path: Path, text: str, message: str) -> None:
@@ -268,7 +282,7 @@ def test_the_suite_digest_follows_the_files(tmp_path: Path) -> None:
 
 def test_the_shipped_suite_loads() -> None:
     suite = load_suite()
-    assert len(suite.cases) == 128
+    assert len(suite.cases) == 146
     assert set(Counter(case.tier for case in suite.cases)) == set(TIERS)
     assert all(
         (suite.pin(case, number) is not None) == (turn.sql is not None)
@@ -293,6 +307,11 @@ def test_tiers_have_the_documented_sizes() -> None:
         "rule_policy": 7,
         "scan": 6,
         "paraphrases": 8,
+        "relative_dates": 5,
+        "result_edges": 4,
+        "conversations": 4,
+        "guard_stops": 2,
+        "debatable": 3,
     }
 
 
@@ -302,10 +321,11 @@ def test_every_check_question_is_a_tuned_case() -> None:
 
 
 def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
-    # The eleven check questions, and nine whose wording or example is in the
-    # prompt text: its three clarify words (in a question, a follow-up and a
-    # rule request), "last month", the velocity example, the brief's debit
-    # rule as a count, Rome in Georgia, and the wording of the scan's tool.
+    # The eleven check questions, and eleven whose wording or example is in
+    # the prompt text: its three clarify words (in a question, a follow-up and
+    # a rule request), "last month" and "this year", the velocity example
+    # (twice: "within" and "less than" two minutes), the brief's debit rule as
+    # a count, Rome in Georgia, and the wording of the scan's tool.
     # Then the two cases that failed in the first recorded run and had a
     # prompt line written for them afterwards, and the case that asks for the
     # brief's debit rule a second time, for its month table. Then two that
@@ -326,7 +346,9 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
         "follow-answer-a-clarification",
         "policy-vague-rule",
         "date-last-month",
+        "relative-this-year",
         "trap-velocity-window",
+        "debatable-velocity-strict",
         "join-brief-wrong-names",
         "trap-city-needs-state",
         "scan-where-is-fraud",
@@ -342,14 +364,14 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
         | repeats_a_tuned_rule
         | written_with_the_scan
     )
-    assert len(tuned) == 25
+    assert len(tuned) == 27
     assert suite.case("evidence-brief-rule-by-month").turns[0].clause == (
         suite.case("rule-brief-example").turns[0].clause
     )
     assert "ask which segment they mean" in SCAN_RESULT_UNSEEN
     text = system_text("").lower()
     for word in (
-        "risky", "suspicious", "high value", "last month", "within 5 minutes", "'ga'",
+        "risky", "suspicious", "high value", "last month", '"this year"', "within 5 minutes", "'ga'",
         "entirely outside that range", "insists it be run unchanged",
     ):
         assert word in text
@@ -427,3 +449,62 @@ def test_a_paraphrase_expects_what_its_original_expects() -> None:
         if ours.sql is not None and theirs.sql is not None:
             assert reference_digest(ours.sql) == reference_digest(theirs.sql), case.id
         assert ours.clause == theirs.clause
+
+
+# The options added for the review's cases.
+
+
+def test_the_later_options_load_and_reach_the_comparison(tmp_path: Path) -> None:
+    text = (
+        'tier = "debatable"\n[[case]]\nid = "one"\ntests = "t"\ntuned = false\n'
+        '[[case.turn]]\nquestion = "q1"\noutcome = "answered"\nsql = "SELECT 0.5"\n'
+        'scale = "fraction_or_percent"\ndecimal_places = 2\nor_clarification = true\n'
+        'require = ["assumptions_stated"]\n'
+        '[[case.turn]]\nquestion = "q2"\noutcome = "refused"\naccept_stopped_write = true\n'
+        '[[case.turn]]\nquestion = "q3"\noutcome = "answered"\nexpect_truncated = true\n'
+        'require = ["caveat_truncated"]\n'
+    )
+    first, second, third = load_cases(write(tmp_path, text))[0].turns
+    assert (first.comparison.scale, first.comparison.decimal_places) == ("fraction_or_percent", 2)
+    assert first.or_clarification and first.require == ("assumptions_stated",)
+    assert second.accept_stopped_write and "executed" in second.forbidden
+    assert third.expect_truncated and third.sql is None
+    plain = load_cases(write(tmp_path / "plain", 'tier = "joins"\n' + ANSWERED.format(id="a")))[0].turns[0]
+    assert (plain.comparison.scale, plain.comparison.decimal_places) == ("fraction", None)
+    assert not (plain.or_clarification or plain.accept_stopped_write or plain.expect_truncated)
+
+
+def test_an_option_left_unset_is_not_in_the_serialised_case(tmp_path: Path) -> None:
+    # A recorded run keeps a digest of each case as serialised: a case that sets
+    # none of the later options must serialise as it did before they existed.
+    later = {"scale", "decimal_places", "or_clarification", "accept_stopped_write", "expect_truncated"}
+    plain = load_cases(write(tmp_path, 'tier = "joins"\n' + ANSWERED.format(id="a")))[0]
+    assert not later & plain.turns[0].model_dump().keys()
+    assert not any(name in plain.model_dump_json() for name in later)
+    text = turn('outcome = "answered"\nsql = "SELECT 0.5"\ndecimal_places = 2', )
+    rounded = load_cases(write(tmp_path / "set", text))[0].turns[0]
+    assert later & rounded.model_dump().keys() == {"decimal_places"}
+
+
+def test_the_cases_added_after_the_review_say_what_they_accept() -> None:
+    suite = load_suite()
+    turns = {(case.id, number): item for case in suite.cases for number, item in enumerate(case.turns, 1)}
+    assert {key[0] for key, item in turns.items() if item.accept_stopped_write} == {
+        "conv-follow-up-after-refused-turn", "guard-explain-delete", "guard-rule-clause-escape",
+    }  # fmt: skip
+    assert {key[0] for key, item in turns.items() if item.scale != "fraction"} == {
+        "edges-fraud-share-of-all", "edges-explicit-percentage",
+    }  # fmt: skip
+    assert {key[0]: item.decimal_places for key, item in turns.items() if item.decimal_places} == {
+        "debatable-average-rounded": 2
+    }
+    assert {key[0] for key, item in turns.items() if item.or_clarification} == {
+        "debatable-credit-limit-card-types"
+    }
+    assert {key[0] for key, item in turns.items() if item.expect_truncated} == {"edges-many-rows"}
+    # Every relative date has to say which dates it was resolved to.
+    assert all(
+        "assumptions_stated" in item.require
+        for (case_id, _), item in turns.items()
+        if suite.case(case_id).tier == "relative_dates"
+    )

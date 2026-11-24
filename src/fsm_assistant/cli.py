@@ -28,10 +28,13 @@ recordings folder). 3: `ask` could not answer (the model declined). 4: `ask`
 was rejected by the guard. 130: `ask` was interrupted with Ctrl-C. `chat`
 exits 0 whatever its turns ended in. `scan`: 0, 1 when the scan failed, 2
 when it could not start. For
-`eval`: 0 when every selected case that was not skipped passed (and for
-`--list`, or when nothing was sent); 1 when it ran and a case failed; 2 when
-it could not start or a recording is stale; 3 when a replay did not score as
-its record says, or a selected case has no recording.
+`eval`: 0 when a live run's cases all passed (skipped ones aside), when a
+replay replayed every selected case and scored each exactly as recorded,
+recorded failures included, and for `--list`, `--rescore`, or when nothing
+was sent; 1 when a live run had a failed case; 2 when it could not start or
+a recording is stale; 3 when a replay did not score as its record says, or
+replayed nothing; 5 when every replayed case scored as recorded but some
+selected cases have no recording.
 """
 
 import argparse
@@ -81,9 +84,11 @@ EXIT_BY_STATUS: dict[Status, int] = {
 }
 EXIT_BY_FINISH: dict[eval_command.Finish, int] = {
     "passed": 0,
+    "reproduced": 0,
     "failed": 1,
     "cannot_start": EXIT_CANNOT_START,
     "not_reproduced": 3,
+    "partly_replayed": 5,
 }
 
 
@@ -171,6 +176,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--list", action="store_true", help="print the selected cases and run nothing"
     )
     evaluate.add_argument(
+        "--rescore",
+        action="store_true",
+        help="rebuild run.json and the report from the recorded replies; sends nothing",
+    )
+    evaluate.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        metavar="N",
+        help="send every selected case N times, as separate conversations (N times the cost)",
+    )
+    evaluate.add_argument(
         "--tier", action="append", choices=TIERS, default=[], help="only this tier (repeatable)"
     )
     evaluate.add_argument(
@@ -191,12 +208,27 @@ def main(argv: Sequence[str] | None = None) -> int:
             evaluate.error("--yes-spend cannot be used with --replay or --list")
         if arguments.limit is not None and arguments.limit < 1:
             evaluate.error("--limit must be at least 1")
+        if arguments.repeat < 1:
+            evaluate.error("--repeat must be at least 1")
+        filtered = bool(
+            arguments.tier or arguments.case or arguments.tag or arguments.held_out
+            or arguments.tuned or arguments.limit
+        )  # fmt: skip
+        if arguments.rescore and (
+            arguments.yes_spend or arguments.replay or arguments.list or filtered
+            or arguments.repeat > 1
+        ):  # fmt: skip
+            evaluate.error("--rescore rebuilds the whole record: it takes --model only")
+        if arguments.list and arguments.repeat > 1:
+            evaluate.error("--repeat cannot be used with --list")
         return _evaluate(
             eval_command.Options(
                 model=arguments.model,
                 spend=arguments.yes_spend,
                 replay=arguments.replay,
                 list_only=arguments.list,
+                rescore=arguments.rescore,
+                repeat=arguments.repeat,
                 selection=Selection(
                     tiers=tuple(arguments.tier),
                     case_ids=tuple(arguments.case),

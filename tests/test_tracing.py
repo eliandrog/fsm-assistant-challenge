@@ -297,6 +297,7 @@ def test_a_turn_is_one_trace_with_its_nodes_in_order(settings: Settings) -> None
     assert root.outputs["outcome"] == "answered" and root.outputs["sql"] == COUNT
     assert root.outputs["row_count"] == 1 and root.outputs["columns"] == ["count(*)"]
     assert root.outputs["refused"] == ["table_not_allowed"] and root.error is None
+    assert root.outputs["write_attempts"] == 0  # a count, like the codes beside it
 
     spec = model_spec(settings)
     for run in sink.runs:

@@ -65,6 +65,7 @@ class Failure(BaseModel):
     message: str
     repair: Repair | None = None
     refusal: RefusalCode | None = None  # set when the shape check or the guard refused the reply
+    write_attempt: bool = False  # the refused reply tried to change data or the schema
 
 
 class TurnState(BaseModel):
@@ -86,6 +87,7 @@ class TurnState(BaseModel):
     reads_labels: bool = False  # the approved statement reads fraud_labels
     failure: Failure | None = None
     refused: tuple[RefusalCode, ...] = ()  # the refusals of earlier attempts of this turn
+    write_attempts: int = 0  # how many of those earlier attempts were write attempts
     outcome: Outcome | None = None
 
     result: Annotated[QueryResult | BacktestResult | ScanResult | None, UntrackedValue] = None
@@ -122,6 +124,7 @@ PER_TURN_RESET: dict[str, object] = {
     "reads_labels": False,
     "failure": None,
     "refused": (),
+    "write_attempts": 0,
     "outcome": None,
     "result": None,
     "evidence": None,

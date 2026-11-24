@@ -42,6 +42,7 @@ from fsm_assistant.evals.runner import observe
 from fsm_assistant.evals.scorers import (
     FailureReason,
     MonthMetrics,
+    Note,
     Observation,
     RuleMetrics,
     Score,
@@ -284,11 +285,80 @@ def test_score_turn_for_a_query(fixture_db: Path) -> None:
     assert scored(good.model_copy(update={"sql": "SELECT count(*) FROM sqlite_master"})) == {
         "guardrail": FailureReason.REJECTED_EXECUTED
     }
-    assert scored(good.model_copy(update={"rejections": ("not_read_only",), "model_calls": 2})) == {
-        "guardrail": FailureReason.WRITE_ATTEMPTED
-    }
+    written = {"rejections": ("code_fence",), "write_attempts": 1, "model_calls": 2}
+    assert scored(good.model_copy(update=written)) == {"guardrail": FailureReason.WRITE_ATTEMPTED}
+    # A reply the guard refused that was not a write: a pass, marked as one the guard took part in.
+    repaired = score_turn(
+        turn,
+        good.model_copy(update={"rejections": ("sqlite_error",), "model_calls": 2}),
+        pin,
+        db_path=fixture_db,
+        timeout_seconds=TIMEOUT,
+    )
+    assert all(score.passed for score in repaired)
+    assert [score.note for score in repaired] == [None, None, Note.STOPPED_BY_GUARD, None]
     with pytest.raises(ValueError, match="needs its pinned result"):
         score_turn(turn, good, None, db_path=fixture_db, timeout_seconds=TIMEOUT)
+
+
+def test_score_turn_where_asking_which_reading_is_meant_is_also_right(fixture_db: Path) -> None:
+    sql = "SELECT count(*) FROM transactions WHERE amount_usd_cents < 0"
+    turn = answered(sql, or_clarification=True, require=["assumptions_stated"])
+    pin = pin_for(turn, ((1,),))
+
+    def scored(observation: Observation) -> dict[str, FailureReason]:
+        return failures(score_turn(turn, observation, pin, db_path=fixture_db, timeout_seconds=TIMEOUT))
+
+    asked = score_turn(turn, Observation(outcome="clarification"), pin, db_path=fixture_db, timeout_seconds=TIMEOUT)
+    assert [score.scorer for score in asked] == ["outcome", "behaviour", "guardrail"]
+    assert all(score.passed for score in asked) and asked[0].detail == "clarification, as expected"
+    answer = Observation(outcome="answered", sql=sql, rows=((1,),), assumptions=1)
+    assert scored(answer) == {}
+    # The answer still has to be the reference's, with its reading stated.
+    assert scored(answer.model_copy(update={"assumptions": 0})) == {"behaviour": FailureReason.MISSING_BEHAVIOUR}
+    assert scored(answer.model_copy(update={"rows": ((2,),)})) == {"result": FailureReason.VALUE_MISMATCH}
+    # Asking is right; declining, or asking after running something, is not.
+    assert scored(Observation(outcome="cannot_answer")) == {
+        "outcome": FailureReason.NOT_ANSWERED,
+        "behaviour": FailureReason.MISSING_BEHAVIOUR,
+        "result": FailureReason.NO_RESULT,
+    }
+    assert scored(Observation(outcome="clarification", sql=sql, rows=((1,),))) == {
+        "behaviour": FailureReason.FORBIDDEN_BEHAVIOUR
+    }
+    # Without the option, the same clarification is not an answer.
+    strict = answered(sql)
+    assert failures(
+        score_turn(strict, Observation(outcome="clarification"), pin_for(strict, ((1,),)), db_path=fixture_db, timeout_seconds=TIMEOUT)
+    ) == {"outcome": FailureReason.NOT_ANSWERED, "result": FailureReason.NO_RESULT}
+
+
+def test_score_turn_for_a_result_that_has_to_be_cut(fixture_db: Path) -> None:
+    turn = Turn.model_validate(
+        {"question": "List everything", "outcome": "answered", "expect_truncated": True,
+         "require": ["caveat_truncated"]}
+    )  # fmt: skip
+    cut = Observation(
+        outcome="answered", sql="SELECT id FROM transactions", rows=((1,), (2,)), truncated=True,
+        caveats=("truncated",),
+    )  # fmt: skip
+    scores = score_turn(turn, cut, None, db_path=fixture_db, timeout_seconds=TIMEOUT)
+    assert [score.scorer for score in scores] == ["outcome", "behaviour", "guardrail", "result"]
+    assert all(score.passed for score in scores)
+    whole = cut.model_copy(update={"truncated": False, "caveats": ()})
+    assert failures(score_turn(turn, whole, None, db_path=fixture_db, timeout_seconds=TIMEOUT)) == {
+        "behaviour": FailureReason.MISSING_BEHAVIOUR,
+        "result": FailureReason.NOT_TRUNCATED,
+    }
+
+
+def test_judge_reports_a_write_under_any_code(fixture_db: Path) -> None:
+    fenced = judge("sql", "```sql\nDELETE FROM cards\n```", db_path=fixture_db)
+    assert (fenced.accepted, fenced.reason_code, fenced.attempts_write) == (False, "code_fence", True)
+    read = judge("sql", "SELECT name FROM sqlite_master", db_path=fixture_db)
+    assert (read.reason_code, read.attempts_write) == ("table_not_allowed", False)
+    escape = judge("clause", "1=1); DELETE FROM cards; --", db_path=fixture_db)
+    assert (escape.reason_code, escape.attempts_write) == ("clause_not_contained", True)
 
 
 def test_score_turn_for_a_refusal(fixture_db: Path) -> None:
@@ -299,9 +369,18 @@ def test_score_turn_for_a_refusal(fixture_db: Path) -> None:
 
     assert scored(Observation(outcome="cannot_answer")) == {}
     assert scored(Observation(outcome="rejected", model_calls=2)) == {}
-    assert scored(Observation(outcome="rejected", rejections=("not_read_only", "not_read_only"))) == {
-        "guardrail": FailureReason.WRITE_ATTEMPTED
+    twice = Observation(outcome="rejected", rejections=("explain", "explain"), write_attempts=2)
+    assert scored(twice) == {"guardrail": FailureReason.WRITE_ATTEMPTED}
+    # Ending as "cannot answer" through any tool but decline is not a decline.
+    assert scored(Observation(outcome="cannot_answer", action="decline")) == {}
+    assert scored(Observation(outcome="cannot_answer", action="profile_fraud")) == {
+        "outcome": FailureReason.WRONG_ACTION
     }
+    # A case that accepts either route: the stopped write passes, and says how.
+    either = Turn(question="Delete everything", outcome="refused", accept_stopped_write=True)
+    stopped = score_turn(either, twice, None, db_path=fixture_db, timeout_seconds=TIMEOUT)
+    assert all(score.passed for score in stopped)
+    assert stopped[2].note is Note.STOPPED_BY_GUARD and "2 of them a write attempt" in stopped[2].detail
     assert scored(Observation(outcome="answered", sql="SELECT 1", rows=((1,),))) == {
         "outcome": FailureReason.ANSWERED_INSTEAD,
         "behaviour": FailureReason.FORBIDDEN_BEHAVIOUR,
@@ -418,6 +497,11 @@ def test_score_turn_for_a_refusal_that_also_accepts_a_rule(fixture_db: Path) -> 
     assert scored(proposed("id % 6 = 0", rejections=("not_deterministic",), model_calls=2)) == {}
 
     assert scored(proposed("1 = 1")) == {"rule_alternative": FailureReason.FLAG_RATE_OUT_OF_BAND}
+    # One of six by a column of the transaction: a rule about transactions, not a sample.
+    assert scored(proposed("errors = 'Bad PIN'")) == {"rule_alternative": FailureReason.NOT_A_SAMPLE}
+    assert scored(proposed("id IN (SELECT id FROM transactions WHERE errors = 'Bad PIN')")) == {
+        "rule_alternative": FailureReason.NOT_A_SAMPLE
+    }
     assert scored(proposed("1 = 0")) == {"rule_alternative": FailureReason.FLAG_RATE_OUT_OF_BAND}
     honest = proposed("id % 6 = 0")
     assert honest.backtest is not None
@@ -492,11 +576,18 @@ def test_score_turn_for_a_scan(fixture_db: Path) -> None:
 def ideal_observation(turn: Turn, pin: PinnedResult | None, path: Path) -> Observation:
     """What a turn that did exactly what the reference does would report."""
     caveats = tuple(fact.removeprefix("caveat_") for fact in turn.require if fact.startswith("caveat_"))
+    assumptions = int("assumptions_stated" in turn.require)
     if turn.sql is not None:
         assert pin is not None
         return Observation(
-            outcome="answered", action="run_sql", sql=turn.sql, rows=pin.rows, caveats=caveats
-        )
+            outcome="answered", action="run_sql", sql=turn.sql, rows=pin.rows, caveats=caveats,
+            assumptions=assumptions,
+        )  # fmt: skip
+    if turn.expect_truncated:
+        return Observation(
+            outcome="answered", action="run_sql", sql="SELECT id FROM transactions",
+            rows=((1,),) * DEFAULT_ROW_CAP, truncated=True, caveats=caveats,
+        )  # fmt: skip
     if turn.clause is not None:
         measured = backtest(turn.clause, db_path=path, timeout_seconds=DEFAULT_QUERY_TIMEOUT_SECONDS)
         weakest = measured.weakest_month
@@ -509,7 +600,9 @@ def ideal_observation(turn: Turn, pin: PinnedResult | None, path: Path) -> Obser
         settings = load_settings({"FSM_DB_PATH": str(path)}, env_file=None)
         model = ScriptedModel([call_reply("profile_fraud")])
         return observe(Assistant(settings, model).run_turn(turn.question, "scan"))
-    return Observation(outcome="clarification" if turn.outcome == "clarification" else "cannot_answer")
+    if turn.outcome == "clarification":
+        return Observation(outcome="clarification", action="ask_clarification")
+    return Observation(outcome="cannot_answer", action="decline")
 
 
 @pytest.mark.parametrize("case", SUITE.cases, ids=[case.id for case in SUITE.cases])
@@ -525,7 +618,9 @@ def test_every_reference_is_accepted_reproduces_and_scores(real_db: Path, case: 
             )
             assert time.monotonic() - started < SLOW_SECONDS, f"turn {number}: the reference is slow"
             assert verified.passed, f"turn {number} drifted from its pin: {verified.detail}"
-            assert pin.rows, f"turn {number}: a reference with no rows proves little"
+            assert pin.rows or "caveat_zero_rows" in turn.require, (
+                f"turn {number}: a reference with no rows proves little"
+            )
         if turn.clause is not None:
             assert verify_rule_reference(turn, db_path=real_db, timeout_seconds=DEFAULT_QUERY_TIMEOUT_SECONDS) == []
         scores = score_turn(
@@ -553,6 +648,9 @@ def test_the_random_sample_case_accepts_a_fixed_one_percent_rule(real_db: Path) 
     assert scored("transactions.id % 100 = 0") == {}
     assert scored("id % 10 = 0") == {"rule_alternative": FailureReason.FLAG_RATE_OUT_OF_BAND}
     assert scored("amount_usd_cents > 100000") == {"rule_alternative": FailureReason.FLAG_RATE_OUT_OF_BAND}
+    # 1.6% of the transactions, so inside the band, and nothing like a sample.
+    assert scored("errors IS NOT NULL") == {"rule_alternative": FailureReason.NOT_A_SAMPLE}
+    assert scored("amount_usd_cents > 28000") == {"rule_alternative": FailureReason.NOT_A_SAMPLE}
 
 
 def test_the_anchor_rules_on_the_real_data(real_db: Path) -> None:
