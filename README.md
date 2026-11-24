@@ -2,31 +2,30 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** Built and tested so far: configuration, read-only query execution (row cap, timeout, write protection), the schema context that will ground the model, and the rule backtest (a `WHERE` clause measured against the fraud labels), which is a Python function with no interface yet. **No assistant functionality is implemented yet**: nothing calls a model, so there is no natural-language → SQL, no rule proposal and no evaluation suite. Sections marked _To be completed_ will be filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: configuration, read-only query execution (row cap, timeout, write protection), the schema context that will ground the model, and the rule backtest (a `WHERE` clause measured against the fraud labels), which is a Python function with no interface yet. **Proposed**, with the design written down but no code: everything that involves a model. Nothing calls a model yet, so there is no natural-language → SQL, no rule proposal and no evaluation suite. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
-- [Problem framing](#problem-framing)
+- [What it is](#what-it-is)
 - [Setup](#setup)
 - [How to run](#how-to-run)
 - [How to reproduce](#how-to-reproduce)
-- [Solution](#solution)
-- [Architecture](#architecture)
+- [Solution overview](#solution-overview)
 - [Design choices and trade-offs](#design-choices-and-trade-offs)
 - [GenAI limitations and mitigations](#genai-limitations-and-mitigations)
 - [Evaluation](#evaluation)
 - [Data: differences from the brief](#data-differences-from-the-brief)
-- [Left out and next steps](#left-out-and-next-steps)
+- [What is not built yet](#what-is-not-built-yet)
 - [Repository layout](#repository-layout)
 
-## Problem framing
+## What it is
 
 An FSM's workflow, as the brief describes it, is: explore data to form hypotheses, validate them against history, and translate the patterns into fraud rules. It is iterative, and each loop needs SQL fluency and domain knowledge.
 
-The planned scope follows the brief's MVP guidance, in priority order:
+The scope follows the brief's MVP guidance, in priority order:
 
 1. **Natural language → SQL** for data exploration, reliable enough to trust. The brief names this as the core feature.
-2. **Insight → rule.** A rule is a valid SQL `WHERE` clause over the `transactions` table. A proposed rule is only useful with evidence, so each one is backtested against `fraud_labels`.
+2. **Insight → rule.** A rule is a valid SQL `WHERE` clause over the `transactions` table. A proposed rule is only useful with evidence, so each one is backtested (measured against history) using `fraud_labels`.
 3. **An evaluation suite** that measures whether the above is accurate and safe.
 
 The interface is deliberately minimal so that effort goes into these three.
@@ -47,15 +46,7 @@ uv sync
 
 **Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only.
 
-**Model (Ollama).** Not needed yet: nothing calls a model, and the tests run offline. Once the assistant exists it will use a Qwen model running locally in [Ollama](https://ollama.com), so there is no API key and nothing is sent to a hosted service. To prepare:
-
-```bash
-# install Ollama from https://ollama.com/download, then pull one of the two candidate models
-ollama pull qwen3:14b        # 9.3 GB download
-ollama pull qwen3:30b-a3b    # 18 GB download
-```
-
-The machine needs enough memory to load the chosen model. Which of the two is the default is not chosen yet; it will be picked by running the evaluation suite against both. _Default model, tested Ollama version and memory needed: to be completed._
+**Model.** Not needed yet: nothing calls a model, and the tests run offline. The assistant will use Claude through the Anthropic API ([D-14](docs/DECISIONS.md#d-14-model-provider-anthropic-claude-through-its-api)), which needs an API key. _The key setup (`ANTHROPIC_API_KEY` in `.env`) and the model settings arrive with the model layer: to be completed._ The evaluation suite is designed to be replayed offline from recorded model replies, so checking the reported results will not need a key.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
 
@@ -64,8 +55,6 @@ The machine needs enough memory to load the chosen model. Which of the two is th
 | `FSM_DB_PATH` | `data/data.db` | SQLite database. A relative path is resolved against the project root, not the current directory |
 | `FSM_ROW_CAP` | `1000` | Maximum rows a query returns; a longer result is cut and flagged as truncated |
 | `FSM_QUERY_TIMEOUT_SECONDS` | `15` | A query still running after this long is interrupted |
-| `OLLAMA_HOST` | `http://localhost:11434` | Address of the Ollama server (not used yet) |
-| `OLLAMA_MODEL` | none | Ollama model tag (not used yet; will be required only when a model is called) |
 
 To keep them in a file, copy `.env.example` to `.env` (git-ignored) in the project root:
 
@@ -74,6 +63,8 @@ cp .env.example .env
 ```
 
 `.env` is read by a small parser in `config.py`, not by a dotenv library: plain `KEY=VALUE` lines and `#` comment lines only (no `export`, no inline comments). A real environment variable overrides the file, and an empty value means "use the default". An invalid value (for example `FSM_ROW_CAP=abc`) stops with an error naming the variable.
+
+`config.py` and `.env.example` still carry two settings from an earlier choice of a local model (`OLLAMA_HOST`, `OLLAMA_MODEL`). Nothing uses them; leave them as they are. They are replaced by the Claude settings when the model layer is built.
 
 ## How to run
 
@@ -91,7 +82,7 @@ What can be reproduced today:
 
 ```bash
 uv sync          # install
-uv run pytest    # a few seconds, offline (no model needed)
+uv run pytest    # a few seconds, offline (no model, no key)
 ```
 
 The tests cover configuration, read-only execution, the schema context and the rule backtest. Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
@@ -117,37 +108,33 @@ print('precision', r.precision, 'recall', r.recall, 'unlabelled', r.flagged_unla
 
 On the shipped data this rule flags 350 transactions, of which 238 are labelled: 2 fraud and 236 legitimate (precision 0.8%, recall 2 of 1,360), and 112 unlabelled.
 
-_To be completed: the single command that runs the evaluation suite, where it writes results, the model and settings used for the reported numbers, and expected run time and cost._
+_To be completed: the single command that replays the evaluation suite offline, where it writes results, the model and settings used for the reported numbers, and the run time and cost of a live run._
 
-## Solution
+## Solution overview
 
-_To be completed once implemented._ This section will explain what the assistant does, walk through one exploration question end to end (question → SQL → result) and one rule proposal (insight → `WHERE` clause → backtest).
+**Proposed; the target design, not what runs today.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-## Architecture
-
-**Partly implemented**: configuration, read-only execution, the schema context and the rule backtest are built; generation, guardrails on the SQL text, presentation, rule proposal and the evaluation harness are proposed. Full description, diagram, status per component and open decisions: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-In short: the model writes SQL and prose; code decides what runs and computes every number.
+The principle: the model only chooses and writes; code decides what runs, runs it and computes every number. For each message, Claude will be given the real schema and will pick exactly one of five actions: answer with a SQL query, propose a rule, ask for a fixed fraud scan, ask the FSM what was meant, or decline. Code will then check the SQL without running it, accept only a single read-only `SELECT` over the known tables, run it on a read-only connection with a timeout and a row cap, and show the SQL next to the result. A rule is a `WHERE` clause and will never be shown without its backtest against the fraud labels. If the first attempt fails, the model will get the error once; a second failure will be shown as a failure.
 
 ```
-question ─► NL→SQL generation ─► SQL guardrails ─► read-only execution ─► result + SQL shown
-               ▲ schema context      │ reject: one repair attempt
-               │                     ▼
-insight ──► rule proposal ─► (same guardrails) ─► backtest vs fraud_labels ─► rule + precision/recall
+question ─► Claude picks one of five actions ─► SQL guard ─► read-only execution ─► SQL + result + caveats
+              ▲ real schema, glossary             │ reject or error: one repair attempt
+              │                                   ▼
+              └─ rule clause ─► (same guard) ─► backtest vs fraud_labels ─► rule + precision/recall
 ```
-
-The diagram is the target design, not what runs today. The evaluation harness (proposed) will run fixed cases through this same pipeline.
 
 What exists today:
 
 - **Read-only execution** (`db.py`): every query runs through one function, on a connection that cannot write. Three layers enforced by SQLite itself, not by inspecting the SQL text: the file is opened read-only, `PRAGMA query_only` is on, and an authorizer callback denies everything except reads (including `ATTACH`, temp tables and `PRAGMA` changes, which a read-only file alone does not stop). A query is interrupted after a timeout, and at most a fixed number of rows is fetched, with a flag when the result was cut. The SQL is never rewritten.
 - **Schema context** (`schema_context.py`): the description of the database that will go into every prompt, read from the database itself (tables, columns, types, keys, row counts, the actual values of categorical columns) plus short notes on what a model would otherwise get wrong (amounts in cents, case-sensitive values, how to join the fraud labels, partial label coverage). It is deterministic, about 3,300 characters.
-- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It is not yet called by anything: there is no rule proposal and no interface. It does not check which tables a clause reads; that belongs to the SQL guard, which is not built (so, for example, a clause that reads `fraud_labels` in a subquery is not refused).
+- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It is not yet called by anything. It does not check which tables a clause reads; that belongs to the SQL guard, which is not built (so, for example, a clause that reads `fraud_labels` in a subquery is not refused).
 - **Configuration** (`config.py`): see [Setup](#setup).
+
+_A walk through one real exploration question and one real rule proposal, with output: to be completed once implemented._
 
 ## Design choices and trade-offs
 
-Decisions made so far (full entries in [`docs/DECISIONS.md`](docs/DECISIONS.md)):
+Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first twelve rows are about built code (except the SQL validator in the third row, which is proposed); the last three are decided and not built yet.
 
 | Choice | Why | Cost |
 |---|---|---|
@@ -163,52 +150,61 @@ Decisions made so far (full entries in [`docs/DECISIONS.md`](docs/DECISIONS.md))
 | Rule metrics on labelled transactions only; undefined ratios are "undefined" | An unlabelled transaction is unknown, not legitimate; "0% precision" for a rule that flagged nothing labelled would mislead | Every figure needs its coverage caveat shown with it |
 | One backtest template; the rule is evaluated in a subquery that sees only `transactions` | Rules are written with bare column names, as in the brief; `id` cannot be confused with a label column | The dataset totals are recomputed on every backtest (well under a second) |
 | Rule text contained by parentheses plus a lexical scan (no `;`, comments, bind parameters, unbalanced parentheses) | A rule must not be able to change what is measured; needs no SQL parser | `--` is refused even where it would be valid arithmetic; table and column allow-listing is left to the SQL guard |
-| Local model: Ollama running Qwen | No API key or per-call cost; schema and transaction data stay on the machine; reproducible with `ollama pull` | Small local models are weaker and less consistent at SQL than large hosted ones; reviewers need Ollama, a large download and enough memory |
+| Model: Claude through the Anthropic API (decided, not built) | Stronger SQL than the small local models tried first, and no multi-gigabyte download for a reviewer; offline replay of the evaluation means checking results needs no model | An API key and a cost per call for live use; the question and schema are sent to a hosted service |
+| One turn is a fixed state graph in LangGraph, not an agent (decided, not built) | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
+| The model picks one of five tools; code executes it (decided, not built) | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
 
-The model name is configuration, and only `llm.py` talks to the model, so another provider could be swapped in.
+**Why LangGraph, and why not an agent.** An agent is a loop in which the model sees the result of each action and chooses the next one. That is flexible, but it could not guarantee that every query passes the guard, or that a turn costs at most two model requests, and result rows would pass through the model, which could then restate them wrongly. So a turn will be a fixed graph instead: the steps and the routes between them are declared in code, and the model's only job is to pick one action and write it. LangGraph was chosen for that graph, rather than plain functions, because the structure is declared in one place and the diagram is drawn from the code, conversation memory comes as a store keyed by conversation, and each step can be traced. The cost is that the assistant will not chain several queries in one turn; the FSM asks a follow-up. ([D-15](docs/DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop))
 
-Still open (see [Open decisions](docs/ARCHITECTURE.md#open-decisions)): which of the two Qwen models (`qwen3:14b`, `qwen3:30b-a3b`) is the default, interface (CLI vs minimal web UI), evaluation dataset design.
+The model name is configuration, and only `llm.py` will talk to the model, so a second provider (for example a local model) could be added behind the same interface. It is not planned.
 
-_Justification of the final architecture and interaction model: to be completed._
+Still open (see [Open points](docs/ARCHITECTURE.md#open-points)): whether tools or a single structured object is the default output mode (to be measured), the model's effort level, whether the smaller Claude model becomes the default, and whether the web chat is built.
+
+_Justification of the final interaction model, with what was observed: to be completed._
 
 ## GenAI limitations and mitigations
 
-Mitigations by risk. Implemented so far: the read-only connection, timeout and row cap, the schema context, and the rule backtest (not yet wired to a model or interface); the rest is planned. Where each sits in the design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#where-hallucination-mitigations-sit).
+Mitigations by risk, and whether each is built. Where each sits in the design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#where-hallucination-mitigations-sit).
 
-| Risk | Mitigation |
-|---|---|
-| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns (implemented); identifiers checked before execution (planned) |
-| Destructive or runaway SQL | Read-only connection, timeout, row cap (implemented); `SELECT`-only validation of the SQL text (planned) |
-| SQL that runs but answers the wrong question | SQL always shown with the result; execution accuracy measured in evals (both planned) |
-| Made-up numbers | Every figure comes from an executed query, never from model text (implemented for backtest figures; planned for query results) |
-| Plausible but poor rules | The backtest that measures a rule against the fraud labels (implemented); no rule shown without one, and the FSM decides, the tool does not deploy (planned, with rule proposal) |
-| Misleading fraud rates | The schema context tells the model the coverage and to use labelled rows only (implemented); rule metrics on labelled transactions only, with the unlabelled share of the flagged set reported (implemented in the backtest; presentation planned) |
-| A small local model writes wrong or inconsistent SQL more often than a large hosted one | The same guardrails, schema context and single repair attempt, none of which trust the model; the evaluation suite run against both candidate Qwen models to measure how often it happens (schema context implemented; the rest planned) |
+| Risk | Built | Proposed |
+|---|---|---|
+| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns | Tables checked against the real ones before execution; SQLite's error on an unknown column feeds one repair |
+| Destructive or runaway SQL | Read-only connection, timeout, row cap | A guard that compiles the SQL without running it and accepts a single read-only `SELECT` |
+| SQL that runs but answers the wrong question | none yet | SQL always shown with the result, with the model's assumptions listed; execution accuracy measured in the evaluation suite |
+| Made-up numbers | Backtest figures come from one fixed query | Every figure from executed SQL; the model is never shown result rows, and its text is labelled as model text |
+| Plausible but poor rules | The backtest that measures a rule against the fraud labels | No rule shown without one; evidence month by month; the FSM decides, the tool does not deploy |
+| A rule that reads the labels it is scored on | none yet (a clause can read `fraud_labels` today) | The guard rejects any clause that reads `fraud_labels` |
+| Misleading fraud rates from partial labels | The schema context tells the model the coverage and to use labelled rows only; rule metrics on labelled transactions only, with the unlabelled share reported | Coverage caveat shown with every such result |
+| Vague or unanswerable questions answered anyway | none yet | The model can ask what was meant or decline; such cases are in the evaluation set |
+| A rule that fits history and nothing else | none yet | Scoring on months the rule was not derived from |
 
-_What was actually built, what was observed in testing, and residual risks: to be completed._
+Known weaknesses found in exploratory checks, each with its planned fix, are listed in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-weaknesses-and-planned-fixes). One matters for reading any result on this data: all 1,360 labelled frauds are at merchant locations in Rome, Italy, so strong backtest numbers here do not prove that a rule generalises.
+
+_What was observed in testing with the real model, and residual risks: to be completed._
 
 ## Evaluation
 
-The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite does not exist yet**; [`evals/README.md`](evals/README.md) describes what will live there. The metrics below are the plan, not results.
+The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite does not exist yet.** Everything in this section is proposed; the design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#evaluation) and [`evals/README.md`](evals/README.md). The metrics below are the plan, not results.
 
-**Offline (planned)**
+**Offline** means measured on fixed cases before anyone uses the tool. The suite will run about 25 cases through the same code path the interface uses, and report counts per tier, not one accuracy percentage, because the sample is small. A live run records the model's replies; the suite can then be replayed from those recordings with no model, no key and no network. Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today.
 
-- Execution accuracy: generated SQL returns the same result as a reference query, by difficulty tier.
-- Safety: share of unsafe inputs (write attempts, injection) that reach execution; target zero.
-- Refusal quality: unanswerable or ambiguous questions are refused or clarified rather than answered.
-- Rule quality: proposed rules are valid, and their precision/recall against `fraud_labels` is reported correctly.
-- Latency per question (the model runs locally, so there is no per-call cost).
-- The same suite run against both candidate Qwen models, to choose the default and show the difference.
+**Online** means measured while FSMs use the tool, which would need a deployment. The assistant is planned to write one structured log line per step of each turn (question, SQL, tool chosen, guard decision, outcome, row count, duration, token usage; never result rows or the key). Those log fields are what the online metrics below would be computed from.
 
-**Online (proposed, would need a deployment)**
+Each offline measure is there because it predicts something that matters online:
 
-- Time from question to validated insight, and from insight to deployed rule, against the current workflow.
-- Share of generated queries the FSM runs unedited versus corrects.
-- Share of proposed rules accepted, and their live precision and false-positive rate after deployment.
-- Fraud value prevented versus legitimate payments blocked.
-- FSM-reported errors and trust (feedback on each answer).
+| Offline measure (proposed) | Online metric it predicts (proposed) |
+|---|---|
+| Execution accuracy: the generated query returns the same result as a reference query, per tier | Share of generated queries the FSM uses as they are, against the share they correct or report as wrong |
+| Guardrail: unsafe inputs (writes, injection) that reach execution; target zero | Unsafe statements reaching the database (must stay zero); rate of guard rejections |
+| Clarification and refusal: vague or unanswerable questions are not answered with invented SQL | Share of clarifications followed by a successful answer; answers reported as wrong |
+| Rule arithmetic: the reported backtest equals an independent recomputation | Trust in the numbers: audits of shown figures find no differences |
+| Rule match and score on later months | Share of proposed rules accepted; live precision and false-positive rate of accepted rules after deployment |
+| Fraud scan finds the known concentration | Time from first question to a validated insight |
+| Model requests and time per turn | Response time and cost per question |
 
-_Results, eval set description and known failure cases: to be completed._
+Further online metrics with no offline counterpart: time from insight to deployed rule against the current workflow; fraud value prevented against legitimate payments blocked.
+
+_Results, the case set and known failure cases: to be completed._
 
 ## Data: differences from the brief
 
@@ -219,17 +215,24 @@ The database does not match the brief's description in several ways. Details and
 - There are two tables the brief does not list: `merchants` and `merchant_locations`.
 - `fraud_labels.transaction_id` is TEXT; `transactions.id` is INTEGER. The join needs `CAST(transactions.id AS TEXT)` to stay fast in every form.
 - Only about 67% of transactions have a fraud label (777,339 of 1,159,966), and about 0.17% of labelled transactions are fraud (1,360). Unlabelled is treated as unknown, not as legitimate.
+- All 1,360 labelled frauds are at merchant locations in Rome, Italy.
 
 So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'debit')`, does not run as written. Its equivalent on this data is `amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')`.
 
-## Left out and next steps
+## What is not built yet
 
-Configuration, read-only execution, the schema context and the rule backtest are done. Still to do, in planned order:
+Built: configuration, read-only execution, the schema context and the rule backtest. Not built, in planned order:
 
-1. Natural language → SQL: the model client, generation, validation of the SQL text, presentation.
-2. Rule proposal (insight → clause), validation of the clause's tables and columns, and showing a rule with its backtest.
-3. Evaluation suite for both.
-4. Minimal interface polish.
+1. The SQL guard (compile-only check of queries and rule clauses) and two hardening settings on the connection.
+2. The model layer: the Claude client, the five tools, recording and replay of model replies.
+3. The graph for one turn and the terminal chat: natural language → SQL, and a rule shown with its backtest.
+4. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
+5. The evaluation suite with offline replay.
+6. Rule evidence month by month, and scoring on months a rule was not derived from.
+7. The fraud-concentration scan.
+8. The web chat and its HTTP API. First to be cut if time runs out.
+
+Not planned for this prototype: authentication, conversation memory that survives a restart, streaming of replies, charts, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
 
 _What was cut for time and how it would be built: to be completed at the end, as the brief requests._
 
@@ -240,12 +243,12 @@ README.md              This file
 AGENTS.md, CLAUDE.md   Pointers to docs/AGENTS.md (working rules for coding agents)
 docs/
   CHALLENGE.md         The original brief, verbatim
-  ARCHITECTURE.md      Architecture (implemented and proposed parts), data flow, open decisions
+  ARCHITECTURE.md      Target design, what is built and what is proposed, evidence, known weaknesses
   DATA.md              Schema notes and differences from the brief
   DECISIONS.md         Decision log
   AGENTS.md            Working rules for coding agents
 data/                  data.db (SQLite) and schema.sql; read-only
-src/fsm_assistant/     The package. Implemented: config.py, db.py, schema_context.py,
+src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        rules/backtest.py; the other modules are docstring-only placeholders
 tests/                 pytest tests (fixture databases built from data/schema.sql)
 evals/                 Evaluation suite (empty; see its README)

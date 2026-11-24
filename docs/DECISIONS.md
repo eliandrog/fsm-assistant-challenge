@@ -4,7 +4,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 
 - Entries are numbered **D-01, D-02, …** in the order they were decided. The number is the only ordering; entries carry no dates.
 - Entries are never rewritten. If a later decision changes an earlier one, the earlier entry's status becomes **Superseded by D-xx** or **Refined by D-xx**.
-- Decisions not yet made are listed under "Open decisions" in [`ARCHITECTURE.md`](ARCHITECTURE.md#open-decisions). When one is settled it gets an entry here.
+- Decisions not yet made are listed under "Open points" in [`ARCHITECTURE.md`](ARCHITECTURE.md#open-points). When one is settled it gets an entry here.
 
 ## Index
 
@@ -14,7 +14,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-02 | Core functionality first, minimal interface | Accepted |
 | D-03 | Model-written SQL runs read-only, after validation in code | Accepted; refined by D-06, D-07, D-08 |
 | D-04 | The real schema is the source of truth, not the brief | Accepted |
-| D-05 | LLM provider: local Ollama with Qwen | Accepted |
+| D-05 | LLM provider: local Ollama with Qwen | Superseded by D-14 |
 | D-06 | Read-only is enforced in three engine-level layers | Accepted |
 | D-07 | Query timeout through a progress handler | Accepted |
 | D-08 | `db` owns the row cap | Accepted |
@@ -23,6 +23,9 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-11 | Backtest metrics use labelled transactions only; undefined ratios are `None` | Accepted |
 | D-12 | One backtest template; the clause sees only `transactions` | Accepted |
 | D-13 | A rule clause is contained by parentheses and a lexical scan | Accepted |
+| D-14 | Model provider: Anthropic (Claude) through its API | Accepted; not built yet |
+| D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; not built yet |
+| D-16 | The model chooses one of five tools; code executes it | Accepted; not built yet; default mode to be set by a measurement |
 
 ## Template
 
@@ -90,7 +93,7 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 
 ## D-05: LLM provider: local Ollama with Qwen
 
-**Status:** Accepted
+**Status:** Superseded by D-14
 
 **Context:** The assistant needs a model to write SQL and rule clauses. The choice decides who can reproduce the project, what leaves the machine, and how reliable the generated SQL is likely to be. This was open decision 1 in `ARCHITECTURE.md`, where the suggested default was a hosted model.
 
@@ -238,3 +241,87 @@ SQLite's message is kept verbatim on the error for the repair attempt.
 **Alternatives:** Relying on SQLite's syntax errors alone (the `UNION` escape above is valid SQL); a keyword deny-list (refuses legitimate rules, and is not what stops an escape); a SQL parser library (a dependency, and part of the open `sql_guard` decision); stripping comments instead of rejecting them (rewrites the rule the FSM is shown).
 
 **Consequences:** `--` is refused even where it is arithmetic (`1--1`; write `1 - -1`), and a column name containing `$` or `#` cannot be used unquoted; neither occurs in this schema. Bind parameters were refused partly because SQLite's `$name(…)` form can hide parentheses from the scan. The scan guarantees structure, not meaning. Left for `sql_guard`, which is expected to run before `backtest` and can call or replace `check_clause`: which tables and columns a clause may read (today a clause can read `fraud_labels` in a subquery and reproduce the labels), non-deterministic functions such as `random()`, and expensive clauses, which only the timeout bounds.
+
+## D-14: Model provider: Anthropic (Claude) through its API
+
+**Status:** Accepted; not built yet. Supersedes D-05.
+
+**Context:** D-05 chose a local Qwen model in Ollama, mainly so that no API key was needed and nothing left the machine. Exploratory runs on the two local models (see [`ARCHITECTURE.md`](ARCHITECTURE.md#evidence)) showed the approach was workable, but slower end to end, and a reviewer would need a download of 18.5 GB for the larger model and enough memory to load it. Two things changed the balance: the owner has an Anthropic API key, and the evaluation suite is designed to be replayed offline from recorded model replies (proposed), so a reviewer needs no model at all to check the reported results.
+
+**Decision:** The assistant will use Claude through the Anthropic API. No local model is part of the build.
+
+- The model is configuration (`ANTHROPIC_MODEL`). The default is `claude-opus-5-5`.
+- The evaluation suite will also be run on `claude-haiku-5-5`, a smaller and cheaper model. Whether it becomes the default is open and will be decided from those results.
+- The key is `ANTHROPIC_API_KEY`, kept in `.env` (git-ignored) and named only in `.env.example`.
+- `llm.py` stays the only module that talks to a model provider, so a second provider could be added behind the same interface.
+
+**Alternatives:**
+
+- Local Ollama with Qwen (D-05): no key, no per-call cost, nothing leaves the machine. Rejected for the slower turn, the large download a reviewer would need, and weaker first-attempt results on a small sample (10 and 12 of 15 correct).
+- Both providers behind a setting: twice the prompt tuning and twice the evaluation runs for a prototype. Named in the README as a possible extension, not built.
+
+**Consequences:**
+
+- Live use needs an API key and each model call costs money. Tests never call a model, and no paid call is made without the owner's go-ahead for that run.
+- The question, the prompt and the schema context are sent to a hosted service. By design, result rows are never sent to the model.
+- Claude's output cannot be reproduced from a seed, so two live runs can differ. Offline replay is the reproducible path, and each evaluation run must record the model that produced it.
+- A reviewer without a key can still run the tests and, once it exists, the replayed evaluation.
+- `config.py`, `.env.example` and their tests still carry `OLLAMA_HOST` and `OLLAMA_MODEL`. They are unused and will be replaced by the Claude settings when the model layer is built.
+
+## D-15: LangGraph as a fixed state graph, not an agent loop
+
+**Status:** Accepted; not built yet
+
+**Context:** One turn has several steps with strict rules between them: model-written SQL must pass a guard before it runs, a rule must be backtested before it is shown, and a failed attempt may be repaired once and no more. Follow-up questions need a small memory per conversation. The question is what holds these steps together, and how much freedom the model gets in choosing them.
+
+**Decision:** One turn will be a fixed state graph built with LangGraph: nodes are plain Python functions, and the routes between them are chosen by code (the graph is in [`ARCHITECTURE.md`](ARCHITECTURE.md#how-one-turn-works)). LangChain is used only for the Claude wrapper (`langchain-anthropic`). It is not a tool-calling agent loop: no prebuilt agent and no node that executes tool calls on the model's behalf. The model is asked once per attempt and never sees the result of what it asked for.
+
+Two dependencies will be added by the task that builds the model layer: `langgraph` and `langchain-anthropic`. Not added: the `langchain` meta-package, or a direct dependency on the `anthropic` SDK.
+
+**Alternatives:**
+
+- A plain Python pipeline (functions calling functions): no framework dependency, and it could give the same guarantees. Rejected because the graph gives three things that would otherwise be written by hand: the structure is declared in one place and the diagram is drawn from the code; conversation memory is a checkpointer (LangGraph's store of saved state) keyed by conversation; and each step's update can be traced.
+- A free agent loop, where the model sees each tool result and chooses its next action: more flexible, and able to chain several queries in one turn. Rejected because it cannot guarantee that every query passes the guard, a turn has no fixed cost, and result rows would enter the model's context, where the model could restate or alter the numbers.
+
+**Consequences:**
+
+- The safety properties are structural: a query can reach execution only by the route through the guard, and a turn costs at most two model requests.
+- The assistant cannot plan several steps within one turn. An analysis that needs three queries takes three questions from the FSM.
+- Two framework dependencies to pin and keep working together. Defaults in them that would break the design (automatic retries, for example) each need a test.
+- "Tool" in this project means only the model's choice of action; see D-16.
+
+## D-16: The model chooses one of five tools; code executes it
+
+**Status:** Accepted; not built yet. Which of the two modes below is the default will be set by a measurement.
+
+**Context:** Every reply from the model has to be one of five actions with known fields, so that code can route on it without parsing free text. Claude offers two ways to get that: tool calls (the model names an action and fills in typed arguments) and structured output (the reply is one object constrained to a schema).
+
+**Decision:** Primary mode: five tools, one per action, each with a strict argument schema and at most one call per reply.
+
+| Tool | Meaning |
+|---|---|
+| `run_sql` | Answer with a query |
+| `propose_rule` | Propose a rule clause |
+| `profile_fraud` | Ask for the code-written fraud scan |
+| `ask_clarification` | Ask the FSM what was meant |
+| `decline` | Say the question cannot be answered from this data |
+
+- The model chooses a tool; a graph node validates the call, runs the guard and executes it. The framework never runs a tool body, and the model never receives a tool result.
+- Tool choice is left on auto (the model decides whether to call a tool), because the default model rejects a forced tool choice.
+- A reply without exactly one valid tool call (plain text, two calls, an unknown tool, invalid arguments) counts as a failed attempt and uses the single repair.
+
+Fallback mode, behind a setting: the same five actions returned as one schema-constrained object with a `kind` field. Nodes, guard and evaluation are identical in both modes.
+
+Which mode is the default is not decided here. It will be decided by a measurement in the task that builds the model layer: how often each model replies with exactly one valid tool call on a fixed set of questions. No rate has been measured yet.
+
+**Alternatives:**
+
+- Forced tool choice (the API guarantees a tool call): the simplest contract, but not accepted by the default model.
+- Free text with the SQL extracted by pattern matching: fragile, and an explanation can be mistaken for a query.
+- The single structured object as the only mode: kept as the fallback. Tools were preferred as the primary because each action has its own small schema and no fields that are unused for that action.
+
+**Consequences:**
+
+- With tool choice on auto, the model can answer in plain text. That costs the turn's one repair, so how often it happens matters and has to be measured before the default is fixed.
+- Two modes to keep working until the measurement is done; both end in the same typed action, so the cost is one conversion function and its tests.
+- The argument schemas must stay within what the API's strict mode supports (for example, no length or range limits), so those limits are checked in code.
