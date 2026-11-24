@@ -27,10 +27,12 @@ from fsm_assistant.evals.cases import Case, Feature, Suite, Tier
 from fsm_assistant.evals.evidence import score_turn
 from fsm_assistant.evals.report import CaseResult, TurnScore, case_result, skip_reason
 from fsm_assistant.evals.scorers import Observation, RuleMetrics, Score
+from fsm_assistant.events import Label
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import IntentModel, ModelReply, ScriptedModel, TokenUsage, ToolCall
 from fsm_assistant.nl2sql import ToolName
 from fsm_assistant.result import ErrorKind, Outcome, RuleCard, TurnResult
+from fsm_assistant.tracing import Tracer
 
 Split = Literal["tuned", "held_out"]
 
@@ -157,9 +159,21 @@ def observe(result: TurnResult) -> Observation:
     )
 
 
-def run_case(case: Case, suite: Suite, settings: Settings, model: IntentModel) -> CaseRun:
-    """Send every turn of `case` through one new conversation and score each."""
-    assistant = Assistant(settings, model)
+def run_case(
+    case: Case,
+    suite: Suite,
+    settings: Settings,
+    model: IntentModel,
+    *,
+    tracer: Tracer | None = None,
+) -> CaseRun:
+    """Send every turn of `case` through one new conversation and score each.
+
+    The turns are traced only when a `tracer` is given, which a live run with
+    hosted tracing on does and a replay never does.
+    """
+    label = Label(command="eval", case_id=case.id)
+    assistant = Assistant(settings, model, label=label, tracer=tracer)
     conversation = uuid.uuid4().hex
     turns: list[TurnRun] = []
     for number, turn in enumerate(case.turns, start=1):

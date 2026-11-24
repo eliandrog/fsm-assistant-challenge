@@ -9,13 +9,13 @@ skipped when it is missing.
 import hashlib
 import socket
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
 
 import pytest
 from pydantic import JsonValue
 
-from fsm_assistant import llm
+from fsm_assistant import config, llm
 from fsm_assistant.llm import (
     JsonObject,
     ModelError,
@@ -27,6 +27,7 @@ from fsm_assistant.llm import (
     TokenUsage,
     ToolCall,
 )
+from fsm_assistant.tracing import TraceRun
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 REAL_DB = DATA_DIR / "data.db"
@@ -126,6 +127,35 @@ class StampingModel:
             raise ModelOutputError(error.kind, error.reply.model_copy(update=stamp)) from None
 
 
+class RecordingSink:
+    """A trace sink that keeps what it is handed and sends nothing. One batch is one turn."""
+
+    def __init__(self, fault: Exception | None = None) -> None:
+        self.batches: list[tuple[TraceRun, ...]] = []
+        self.on_error: Callable[[Exception], None] = lambda error: None
+        self.closed = False
+        self._fault = fault
+
+    @property
+    def runs(self) -> list[TraceRun]:
+        return [run for batch in self.batches for run in batch]
+
+    def text(self) -> str:
+        """Everything that would have left the process, as one searchable text."""
+        return "\n".join(run.model_dump_json() for run in self.runs)
+
+    def send(self, runs: Sequence[TraceRun]) -> None:
+        if self._fault is not None:
+            raise self._fault
+        self.batches.append(tuple(runs))
+
+    def flush(self, timeout: float) -> bool:
+        return True
+
+    def close(self) -> None:
+        self.closed = True
+
+
 # Eleven replies for the eleven questions of `check-model`: eight valid, three misses.
 MIXED_RUN: list[ModelReply | ModelError] = [
     *[tool_reply("run_sql")] * 5,
@@ -136,6 +166,16 @@ MIXED_RUN: list[ModelReply | ModelError] = [
     ModelOutputError("refusal", tool_reply(stop_reason="refusal")),
     tool_reply("propose_rule"),
 ]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def log_directory(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Send the default log directory to a temp one, so no test writes into the project."""
+    directory = tmp_path_factory.mktemp("logs")
+    default = config.DEFAULT_LOG_DIR
+    config.DEFAULT_LOG_DIR = directory
+    yield directory
+    config.DEFAULT_LOG_DIR = default
 
 
 @pytest.fixture(scope="session")

@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import get_args
 
 import pytest
-from conftest import StampingModel, call_reply, rule_reply, sql_reply
+from conftest import RecordingSink, StampingModel, call_reply, rule_reply, sql_reply
 from pydantic import JsonValue
 
 from fsm_assistant import cli, db, nl2sql, prompt
@@ -32,6 +32,7 @@ from fsm_assistant.evals.runner import (
 )
 from fsm_assistant.evals.scorers import FailureReason
 from fsm_assistant.result import CaveatCode
+from fsm_assistant.tracing import Destination, Tracer
 from fsm_assistant.llm import (
     IntentModel,
     ModelError,
@@ -795,6 +796,44 @@ def test_replay_runs_offline_and_says_whether_the_record_is_reproduced(fx: Fixtu
     finish, output = fx.execute(Options(replay=True))
     assert finish == "not_reproduced"
     assert "No recording for 1 selected case(s), which were not run: internal." in output
+
+
+def test_a_live_run_is_traced_by_case_and_a_replay_never_is(fx: Fixture) -> None:
+    sink = RecordingSink()
+    lines: list[str] = []
+
+    def run(options: Options, model: IntentModel | None, tracer: Tracer | None) -> Finish:
+        def live_model(spec: ModelSpec, settings: Settings) -> IntentModel:
+            assert model is not None, "no live model may be built here"
+            return model
+
+        def tracer_for(settings: Settings) -> Tracer | None:
+            assert tracer is not None, "no tracer may be built here"
+            return tracer
+
+        return command.execute(
+            options, fx.settings, lines.append, live_model=live_model, tracer_for=tracer_for,
+            cases_directory=fx.cases_directory, pins_file=fx.pins_file,
+        )  # fmt: skip
+
+    selection = Selection(case_ids=("count", "follow"))
+    tracer = Tracer(sink, Destination(project="evals"))
+    assert run(Options(spend=True, selection=selection), fx.client("count", "follow"), tracer)
+    assert "Hosted tracing: on, to LangSmith project 'evals'" in "\n".join(lines)
+    assert sink.closed, "pending traces are flushed when the run ends"
+    assert [batch[0].name for batch in sink.batches] == [
+        "eval count turn 1", "eval follow turn 1", "eval follow turn 2",
+    ]  # fmt: skip
+    assert all("case:follow" in run.tags for run in sink.batches[1])
+    assert all(run.metadata["case_id"] == "follow" for run in sink.batches[2])
+    assert sink.batches[1][0].metadata["session_id"] == sink.batches[2][0].metadata["session_id"]
+    assert SECRET not in sink.text()
+
+    del lines[:]
+    assert run(Options(replay=True, selection=selection), None, None) == "passed"
+    assert len(sink.batches) == 3 and "Hosted tracing" not in "\n".join(lines)
+    assert run(Options(selection=selection), None, None) == "passed", "a plan builds no tracer"
+    assert run(Options(list_only=True), None, None) == "passed"
 
 
 def test_a_stale_replay_cannot_start(fx: Fixture, monkeypatch: pytest.MonkeyPatch) -> None:

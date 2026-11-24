@@ -2,13 +2,14 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; and that shows a proposed rule only with its backtest against the fraud labels. Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Measured once, on one model:** the evaluation suite is built (119 cases, scorers, a runner, recording and offline replay) and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt 116 of 117 cases passed, 1 failed (a marked known limitation) and 2 were skipped ([Evaluation](#evaluation)). That is a single run, made after the prompt and the suite had been adjusted to the first one (109 of 117), on cases of our own: one sample, not a rate, and not a statement of how well the model answers in general. `claude-opus-5-5` has not been run on the suite. Before the suite existed, the assistant was tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with seven questions asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)). The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). **Proposed**, with the design written down but no code: the fraud-concentration scan (asking for it gets "not available yet"), rule evidence month by month, structured logs and the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; and that shows a proposed rule only with its backtest against the fraud labels. Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Measured once, on one model:** the evaluation suite is built (119 cases, scorers, a runner, recording and offline replay) and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt 116 of 117 cases passed, 1 failed (a marked known limitation) and 2 were skipped ([Evaluation](#evaluation)). That is a single run, made after the prompt and the suite had been adjusted to the first one (109 of 117), on cases of our own: one sample, not a rate, and not a statement of how well the model answers in general. `claude-opus-5-5` has not been run on the suite. Before the suite existed, the assistant was tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with seven questions asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)). The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). An application log and opt-in LangSmith tracing are built ([See what the assistant did](#see-what-the-assistant-did)). **Proposed**, with the design written down but no code: the fraud-concentration scan (asking for it gets "not available yet"), rule evidence month by month, and the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
 - [What it is](#what-it-is)
 - [Setup](#setup)
 - [How to run](#how-to-run)
+- [See what the assistant did](#see-what-the-assistant-did)
 - [How to reproduce](#how-to-reproduce)
 - [Solution overview](#solution-overview)
 - [Design choices and trade-offs](#design-choices-and-trade-offs)
@@ -42,7 +43,7 @@ cd fsm-assistant-challenge-python
 uv sync
 ```
 
-`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its three runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the graph that runs one turn) and installs the dev tools (pytest, mypy).
+`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its four runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the graph that runs one turn, and `langsmith`, which those two already install, for opt-in tracing) and installs the dev tools (pytest, mypy).
 
 **Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only. The `data/` directory itself must be writable: the database is in WAL mode, and SQLite creates two git-ignored sidecar files next to it on the first read ([`docs/DATA.md`](docs/DATA.md#access)).
 
@@ -68,6 +69,15 @@ uv sync
 | `FSM_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for one model reply |
 | `FSM_MAX_MESSAGE_CHARACTERS` | `2000` | Longest message accepted from the user. A longer or empty one is refused before any model call |
 | `FSM_TOOL_MODE` | `tools` | How the model states its action: `tools` (it calls one of five tools) or `structured` (one schema-constrained object) |
+| `FSM_LOG_LEVEL` | `INFO` | Level of the application log: `DEBUG`, `INFO`, `WARNING` or `ERROR` |
+| `FSM_LOG_DIR` | `logs` | Directory of the log file. A relative path is resolved against the project root |
+| `FSM_LOG_FILE` | `on` | `off` writes no log file |
+| `LANGSMITH_TRACING` | `false` | `true` sends a filtered trace of each turn to LangSmith, if `LANGSMITH_API_KEY` is also set ([See what the assistant did](#see-what-the-assistant-did)) |
+| `LANGSMITH_API_KEY` | none | LangSmith API key. Needed only for hosted tracing |
+| `LANGSMITH_ENDPOINT` | `https://api.smith.langchain.com` | LangSmith API address |
+| `LANGSMITH_AGENT_ID`, `LANGSMITH_AGENT_ENVIRONMENT` | none | Where traces go: an agent and one of its environments (`local`, `development`, `staging`, `production`). Set both or neither |
+| `LANGSMITH_PROJECT` | `fsm-assistant` | Where traces go when no agent is named. Not together with an agent |
+| `FSM_TRACE_SYSTEM_PROMPT` | `hash` | What a trace carries of the system prompt: `hash` (its version and SHA-256) or `full` (its text, with the schema context) |
 
 To keep them in a file, copy `.env.example` to `.env` (git-ignored) in the project root:
 
@@ -93,6 +103,7 @@ uv run fsm-assistant graph                                    # the turn graph a
 
 - `ask "<question>"` answers one question in a new conversation. It prints the answer, the SQL that ran, the result table (the first 20 rows, with "Showing 20 of N rows"), the model's explanation and assumptions, labelled as the model's, any caveats, and a line with the outcome, the tool the model chose, the codes of any reply that was refused on the way, the model, the number of requests, tokens and time. For a rule it prints the clause and its backtest. A table wider than 160 characters shows the columns that fit and names the rest. Exit code: 0 for an answer, a rule or a question back to you; 1 when the turn failed; 2 when it could not start (a bad argument or setting, no key, an unusable `--record-dir`); 3 when the assistant could not answer (it declined, or the scan is not available); 4 when the guard rejected the SQL; 130 after Ctrl-C.
 - `chat` does the same in a loop and keeps one conversation, so a follow-up ("and for October?") is told the previous question and the SQL that answered it. A question that failed or was refused is not kept, so a follow-up after an error still builds on the last one that worked. Ctrl-C while a question is being answered abandons that question and returns to the prompt. The process keeps only the state of the latest turn, and the conversation is forgotten when the command ends.
+- Both print, before the first question, whether hosted tracing is on and where traces go (never the key). `--verbose` also prints the application log's lines to stderr.
 - `--trace`, on either, prints one line per step as the turn runs: the tool the model called, what the guard decided and why, how many rows came back, the outcome. It shows rows as a count only and never the key, and escapes control characters in anything the model wrote.
 - `--record-dir DIR` also writes each reply of a live run to `DIR` (created if missing; a path that is a file or cannot be written to stops the command before anything is sent); `--replay-dir DIR` answers from those files instead of calling Claude, with no key, and stops with "stale recording" if the question, the prompt or the settings differ from what was recorded. `--case NAME` names the files.
 - `graph` prints the diagram shown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#how-one-turn-works), drawn from the compiled graph. It reads no setting and no key.
@@ -145,6 +156,42 @@ uv run fsm-assistant check-model --replay --model claude-haiku-5-5
 The check has been run once on each of two models, and both sets of recordings are in the repository. `claude-opus-5-5`: 11 of 11 replies were exactly one valid tool call (36,111 input tokens, 2,195 output tokens, 36.7 s for the eleven requests). `claude-haiku-5-5`: 11 of 11 (36,111 input tokens, 2,459 output tokens, 19.0 s). Both chose the same tool for every question. So tools are the default output mode, and structured output stays as the fallback behind `FSM_TOOL_MODE`. This is a small check: eleven questions asked once each, with a three-sentence system message and not the prompt the assistant now uses, and it counts whether the reply was one valid tool call, not whether the SQL was right. The two `--replay` commands above re-print both tables offline; detail is under [Evidence](docs/ARCHITECTURE.md#evidence).
 
 _More example questions with the live model's output: to be completed._
+
+## See what the assistant did
+
+Three things, each for a different question ([D-27](docs/DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list); [Observability](docs/ARCHITECTURE.md#observability)).
+
+**While a turn runs: `--trace`.** `ask --trace` and `chat --trace` print one line per step. Nothing is stored.
+
+**Whether something went wrong: the application log.** `logs/app.log`, in the project root, git-ignored, always written unless `FSM_LOG_FILE=off`. Plain lines: a command started, each turn's outcome, and warnings and errors.
+
+```
+2026-01-01 12:00:00,000 INFO fsm_assistant.cli: ask started: model=claude-haiku-5-5 prompt=turn-4 tool_mode=tools replies=live tracing=off
+2026-01-01 12:00:02,300 WARNING fsm_assistant.graph: turn needed a repair: conversation=3f2a… turn=1 refused=table_not_allowed
+2026-01-01 12:00:02,300 INFO fsm_assistant.graph: turn finished: conversation=3f2a… turn=1 outcome=answered error=- requests=2 elapsed_ms=2291
+```
+
+(The lines above are an illustration of the format, with made-up times and ids.) A line never holds the question, the SQL, a result row or the text of an exception: an unexpected fault is logged as the exception's class and where it was raised. `FSM_LOG_LEVEL` sets the level, `FSM_LOG_DIR` the directory, and `--verbose` on a command also prints the lines to stderr. The file is rotated at 2 MB and three older files are kept.
+
+**What one turn did, step by step: LangSmith, if you switch it on.** Off by default. To turn it on, put these in `.env`:
+
+```
+LANGSMITH_TRACING=true
+LANGSMITH_API_KEY=...
+LANGSMITH_AGENT_ID=...            # with LANGSMITH_AGENT_ENVIRONMENT=local, as LangSmith's set-up page gives them
+LANGSMITH_AGENT_ENVIRONMENT=local
+```
+
+or, in place of the two agent lines, `LANGSMITH_PROJECT=<name>` (with neither, traces go to a project named `fsm-assistant`). Outside the US region, also set `LANGSMITH_ENDPOINT`. `ask` and `chat` then print `Hosted tracing: on, to LangSmith …` before the first question, and each turn becomes one trace: the turn, a run per step in order, and the model call with its token usage. A conversation's turns are grouped as one thread. `eval --yes-spend` traces too, with each case's id as a tag.
+
+| | Tracing off (default) | Tracing on |
+|---|---|---|
+| Leaves the machine | The request to Claude, and nothing else | The request to Claude, and one trace per turn to LangSmith |
+| In a trace | | The question; the model's reply (its tool call, with the SQL or clause, explanation and assumptions it wrote); the accepted SQL or clause; the tool chosen, the guard's verdict and reason codes; outcome and error kind; row count and column names; caveat codes; model id, prompt version, token counts; durations |
+| Never in a trace | | Result rows, cell values, backtest figures, SQLite's message for a query that failed while running, the answer text, the Anthropic key, the LangSmith key, details of this machine |
+| The system prompt | | Its version and SHA-256. `FSM_TRACE_SYSTEM_PROMPT=full` sends its text, which includes the schema context: table row counts, the values of low-cardinality columns such as card type, and the date range of the data |
+
+A trace is built from a fixed list of fields and not from the assistant's internal state, so a result row has no way into it. If LangSmith cannot be reached, the turn is answered as usual and a warning is printed once and logged. Anything replayed from recordings (`--replay-dir`, `eval --replay`) is never traced, and the tests cannot reach LangSmith. **Not yet checked:** no trace has been sent to LangSmith from this code, so how it is displayed there has not been seen.
 
 ## How to reproduce
 
@@ -265,7 +312,9 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | One turn is a fixed state graph in LangGraph, not an agent | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
 | The model picks one of five tools; code executes it | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
 | One model interface with our own record and replay, keyed by case, turn and call, with a hash of the request | A reviewer can replay an evaluation with no key; a recording made for a different prompt or setting is refused, not silently reused | Any change to a prompt, tool description or model setting means recording again, which is a paid run |
-| Client retries off, hosted tracing forced off, key and address passed explicitly | A turn's cost stays countable; nothing leaves the machine except the model call; no environment variable can redirect the key | A rate-limited request fails at once; a proxy would need its own setting |
+| Client retries off, key and address passed explicitly | A turn's cost stays countable; no environment variable can redirect the key | A rate-limited request fails at once; a proxy would need its own setting |
+| Hosted tracing off unless switched on, and then built from an allow-list of fields, never from the graph's state ([D-27](docs/DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list)) | By default nothing leaves the machine except the model call. LangGraph's own tracing would send the state, result rows included; a list of what may be sent fails safe when a field is added | A trace shows counts and column names, not the rows; no trace has been sent to LangSmith yet, so how it displays there is unchecked |
+| A plain application log for errors and health; no local copy of the trace | Two tools with two jobs: the log says whether turns fail and why, LangSmith shows one turn step by step | Without a LangSmith account there is no stored record of a turn's steps, only `--trace` while it runs |
 | A fixed glossary in the prompt: fraud rate as a fraction, "debit card" as `'Debit'` only, relative dates against the last day of the data | Two models read "debit card" differently and both returned a rounded percentage when not told; one stated convention makes runs comparable, and each reading is listed as an assumption the FSM can overrule | A user who meant prepaid cards too has to say so; the prompt is longer |
 | One repair: a fresh request with the previous answer and the reason it failed | Many first failures are a wrong column name, and SQLite's compile message is enough to fix them; a counter keeps a turn at two requests | A question that needs a third try fails. A statement that fails while running gets only a generic reason, because SQLite's run-time message can quote a value from a row |
 | Memory is the last turn's question and accepted SQL, never rows; one checkpoint per conversation | A follow-up works; result rows cannot reach the model through a growing transcript; old questions and SQL do not pile up in the process | No reference further back than one turn; lost when the process ends |
@@ -323,19 +372,19 @@ uv run fsm-assistant eval --replay --model claude-haiku-5-5       # re-runs the 
 
 **Offline** means measured on fixed cases before anyone uses the tool. A live run records the model's replies under `evals/recordings/runs/<model id>/` with a `run.json` of every score. A replay then sends the same cases through the real graph, guard, database and scorers with the recorded replies in place of the model: no key, no network. It stops with "stale recording" if the prompt, the tools, the model settings or a question changed since, and says whether every case scored as recorded. Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today. A filtered run replaces only the cases it ran and leaves the rest of the record in place.
 
-**Online** means measured while FSMs use the tool, which would need a deployment. The assistant is planned to write one structured log line per step of each turn (today `--trace` prints those steps to the terminal and nothing is stored) (question, SQL, tool chosen, guard decision, outcome, row count, duration, token usage; never result rows or the key). Those log fields are what the online metrics below would be computed from.
+**Online** means measured while FSMs use the tool, which would need a deployment. What exists for it is the trace: with LangSmith tracing switched on ([See what the assistant did](#see-what-the-assistant-did)), every turn is recorded there with its question, SQL, tool chosen, guard decision and reason code, outcome, error kind, row count, durations and token usage, tagged by model and prompt version and grouped by conversation; never result rows or a key. **No dashboard, saved filter or aggregation is built, and no trace has been sent yet**: the table names the trace fields each metric would be computed from in LangSmith, as a plan. The fields are those of the turn's root run unless the table says otherwise. The application log is for errors and health, not for metrics.
 
-Each offline measure is there because it predicts something that matters online. The offline column is built, except where it says otherwise; the online column is proposed.
+Each offline measure is there because it predicts something that matters online. The offline column is built, except where it says otherwise; the online columns are proposed.
 
-| Offline measure | Online metric it predicts (proposed) |
-|---|---|
-| Execution accuracy: the generated query returns the same result as a reference query, per tier | Share of generated queries the FSM uses as they are, against the share they correct or report as wrong |
-| Guardrail: unsafe inputs (writes, injection) that reach execution, and writes the model wrote at all; target zero | Unsafe statements reaching the database (must stay zero); rate of guard rejections |
-| Clarification and refusal: vague or unanswerable questions are not answered with invented SQL | Share of clarifications followed by a successful answer; answers reported as wrong |
-| Rule arithmetic: the reported backtest equals an independent recomputation | Trust in the numbers: audits of shown figures find no differences |
-| Rule match against a reference rule. Score on later months: proposed | Share of proposed rules accepted; live precision and false-positive rate of accepted rules after deployment |
-| Fraud scan finds the known concentration: the two cases exist and are skipped until the scan is built | Time from first question to a validated insight |
-| Model requests, tokens and time per turn, recorded with each run | Response time and cost per question |
+| Offline measure | Online metric it predicts (proposed) | Where it would come from in LangSmith (not built) |
+|---|---|---|
+| Execution accuracy: the generated query returns the same result as a reference query, per tier | Share of generated queries the FSM uses as they are, against the share they correct or report as wrong | Traces with `outcome` `answered`, grouped by conversation (`session_id`): a follow-up that rewrites the query is the next turn of the thread. "Reported as wrong" needs feedback attached to a trace, which no interface collects yet |
+| Guardrail: unsafe inputs (writes, injection) that reach execution, and writes the model wrote at all; target zero | Unsafe statements reaching the database (must stay zero); rate of guard rejections | Step runs named `guard_sql` and `guard_rule`: the count with `guard` `rejected`, by `reason_code`, over all of them. Turns with `outcome` `rejected`. Nothing in a trace can show a statement that ran without `guard` `accepted`; that is the offline suite's job |
+| Clarification and refusal: vague or unanswerable questions are not answered with invented SQL | Share of clarifications followed by a successful answer; answers reported as wrong | Traces with `outcome` `clarification` and the `outcome` of the next turn in the same thread; turns with `tool` `decline` over all turns |
+| Rule arithmetic: the reported backtest equals an independent recomputation | Trust in the numbers: audits of shown figures find no differences | Not from traces: a trace holds no figure. An audit re-runs the `sql` or `where_clause` of a sampled trace against the database |
+| Rule match against a reference rule. Score on later months: proposed | Share of proposed rules accepted; live precision and false-positive rate of accepted rules after deployment | Traces with `outcome` `rule_proposed` give the denominator and the `where_clause`. Acceptance and live precision come from the system a rule is deployed to, which does not exist here |
+| Fraud scan finds the known concentration: the two cases exist and are skipped until the scan is built | Time from first question to a validated insight | The span of a thread: the first and last trace with one `session_id`. "Validated" needs feedback, as above |
+| Model requests, tokens and time per turn, recorded with each run | Response time and cost per question | Latency percentiles of the root run; `model_calls`, `input_tokens` and `output_tokens`; the token usage of the model run, by the `model:` and `prompt:` tags. Share of turns with `model_calls` 2 (a repair), and of `outcome` `failed` by `error_kind` |
 
 Further online metrics with no offline counterpart: time from insight to deployed rule against the current workflow; fraud value prevented against legitimate payments blocked.
 
@@ -418,12 +467,12 @@ So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards
 
 ## What is not built yet
 
-Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result, the terminal commands `ask`, `chat` and `graph`, and the evaluation suite with its `eval` command. Natural language → SQL and a rule shown with its backtest work end to end with scripted model replies. Against Claude, an earlier prompt (`turn-3`) has had one smoke test (seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly; not an evaluation), and the evaluation suite has two recorded runs on `claude-haiku-5-5`: 109 of 117 cases passed on `turn-3`, and 116 of 117 on the current prompt (`turn-4`) after the prompt and the suite were adjusted to the first run ([Evaluation](#evaluation)).
+Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result, the terminal commands `ask`, `chat` and `graph`, the evaluation suite with its `eval` command, and the application log with opt-in LangSmith tracing. Natural language → SQL and a rule shown with its backtest work end to end with scripted model replies. Against Claude, an earlier prompt (`turn-3`) has had one smoke test (seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly; not an evaluation), and the evaluation suite has two recorded runs on `claude-haiku-5-5`: 109 of 117 cases passed on `turn-3`, and 116 of 117 on the current prompt (`turn-4`) after the prompt and the suite were adjusted to the first run ([Evaluation](#evaluation)).
 
 Not built, in planned order:
 
 1. Live runs of `ask` and `chat` beyond the seven-question smoke test, and what they show about the prompt.
-2. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
+2. A live check of hosted tracing: no trace has been sent to LangSmith yet. And any dashboard or aggregation of the online metrics.
 3. A recorded run of the evaluation suite on `claude-opus-5-5`, planned as the final recorded run. Only `claude-haiku-5-5` has been run.
 4. Rule evidence month by month, and scoring on months a rule was not derived from.
 5. The fraud-concentration scan. Until then the action exists and ends in "not available yet", and the suite's two scan cases are skipped.
@@ -450,10 +499,12 @@ src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        nl2sql.py (tools, shape check), prompt.py, state.py,
                        nodes.py, graph.py (one turn), result.py, presentation.py,
                        model_check.py (the check behind check-model), cli.py,
+                       events.py, applog.py (the log), tracing.py (LangSmith),
                        evals/ (cases, scorers, evidence, report, runner,
                        recorded runs, the eval command).
                        rules/proposal.py is a docstring-only placeholder
 tests/                 pytest tests (fixture databases built from data/schema.sql)
+logs/                  The application log, app.log; git-ignored, made on first use
 evals/                 Evaluation suite data (see its README): 119 cases in
                        cases/, pinned reference results, the recorded
                        replies of check-model for two models, the recorded

@@ -65,6 +65,7 @@ from fsm_assistant.evals.runner import (
 from fsm_assistant.evals.scorers import FailureReason
 from fsm_assistant.llm import IntentModel, ModelSpec, ModelUnavailable, StaleRecording
 from fsm_assistant.nl2sql import model_spec
+from fsm_assistant.tracing import Tracer, describe
 
 RESULTS_DIR = PROJECT_ROOT / "evals" / "results"
 
@@ -98,10 +99,15 @@ def execute(
     emit: Emit,
     *,
     live_model: LiveModel,
+    tracer_for: Callable[[Settings], Tracer | None] | None = None,
     cases_directory: Path = DEFAULT_CASES_DIRECTORY,
     pins_file: Path = DEFAULT_PINS_FILE,
 ) -> Finish:
-    """Run the command. Sends nothing unless `options.spend` is set and `replay` is not."""
+    """Run the command. Sends nothing unless `options.spend` is set and `replay` is not.
+
+    `tracer_for` builds the tracer of a live run, when hosted tracing is on.
+    It is not called for a replay: a replay is never traced.
+    """
     try:
         suite = load_suite(cases_directory, pins_file)
         cases = select(suite.cases, options.selection)
@@ -141,8 +147,15 @@ def execute(
         except ModelUnavailable as error:
             emit(f"Cannot start: {error}")
             return "cannot_start"
-        return _live(cases, suite, settings, client, directory, available, emit,
-                     cases_directory, pins_file)  # fmt: skip
+        tracer = None if tracer_for is None else tracer_for(settings)
+        if tracer_for is not None:
+            emit(describe(tracer, settings))
+        try:
+            return _live(cases, suite, settings, client, directory, available, emit,
+                         cases_directory, pins_file, tracer)  # fmt: skip
+        finally:
+            if tracer is not None:
+                tracer.close()
     except db.DbError as error:
         emit(f"Cannot start: the database could not be read. {error}")
         return "cannot_start"
@@ -276,12 +289,13 @@ def _live(
     emit: Emit,
     cases_directory: Path,
     pins_file: Path,
+    tracer: Tracer | None,
 ) -> Finish:
     by_id = {case.id: case for case in cases}
     live = record_run(
         cases, suite, settings, client, directory, available=available,
         on_case=lambda run: emit(_progress(run, by_id)),
-        cases_directory=cases_directory, pins_file=pins_file,
+        cases_directory=cases_directory, pins_file=pins_file, tracer=tracer,
     )  # fmt: skip
     record = live.record
     info = run_info(record, "live")

@@ -17,11 +17,25 @@ process retains for a conversation is the state after its latest turn.
 
 `Assistant.run_turn` returns a `TurnResult` for every input: an exception no
 node expected becomes the outcome `failed` with kind `internal`.
+
+Each node's update is described as a `StepEvent` and the finished turn as a
+`TurnEvent` (`events.py`). The `--trace` line is made from the first, and a
+hosted trace from both when the assistant was given a `Tracer` (D-27).
+LangGraph's own tracing is off for the whole run: it would send the state,
+rows included.
+
+One log line is written when a turn finishes, with its outcome and no text
+of the question, the SQL or the data; a failed turn is logged as an error
+with the kind of failure and, for a fault no node expected, the class of the
+exception and where it was raised, never its message.
 """
 
+import logging
 import threading
 import time
+import traceback
 from collections.abc import Callable, Hashable
+from typing import cast
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
@@ -37,24 +51,33 @@ from langgraph.graph.state import CompiledStateGraph
 from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant.config import Settings
-from fsm_assistant.db import QueryResult
-from fsm_assistant.llm import IntentModel, ModelReply, ModelSpec
-from fsm_assistant.nl2sql import (
-    AskClarification,
-    Decline,
-    ProfileFraud,
-    ProposeRule,
-    RunSql,
-    model_spec,
-    tool_name,
+from fsm_assistant.events import (
+    Label,
+    NodeName,
+    StepEvent,
+    TurnRecord,
+    describe_step,
+    step_event,
+    turn_event,
 )
+from fsm_assistant.llm import (
+    IntentModel,
+    ModelCall,
+    ModelReply,
+    ModelSpec,
+    TappedModel,
+    model_calls,
+)
+from fsm_assistant.nl2sql import AskClarification, Decline, ProposeRule, RunSql, model_spec
 from fsm_assistant.nodes import TurnNodes
 from fsm_assistant.presentation import safe_text, status_of
 from fsm_assistant.result import TurnError, TurnMeta, TurnResult
-from fsm_assistant.rules.backtest import BacktestResult
-from fsm_assistant.state import MAX_MODEL_CALLS, SAVED_TYPES, Failure, TurnInput, TurnState
+from fsm_assistant.state import MAX_MODEL_CALLS, SAVED_TYPES, TurnInput, TurnState
+from fsm_assistant.tracing import Tracer, untraced
 
-NODE_NAMES = (
+logger = logging.getLogger(__name__)
+
+NODE_NAMES: tuple[NodeName, ...] = (
     "begin_turn",
     "call_model",
     "check_intent",
@@ -210,12 +233,23 @@ def build_graph(nodes: TurnNodes, saver: InMemorySaver) -> TurnGraph:
 class Assistant:
     """The compiled graph with one model and one in-process memory."""
 
-    def __init__(self, settings: Settings, model: IntentModel) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        model: IntentModel,
+        *,
+        label: Label = Label(),
+        tracer: Tracer | None = None,
+    ) -> None:
+        """`label` says which command runs the turns; `tracer`, when given, is sent each one."""
         self._spec: ModelSpec = model_spec(settings)
+        self._label = label
+        self._tracer = tracer
         self.saver = LatestCheckpointSaver(
             serde=JsonPlusSerializer(allowed_msgpack_modules=SAVED_TYPES)
         )
-        self.graph: TurnGraph = build_graph(TurnNodes(settings, model, self._spec), self.saver)
+        nodes = TurnNodes(settings, TappedModel(model), self._spec)
+        self.graph: TurnGraph = build_graph(nodes, self.saver)
 
     def run_turn(
         self,
@@ -228,32 +262,111 @@ class Assistant:
         started = time.monotonic()
         response: TurnResult | None = None
         seen: dict[str, object] = {}  # the counters of the updates streamed so far
-        try:
-            for chunk in self.graph.stream(
-                TurnInput(question=question),
-                {"configurable": {"thread_id": conversation_id}},
-                stream_mode="updates",
-                durability="exit",  # one checkpoint per turn, written when it ends
-            ):
-                for node, node_update in chunk.items():
-                    fields: dict[str, object] = node_update or {}
-                    seen.update({name: fields[name] for name in _COUNTERS if name in fields})
-                    found = fields.get("response")
-                    if isinstance(found, TurnResult):
-                        response = found
-                    if on_step is not None:
-                        _tell(on_step, TraceStep(node=node, summary=describe_update(fields)))
-            if response is None:
-                raise RuntimeError("the graph ended without a response")
-        except Exception as error:  # the interface boundary: every fault becomes an outcome
-            response = self._internal(error, seen)
+        steps: list[StepEvent] = []
+        with model_calls() as calls:
+            try:
+                with untraced():
+                    for chunk in self.graph.stream(
+                        TurnInput(question=question),
+                        {"configurable": {"thread_id": conversation_id}},
+                        stream_mode="updates",
+                        durability="exit",  # one checkpoint per turn, written when it ends
+                    ):
+                        for node, node_update in chunk.items():
+                            fields: dict[str, object] = node_update or {}
+                            seen.update(
+                                {name: fields[name] for name in _COUNTERS if name in fields}
+                            )
+                            found = fields.get("response")
+                            if isinstance(found, TurnResult):
+                                response = found
+                            step = self._step(
+                                node, fields, seen, steps, calls, conversation_id, started
+                            )
+                            if step is not None and on_step is not None:
+                                _tell(on_step, TraceStep(node=node, summary=describe_step(step)))
+                if response is None:
+                    raise RuntimeError("the graph ended without a response")
+            except Exception as error:  # the interface boundary: every fault becomes an outcome
+                response = self._internal(error, seen)
+                logger.error(
+                    "internal failure: %s raised at %s", type(error).__name__, _raised_at(error)
+                )
         meta = response.meta.model_copy(
             update={
                 "conversation_id": conversation_id,
                 "elapsed_ms": round((time.monotonic() - started) * 1000),
             }
         )
-        return response.model_copy(update={"meta": meta})
+        result = response.model_copy(update={"meta": meta})
+        self._finished(result, question, steps, calls)
+        return result
+
+    def _step(
+        self,
+        node: str,
+        fields: dict[str, object],
+        seen: dict[str, object],
+        steps: list[StepEvent],
+        calls: list[ModelCall],
+        conversation_id: str,
+        started: float,
+    ) -> StepEvent | None:
+        """Describe one node's update. A fault here loses the description only."""
+        try:
+            elapsed = round((time.monotonic() - started) * 1000)
+            # A `call_model` step that failed before its request has no call of its own.
+            used = sum(earlier.model_ms is not None for earlier in steps)
+            call = calls[used] if node == "call_model" and len(calls) > used else None
+            step = step_event(
+                cast(NodeName, node),
+                fields,
+                label=self._label,
+                conversation_id=conversation_id,
+                turn=_counted(seen, "turn"),
+                seq=len(steps) + 1,
+                duration_ms=elapsed - sum(earlier.duration_ms for earlier in steps),
+                attempt=_counted(seen, "attempt"),
+                model_calls=_counted(seen, "model_calls"),
+                call=call,
+            )
+            steps.append(step)
+            return step
+        except Exception as error:  # an event is a view of the turn, not part of it
+            logger.warning("a step could not be described: %s", type(error).__name__)
+            return None
+
+    def _finished(
+        self, result: TurnResult, question: str, steps: list[StepEvent], calls: list[ModelCall]
+    ) -> None:
+        """Log the finished turn and hand it to the tracer. Neither can fail the turn."""
+        try:
+            meta, error = result.meta, result.error
+            failed = result.outcome == "failed"
+            logger.log(
+                logging.ERROR if failed else logging.INFO,
+                "turn finished: conversation=%s turn=%d outcome=%s error=%s%s requests=%d "
+                "elapsed_ms=%d",
+                safe_text(meta.conversation_id, 64),
+                meta.turn,
+                result.outcome,
+                "-" if error is None else error.kind,
+                "".join(f" model_error={call.error!r}" for call in calls if call.error),
+                meta.model_calls,
+                meta.elapsed_ms,
+            )
+            if meta.model_calls > 1:
+                logger.warning(
+                    "turn needed a repair: conversation=%s turn=%d refused=%s",
+                    safe_text(meta.conversation_id, 64),
+                    meta.turn,
+                    ",".join(str(code) for code in result.refused) or "-",
+                )
+            if self._tracer is not None:
+                turn = turn_event(result, question, tuple(steps), tuple(calls), label=self._label)
+                self._tracer.trace(TurnRecord(turn=turn, steps=tuple(steps), calls=tuple(calls)))
+        except Exception as error:  # as above: observing a turn never fails it
+            logger.warning("a finished turn could not be reported: %s", type(error).__name__)
 
     def mermaid(self) -> str:
         """The graph as a Mermaid diagram, drawn from the compiled graph."""
@@ -261,11 +374,6 @@ class Assistant:
 
     def _internal(self, error: Exception, seen: dict[str, object]) -> TurnResult:
         """The reply for a fault no node expected, with the counts of the steps that had run."""
-
-        def counted(name: str) -> int:
-            value = seen.get(name)
-            return value if isinstance(value, int) else 0
-
         reply = seen.get("raw_reply")
         message = f"An internal error stopped the turn ({type(error).__name__}): {error}"
         return TurnResult(
@@ -286,14 +394,14 @@ class Assistant:
             caveats=(),
             meta=TurnMeta(
                 conversation_id="",
-                turn=counted("turn"),
+                turn=_counted(seen, "turn"),
                 model_id=reply.model_id if isinstance(reply, ModelReply) else self._spec.model,
                 prompt_version=self._spec.prompt_version,
                 tool_mode=self._spec.tool_mode,
-                attempts=counted("attempt"),
-                model_calls=counted("model_calls"),
-                input_tokens=counted("input_tokens"),
-                output_tokens=counted("output_tokens"),
+                attempts=_counted(seen, "attempt"),
+                model_calls=_counted(seen, "model_calls"),
+                input_tokens=_counted(seen, "input_tokens"),
+                output_tokens=_counted(seen, "output_tokens"),
                 elapsed_ms=0,
             ),
         )
@@ -310,53 +418,15 @@ def _tell(on_step: Callable[[TraceStep], None], step: TraceStep) -> None:
         pass
 
 
-def describe_update(fields: dict[str, object]) -> str:
-    """What a node decided, in one line that is safe to print. Rows appear as a count only.
+def _raised_at(error: Exception) -> str:
+    """Where `error` was raised, as file, line and function. Its message is not read."""
+    frames = traceback.extract_tb(error.__traceback__)
+    if not frames:
+        return "an unknown place"
+    last = frames[-1]
+    return f"{last.filename.rsplit('/', 1)[-1]}:{last.lineno} in {last.name}"
 
-    Every piece of text a model or a user wrote is escaped, so it cannot
-    move the cursor, start a new line or fail to encode.
-    """
-    parts: list[str] = []
-    if "turn" in fields:
-        parts.append(f"turn {fields['turn']}")
-    if "model_calls" in fields and fields["model_calls"]:
-        parts.append(f"model request {fields['model_calls']}")
-    reply = fields.get("raw_reply")
-    if isinstance(reply, ModelReply):
-        tools = ", ".join(safe_text(call.name) for call in reply.tool_calls) or "no tool call"
-        parts.append(
-            f"reply: {tools} ({reply.usage.input_tokens:,} in, "
-            f"{reply.usage.output_tokens:,} out tokens)"
-        )
-    action = fields.get("action")
-    if isinstance(action, RunSql | ProposeRule | ProfileFraud | AskClarification | Decline):
-        parts.append(f"tool chosen: {tool_name(action)}")
-    approved_sql, approved_clause = fields.get("approved_sql"), fields.get("approved_clause")
-    if isinstance(approved_sql, str):
-        parts.append(f"accepted SQL: {safe_text(approved_sql)}")
-    if isinstance(approved_clause, str):
-        parts.append(f"accepted clause: {safe_text(approved_clause)}")
-    if fields.get("reads_labels") is True:
-        parts.append("reads fraud_labels")
-    result = fields.get("result")
-    if isinstance(result, QueryResult):
-        cut = ", cut at the row cap" if result.truncated else ""
-        parts.append(f"{result.row_count:,} row(s) in {result.elapsed_seconds:.2f} s{cut}")
-    elif isinstance(result, BacktestResult):
-        parts.append(f"backtest ran in {result.elapsed_seconds:.2f} s")
-    failure = fields.get("failure")
-    if isinstance(failure, Failure):
-        again = "repairable" if failure.repair is not None else "not repairable"
-        code = f", refusal code {failure.refusal}" if failure.refusal is not None else ""
-        parts.append(f"failure {failure.kind} ({again}){code}: {safe_text(failure.message)}")
-    response = fields.get("response")
-    if isinstance(response, TurnResult):
-        codes = ", ".join(caveat.code for caveat in response.caveats) or "none"
-        parts.append(
-            f"outcome {response.outcome}, status {response.status}, "
-            f"tool {response.tool or 'none'}, caveats: {codes}"
-        )
-    history = fields.get("history")
-    if isinstance(history, tuple) and history:
-        parts.append(f"remembered the turn as kind {history[-1].kind}")
-    return "; ".join(parts) or "nothing to record"
+
+def _counted(seen: dict[str, object], name: str) -> int:
+    value = seen.get(name)
+    return value if isinstance(value, int) else 0

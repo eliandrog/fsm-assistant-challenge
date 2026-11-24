@@ -14,7 +14,8 @@ from conftest import call_reply, rule_reply, sql_reply, tool_reply
 
 from fsm_assistant import db, graph, nodes, sql_guard, state
 from fsm_assistant.config import Settings, load_settings
-from fsm_assistant.graph import NODE_NAMES, Assistant, TraceStep, describe_update
+from fsm_assistant.events import NodeName, describe_step, step_event
+from fsm_assistant.graph import NODE_NAMES, Assistant, TraceStep
 from fsm_assistant.llm import (
     ModelError,
     ModelOutputError,
@@ -983,14 +984,14 @@ def test_the_diagram_is_drawn_from_the_compiled_graph(settings: Settings) -> Non
 def test_a_trace_line_escapes_what_the_model_wrote() -> None:
     hostile = "SELECT 1 /* \x1b[2J\x1b[31m */ -- \r overwritten\nsecond line \ud800"
     reply = call_reply("run_sql\x1b[2J\ud800", sql=hostile)
-    updates: list[dict[str, object]] = [
-        {"raw_reply": reply, "model_calls": 1},
-        {"approved_sql": hostile},
-        {"approved_clause": hostile},
-        {"failure": Failure(kind="sql_rejected", message=f"Refused: {hostile}")},
+    updates: list[tuple[NodeName, dict[str, object]]] = [
+        ("call_model", {"raw_reply": reply, "model_calls": 1}),
+        ("guard_sql", {"approved_sql": hostile}),
+        ("guard_rule", {"approved_clause": hostile}),
+        ("guard_sql", {"failure": Failure(kind="sql_rejected", message=f"Refused: {hostile}")}),
     ]
-    for update in updates:
-        line = describe_update(update)
+    for node, update in updates:
+        line = describe_step(step_event(node, update))
         assert line.isprintable(), "no control character, line break or lone surrogate"
         line.encode("utf-8")
         assert "\\x1b[2J" in line
