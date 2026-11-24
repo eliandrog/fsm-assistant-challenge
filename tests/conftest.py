@@ -13,6 +13,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 
 from fsm_assistant import llm
 from fsm_assistant.llm import (
@@ -78,6 +79,35 @@ def tool_reply(*tools: str, stop_reason: str = "tool_use") -> ModelReply:
         model_id="scripted",
         response_id=None,
         request_hash="h",
+    )
+
+
+def call_reply(
+    tool: str, *, input_tokens: int = 1000, output_tokens: int = 100, **arguments: JsonValue
+) -> ModelReply:
+    """A reply in tool mode that calls `tool` with exactly `arguments`."""
+    return ModelReply(
+        tool_mode="tools",
+        tool_calls=(ToolCall(name=tool, arguments=arguments),),
+        text="",
+        stop_reason="tool_use",
+        usage=TokenUsage(input_tokens=input_tokens, output_tokens=output_tokens),
+        model_id="scripted",
+        response_id=None,
+        request_hash="h",
+    )
+
+
+def sql_reply(sql: str, *assumptions: str, explanation: str = "What it returns.") -> ModelReply:
+    return call_reply("run_sql", sql=sql, explanation=explanation, assumptions=list(assumptions))
+
+
+def rule_reply(clause: str, *assumptions: str) -> ModelReply:
+    return call_reply(
+        "propose_rule",
+        where_clause=clause,
+        explanation="Which transactions it flags.",
+        assumptions=list(assumptions),
     )
 
 

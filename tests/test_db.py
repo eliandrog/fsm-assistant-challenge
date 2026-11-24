@@ -537,3 +537,12 @@ def test_a_blob_is_written_to_json_as_base64_text(fixture_db: Path) -> None:
     assert result.model_dump(mode="json")["rows"] == [[encoded]]
     # JSON has no blob type, so the text is what comes back.
     assert db.QueryResult.model_validate_json(result.model_dump_json()).rows == ((encoded,),)
+
+
+def test_a_file_that_is_not_a_database_is_a_fault_of_the_environment(tmp_path: Path) -> None:
+    broken = tmp_path / "broken.db"
+    broken.write_bytes(b"not a database " * 100)
+    with pytest.raises(db.DatabaseAccessError, match="Cannot read"):
+        db.run_query("SELECT 1", db_path=broken, row_cap=1, timeout_seconds=1)
+    with pytest.raises(db.DatabaseAccessError):
+        db.inspect_query("SELECT 1", db_path=broken)

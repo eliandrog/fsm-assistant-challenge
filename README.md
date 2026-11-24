@@ -2,7 +2,7 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** **Built** and tested: configuration, read-only query execution (row cap, timeout, write protection), the schema context that will ground the model, the rule backtest (a `WHERE` clause measured against the fraud labels) and the SQL guard (code that decides whether a query or a rule may run, without running it). Also built: the model layer, which is the Claude client, the five actions the model may choose from, and recording and replay of model replies. These are Python functions with no chat interface yet. **Proposed**, with the design written down but no code: the graph that runs one turn, the prompt, and everything after them. So there is no natural-language → SQL yet, no rule proposal and no evaluation suite. Claude has been called only by one small paid check of its tool calls (`check-model`, under [How to run](#how-to-run)), not to answer a question. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; and that shows a proposed rule only with its backtest against the fraud labels. Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Tried live, not yet measured:** the assistant has been tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with a handful of questions, seven asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)); the evaluation suite that would measure it properly is not built yet, so this README does not say how well the model answers in general. The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). **Proposed**, with the design written down but no code: the fraud-concentration scan (asking for it gets "not available yet"), rule evidence month by month, structured logs, the evaluation suite and the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
@@ -42,7 +42,7 @@ cd fsm-assistant-challenge-python
 uv sync
 ```
 
-`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its three runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the turn graph that is not built yet) and installs the dev tools (pytest, mypy).
+`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its three runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the graph that runs one turn) and installs the dev tools (pytest, mypy).
 
 **Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only. The `data/` directory itself must be writable: the database is in WAL mode, and SQLite creates two git-ignored sidecar files next to it on the first read ([`docs/DATA.md`](docs/DATA.md#access)).
 
@@ -50,7 +50,7 @@ uv sync
 
 - **The tests need no key and no network.** They never call a model, and every test runs with network connections refused.
 - **A live call needs a key and costs money.** Put the key in `.env` in the project root, as `ANTHROPIC_API_KEY=...` (see Configuration below). `.env` is git-ignored; `.env.example` lists the names only. The key is never printed or logged, and a missing key is an error only when a live call is attempted.
-- Today the only thing that makes a live call is `fsm-assistant check-model --yes-spend` ([How to run](#how-to-run)). No paid call is made without that flag.
+- Three commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask` and `fsm-assistant chat`, one or two requests per question, and `fsm-assistant check-model --yes-spend`. Each prints the model it is about to use. `ask` and `chat` stop with a message when the key is missing; `check-model` sends nothing without its flag.
 - The evaluation suite is designed to be replayed offline from recorded model replies, so checking the reported results will not need a key. Recording and replay are built; the suite is not. The only recordings so far are those of `check-model`, which replay with no key.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
@@ -66,7 +66,7 @@ uv sync
 | `FSM_EFFORT` | `medium` | How much reasoning the model spends: `low`, `medium`, `high`, `xhigh` or `max` |
 | `FSM_MAX_TOKENS` | `8000` | Most tokens the model may write in one reply |
 | `FSM_MODEL_TIMEOUT_SECONDS` | `120` | How long to wait for one model reply |
-| `FSM_MAX_MESSAGE_CHARACTERS` | `2000` | Longest message accepted from the user (enforced by the turn graph, which is not built yet) |
+| `FSM_MAX_MESSAGE_CHARACTERS` | `2000` | Longest message accepted from the user. A longer or empty one is refused before any model call |
 | `FSM_TOOL_MODE` | `tools` | How the model states its action: `tools` (it calls one of five tools) or `structured` (one schema-constrained object) |
 
 To keep them in a file, copy `.env.example` to `.env` (git-ignored) in the project root:
@@ -80,10 +80,57 @@ cp .env.example .env
 ## How to run
 
 ```bash
-uv run fsm-assistant
+uv run fsm-assistant                                          # help; free
+uv run fsm-assistant ask "How many transactions are there?"   # PAID: one question, one or two requests to Claude
+uv run fsm-assistant ask --trace "What is the overall fraud rate?"   # PAID: also prints each step
+uv run fsm-assistant chat                                     # PAID: a conversation; 'exit' or Ctrl-D to leave
+uv run fsm-assistant graph                                    # the turn graph as a Mermaid diagram; free, no key
 ```
 
-Today this prints the help text: the chat is not built. `uv run python -m fsm_assistant` does the same. One command exists:
+`uv run python -m fsm_assistant` is the same program.
+
+**`ask` and `chat` call the Anthropic API and are billed to your key.** They need `ANTHROPIC_API_KEY` ([Setup](#setup)) and stop with "Cannot start: ANTHROPIC_API_KEY is not set" when it is missing. A question costs one request, or two when the first reply has to be repaired: about 4,450 input tokens each (the schema, the rules and the tool definitions, sent every time; measured in the live smoke test, on both models) and 87 to 471 output tokens in that test. They print the model in use before anything is sent.
+
+- `ask "<question>"` answers one question in a new conversation. It prints the answer, the SQL that ran, the result table (the first 20 rows, with "Showing 20 of N rows"), the model's explanation and assumptions, labelled as the model's, any caveats, and a line with the outcome, the tool the model chose, the codes of any reply that was refused on the way, the model, the number of requests, tokens and time. For a rule it prints the clause and its backtest. A table wider than 160 characters shows the columns that fit and names the rest. Exit code: 0 for an answer, a rule or a question back to you; 1 when the turn failed; 2 when it could not start (a bad argument or setting, no key, an unusable `--record-dir`); 3 when the assistant could not answer (it declined, or the scan is not available); 4 when the guard rejected the SQL; 130 after Ctrl-C.
+- `chat` does the same in a loop and keeps one conversation, so a follow-up ("and for October?") is told the previous question and the SQL that answered it. A question that failed or was refused is not kept, so a follow-up after an error still builds on the last one that worked. Ctrl-C while a question is being answered abandons that question and returns to the prompt. The process keeps only the state of the latest turn, and the conversation is forgotten when the command ends.
+- `--trace`, on either, prints one line per step as the turn runs: the tool the model called, what the guard decided and why, how many rows came back, the outcome. It shows rows as a count only and never the key, and escapes control characters in anything the model wrote.
+- `--record-dir DIR` also writes each reply of a live run to `DIR` (created if missing; a path that is a file or cannot be written to stops the command before anything is sent); `--replay-dir DIR` answers from those files instead of calling Claude, with no key, and stops with "stale recording" if the question, the prompt or the settings differ from what was recorded. `--case NAME` names the files.
+- `graph` prints the diagram shown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#how-one-turn-works), drawn from the compiled graph. It reads no setting and no key.
+
+What the output looks like. This is real output from an earlier live run of this question on `claude-haiku-5-5`, made with the first version of the turn prompt, trimmed of the lines printed before the answer and of the last line (outcome, model, requests, tokens and time). The figures come from the executed backtest and are the same on every run; the explanation and the assumptions are the model's text and can vary between runs. The same question on the current prompt (`turn-3`) gave the same clause and the same figures on both models, with slightly different wording of the assumptions.
+
+```text
+$ uv run fsm-assistant ask "Propose a rule for debit card transactions over \$1,000"
+The rule flags 350 of 1,159,966 transactions. Of the 238 with a fraud label, 2 are fraud and 236 are legitimate.
+
+Rule (a WHERE clause over transactions):
+    amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')
+
+Backtest against the fraud labels (labelled transactions only):
+  Flagged               350 of 1,159,966 transactions (0.030%)
+  Labelled              238 (112 flagged have no label)
+  Fraud caught          2 of 1,360 labelled fraud
+  False positives       236
+  Precision             0.00840336 (0.840%)
+  Recall                0.00147059 (0.147%)
+  Amount flagged        $458,620.11
+  Fraud amount caught   $2,355.42
+  False positive amount $307,838.01
+
+Model's explanation (not checked): Flags transactions over $1,000 made on debit cards.
+
+Model's assumptions:
+  - 'Debit card' means card_type = 'Debit' only, excluding 'Debit (Prepaid)'.
+  - 'Over $1,000' means strictly greater than $1,000 (amount_usd_cents > 100000).
+  - Negative amounts are not treated specially; they fail the threshold and are not flagged.
+
+Caveats:
+  - [label_coverage] 238 of the 350 flagged transactions have a fraud label. Precision and recall use those only; the other 112 are unknown, not legitimate.
+```
+
+What a turn can end in: an answer, a rule with its backtest, a question back to you ("risky" has no definition in the data, so the assistant asks what you mean), a refusal (data the tables do not hold, or a request to change data), or a failure with its reason. Asking where fraud concentrates in general currently ends in "The fraud-concentration scan is not available yet", with two questions to ask instead: that scan is not built.
+
+One more command measures the model and does not answer questions:
 
 ```bash
 uv run fsm-assistant check-model                              # prints what it would send; sends nothing
@@ -95,9 +142,9 @@ uv run fsm-assistant check-model --replay --model claude-haiku-5-5
 
 `check-model` measures one thing: how often a Claude model replies with exactly one valid tool call, which decides whether tools or a single structured object is the default output mode ([D-16](docs/DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it)). It sends eleven fixed questions (five answerable, five that should not be answered with a query, one rule request), each once, with the real schema context, and prints a table: the tool called, whether the reply was one valid call, tokens and seconds, then the count and the decision (tools stay the default if at most one of the eleven misses). **It calls the Anthropic API and is billed to your key**: eleven requests of about 3,000 input tokens each, and at most 8,000 output tokens each. Without `--yes-spend` it makes no call and writes nothing. A paid run writes each reply to `evals/recordings/check-model/<model id>/` (`q01.turn1.call1.json` to `q11.turn1.call1.json`) with a `summary.json` of the table and the decision; these files are meant to be committed. `--replay` (with `--model` for a model other than the default) re-prints the table and the decision from those files with no key and no network, and stops with "stale recording" if a file is missing or the prompt, the schemas or the model settings have changed since.
 
-The check has been run once on each of two models, and both sets of recordings are in the repository. `claude-opus-5-5`: 11 of 11 replies were exactly one valid tool call (36,111 input tokens, 2,195 output tokens, 36.7 s for the eleven requests). `claude-haiku-5-5`: 11 of 11 (36,111 input tokens, 2,459 output tokens, 19.0 s). Both chose the same tool for every question. So tools are the default output mode, and structured output stays as the fallback behind `FSM_TOOL_MODE`. This is a small check: eleven questions asked once each, with a three-sentence system message and not the final prompt, and it counts whether the reply was one valid tool call, not whether the SQL was right. The two `--replay` commands above re-print both tables offline; detail is under [Evidence](docs/ARCHITECTURE.md#evidence).
+The check has been run once on each of two models, and both sets of recordings are in the repository. `claude-opus-5-5`: 11 of 11 replies were exactly one valid tool call (36,111 input tokens, 2,195 output tokens, 36.7 s for the eleven requests). `claude-haiku-5-5`: 11 of 11 (36,111 input tokens, 2,459 output tokens, 19.0 s). Both chose the same tool for every question. So tools are the default output mode, and structured output stays as the fallback behind `FSM_TOOL_MODE`. This is a small check: eleven questions asked once each, with a three-sentence system message and not the prompt the assistant now uses, and it counts whether the reply was one valid tool call, not whether the SQL was right. The two `--replay` commands above re-print both tables offline; detail is under [Evidence](docs/ARCHITECTURE.md#evidence).
 
-_Usage of the real assistant, with example questions and output: to be completed._
+_More example questions with the live model's output: to be completed._
 
 ## How to reproduce
 
@@ -109,9 +156,14 @@ uv run pytest    # a few seconds, offline (no model, no key)
 uv run mypy      # type check: strict on src/ and tests/
 ```
 
-The tests cover configuration, read-only execution, the schema context, the rule backtest, the SQL guard (each accepted query shape, and each rejection with its reason) and the model layer: the request the Claude client would send (checked without sending it), how provider errors are classified, recording and replay, and the shape check on a reply. Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
+The tests cover configuration, read-only execution, the schema context, the rule backtest, the SQL guard (each accepted query shape, and each rejection with its reason), the model layer (the request the Claude client would send, checked without sending it; how provider errors are classified; recording and replay; the shape check on a reply) and the turn: the prompt's required content, one test per invariant of the graph, one per outcome, the single repair for each kind of failure, conversation memory, each caveat and format hint, and the terminal commands. The turn is driven by scripted model replies, so these tests show what the code does with a given reply, not what Claude replies. Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
 
-To see the schema description that will be given to the model:
+To see the diagram of one turn, and the schema description that is given to the model (both free):
+
+```bash
+uv run fsm-assistant graph
+```
+
 
 ```bash
 uv run python -c "from fsm_assistant.config import load_settings; from fsm_assistant.schema_context import build_schema_context; print(build_schema_context(load_settings().db_path))"
@@ -149,9 +201,9 @@ _To be completed: the single command that replays the evaluation suite offline, 
 
 ## Solution overview
 
-**Proposed; the target design, not what runs today.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+**Built for the terminal; run against Claude only as a seven-question smoke test on two models.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-The principle: the model only chooses and writes; code decides what runs, runs it and computes every number. For each message, Claude will be given the real schema and will pick exactly one of five actions: answer with a SQL query, propose a rule, ask for a fixed fraud scan, ask the FSM what was meant, or decline. Code will then check the SQL without running it, accept only a single read-only `SELECT` over the known tables, run it on a read-only connection with a timeout and a row cap, and show the SQL next to the result. A rule is a `WHERE` clause and will never be shown without its backtest against the fraud labels. If the first attempt fails, the model will get the error once; a second failure will be shown as a failure.
+The principle: the model only chooses and writes; code decides what runs, runs it and computes every number. For each message, Claude is given the real schema and a short glossary and picks exactly one of five actions: answer with a SQL query, propose a rule, ask for a fixed fraud scan, ask the FSM what was meant, or decline. Code then checks the SQL without running it, accepts only a single read-only `SELECT` over the known tables, runs it on a read-only connection with a timeout and a row cap, and shows the SQL next to the result. A rule is a `WHERE` clause and is never shown without its backtest against the fraud labels. If the first attempt fails, the model gets the exact error once; a second failure is shown as a failure. The model is never shown a result row, so it has no number to restate.
 
 ```
 question ─► Claude picks one of five actions ─► SQL guard ─► read-only execution ─► SQL + result + caveats
@@ -160,20 +212,28 @@ question ─► Claude picks one of five actions ─► SQL guard ─► read-on
               └─ rule clause ─► (same guard) ─► backtest vs fraud_labels ─► rule + precision/recall
 ```
 
+One turn is a fixed graph of ten steps ([diagram](docs/ARCHITECTURE.md#how-one-turn-works), printed by `fsm-assistant graph`). Seven properties hold by construction and each has a test: only the exact string the guard accepted is executed; every execution goes through one function; a turn makes at most two model requests; every figure shown comes from executed SQL; a rule is never returned without its backtest; every failure ends in exactly one outcome and no exception reaches the interface; result rows are never saved with the conversation or put in a prompt.
+
+Not built inside the turn: the fraud scan (the action exists; choosing it ends in "not available yet") and the month-by-month evidence for a rule.
+
 What exists today:
 
 - **Read-only execution** (`db.py`): every query runs through one function, on a connection that cannot write. Three layers enforced by SQLite itself, not by inspecting the SQL text: the file is opened read-only, `PRAGMA query_only` is on, and an authorizer callback denies everything except reads (including `ATTACH`, temp tables and `PRAGMA` changes, which a read-only file alone does not stop). A query is interrupted after a timeout, at most a fixed number of rows is fetched, with a flag when the result was cut. Size is bounded too, because a few rows of very large values could otherwise take hundreds of megabytes: no single value may exceed 100,000 bytes, a result has at most 100 columns, and a result over a byte budget (5 MB by default) is an error. A double-quoted name that does not exist is an error, not a string. The SQL is never rewritten. A second function, `inspect_query`, compiles a statement without running it and reports the tables, columns and functions it would use.
-- **SQL guard** (`sql_guard.py`): `check_query` and `check_rule_clause` decide whether a model-written query or rule may run, from what SQLite reports when it compiles the statement, and return a decision with a reason that can be sent back to the model. A query must be one read-only `SELECT` over the database's own seven tables (not `sqlite_master`, `PRAGMA`, `EXPLAIN` or table-valued functions), and must not filter relative to today's date, because the data ends in 2019 and such a filter silently returns nothing. A rule must also not read `fraud_labels` or call `random()`. Before anything is compiled the text itself is checked, because compiling is not free: at most 10,000 characters, no Markdown code fence (refused with a request for the bare statement, never unwrapped), and a limit on how often common table expressions refer to each other, since a short statement built that way can take SQLite many seconds to compile. An ordinary check takes under a millisecond, and the worst input found that passes the text checks under 0.1 s. The rule backtest calls the guard; no model-driven turn does yet: it becomes a step of the turn when the graph is built.
-- **Schema context** (`schema_context.py`): the description of the database that will go into every prompt, read from the database itself (tables, columns, types, keys, row counts, the actual values of categorical columns) plus short notes on what a model would otherwise get wrong (amounts in cents, case-sensitive values, how to join the fraud labels, partial label coverage). It is deterministic, about 3,300 characters.
-- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It applies the guard's rule policy itself before measuring, so a clause that reads the labels is refused with the guard's reason and cannot be scored by calling the backtest directly. It is not yet called by anything.
-- **Model layer** (`llm.py`, `nl2sql.py`): one small interface, `complete(request) -> reply`, with four implementations. The live one sends a single request to Claude with retries off, a token limit, an effort level and no temperature, and turns provider failures, refusals and cut-off replies into typed errors. A recording one writes each reply to a JSON file with a hash of the request; a replaying one reads those files with no key and no network, and stops with "stale recording" if the prompt, the schemas or the model settings have changed since. A scripted one serves the tests. The five actions are defined as typed tools with strict schemas, plus the same actions as one flat object for the fallback mode, and one function turns a raw reply into exactly one typed action or a reason it is not one. Nothing calls these in a turn yet.
+- **SQL guard** (`sql_guard.py`): `check_query` and `check_rule_clause` decide whether a model-written query or rule may run, from what SQLite reports when it compiles the statement, and return a decision with a reason that can be sent back to the model. A query must be one read-only `SELECT` over the database's own seven tables (not `sqlite_master`, `PRAGMA`, `EXPLAIN` or table-valued functions), and must not filter relative to today's date, because the data ends in 2019 and such a filter silently returns nothing. A rule must also not read `fraud_labels` or call `random()`. Before anything is compiled the text itself is checked, because compiling is not free: at most 10,000 characters, no Markdown code fence (refused with a request for the bare statement, never unwrapped), and a limit on how often common table expressions refer to each other, since a short statement built that way can take SQLite many seconds to compile. An ordinary check takes under a millisecond, and the worst input found that passes the text checks under 0.1 s. The rule backtest calls the guard, and so does every turn: nothing the model writes runs without passing it.
+- **Schema context** (`schema_context.py`): the description of the database that goes into every prompt, read from the database itself (tables, columns, types, keys, row counts, the actual values of categorical columns) plus short notes on what a model would otherwise get wrong (amounts in cents, case-sensitive values, how to join the fraud labels, partial label coverage). It is deterministic, about 3,300 characters.
+- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It applies the guard's rule policy itself before measuring, so a clause that reads the labels is refused with the guard's reason and cannot be scored by calling the backtest directly.
+- **Model layer** (`llm.py`, `nl2sql.py`): one small interface, `complete(request) -> reply`, with four implementations. The live one sends a single request to Claude with retries off, a token limit, an effort level and no temperature, and turns provider failures, refusals and cut-off replies into typed errors. A recording one writes each reply to a JSON file with a hash of the request; a replaying one reads those files with no key and no network, and stops with "stale recording" if the prompt, the schemas or the model settings have changed since. A scripted one serves the tests. The five actions are defined as typed tools with strict schemas, plus the same actions as one flat object for the fallback mode, and one function turns a raw reply into exactly one typed action or a reason it is not one.
+- **Prompt** (`prompt.py`): one system text, the same for every question: when to choose each action, the schema context, and a glossary that fixes what a model otherwise gets wrong on this data. A fraud rate is `1.0 * SUM(is_fraud) / COUNT(*)` over labelled rows, returned as a fraction. Relative dates resolve against the last day of the data, so "last month" is October 2019, and the resolved range is listed as an assumption. A day range ends with `<` the next day. Locations join on the location key. Velocity uses a window function and compares whole seconds. "Debit card" means `'Debit'` only, stated as an assumption. "Risky" and similar words get a question back, not a guessed threshold. A follow-up is given the previous question and the SQL that answered it, never its rows. The question and every other quoted piece of text sit inside named tags, which the prompt declares to be data and not instructions.
+- **Turn graph** (`state.py`, `nodes.py`, `graph.py`): the ten steps and the routes between them, built with LangGraph. Code chooses every route. The one repair is bounded by a counter. Conversation memory holds the last turn's question and accepted SQL, in the process, keyed by a conversation id; one checkpoint is kept per conversation, so older turns are not retained. Nothing read from a row is saved or sent to the model, including a value SQLite quotes when a statement fails while running: the model and the memory get a fixed sentence, and only the user is shown SQLite's words.
+- **Result and presentation** (`result.py`, `presentation.py`): every turn returns one typed result with exactly one outcome (answered, rule proposed, clarification, cannot answer, rejected, failed), the tool the model chose, and the reason codes of any reply the guard or the shape check refused during the turn, a repaired one included. Caveats are chosen by code from a fixed list: the result was cut at the row cap; the query read the fraud labels, which a third of transactions lack; no rows matched (check the spelling and case of values); a rule's precision rests on fewer than 30 labelled transactions; a rule flags more than 5% of all transactions. Cents are shown as dollars and a fraction also as a percentage.
+- **Terminal** (`cli.py`): `ask`, `chat`, `graph` and `--trace` ([How to run](#how-to-run)).
 - **Configuration** (`config.py`): see [Setup](#setup).
 
-_A walk through one real exploration question and one real rule proposal, with output: to be completed once implemented._
+_A walk through one real exploration question and one real rule proposal, with the live model's output: to be completed._
 
 ## Design choices and trade-offs
 
-Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first fifteen rows are about built code; the rows after them are about the model layer and the turn graph, and each says how much of it is built.
+Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). Every row is about built code; the last rows are about the model layer and the turn, which are built and have had one seven-question live smoke test on two models, not an evaluation.
 
 | Choice | Why | Cost |
 |---|---|---|
@@ -192,36 +252,43 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | The SQL guard compiles a statement without running it and judges what SQLite reports (tables, columns, functions), not the text | SQLite resolves aliases, CTEs and `SELECT *` itself, so the guard cannot disagree with what will run; no SQL parser dependency | Depends on the engine's reporting, pinned by tests; date arguments still need a small text check; compiling has no timeout, so the text is bounded first (length, and how often CTEs refer to each other), which can refuse an unusually CTE-heavy statement |
 | Unknown double-quoted names are errors; values capped at 100,000 bytes, results at 100 columns and 5 MB | `"amount" > 1000` used to match every row; one huge value could outrun the timeout; the row cap alone let 300 rows take 340 MB | A string written in double quotes is refused; a very long `group_concat` or a very large result is an error |
 | Every structured value is a frozen pydantic model; the code is fully annotated and checked by mypy in strict mode | One way to write a data type, validated where data enters and immutable afterwards; a wrong field or type fails the check, not a run | A second command to keep passing; query results skip per-cell validation for speed, which a test covers |
-| Model: Claude through the Anthropic API (client built, not yet used in a turn) | Stronger SQL than the small local models tried first, and no multi-gigabyte download for a reviewer; offline replay of the evaluation means checking results needs no model | An API key and a cost per call for live use; the question and schema are sent to a hosted service |
-| One turn is a fixed state graph in LangGraph, not an agent (decided, not built) | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
-| The model picks one of five tools; code executes it (tools and shape check built, execution not) | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
+| Model: Claude through the Anthropic API | Stronger SQL than the small local models tried first, and no multi-gigabyte download for a reviewer; offline replay of the evaluation means checking results needs no model | An API key and a cost per call for live use; the question and schema are sent to a hosted service |
+| One turn is a fixed state graph in LangGraph, not an agent | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
+| The model picks one of five tools; code executes it | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
 | One model interface with our own record and replay, keyed by case, turn and call, with a hash of the request | A reviewer can replay an evaluation with no key; a recording made for a different prompt or setting is refused, not silently reused | Any change to a prompt, tool description or model setting means recording again, which is a paid run |
 | Client retries off, hosted tracing forced off, key and address passed explicitly | A turn's cost stays countable; nothing leaves the machine except the model call; no environment variable can redirect the key | A rate-limited request fails at once; a proxy would need its own setting |
+| A fixed glossary in the prompt: fraud rate as a fraction, "debit card" as `'Debit'` only, relative dates against the last day of the data | Two models read "debit card" differently and both returned a rounded percentage when not told; one stated convention makes runs comparable, and each reading is listed as an assumption the FSM can overrule | A user who meant prepaid cards too has to say so; the prompt is longer |
+| One repair: a fresh request with the previous answer and the reason it failed | Many first failures are a wrong column name, and SQLite's compile message is enough to fix them; a counter keeps a turn at two requests | A question that needs a third try fails. A statement that fails while running gets only a generic reason, because SQLite's run-time message can quote a value from a row |
+| Memory is the last turn's question and accepted SQL, never rows; one checkpoint per conversation | A follow-up works; result rows cannot reach the model through a growing transcript; old questions and SQL do not pile up in the process | No reference further back than one turn; lost when the process ends |
+| Caveats come from a fixed list chosen by code; the model's text is shown labelled as the model's | A caveat can be tested and cannot contradict the result | Fixed thresholds (30 labelled rows, 5% of transactions), chosen by judgement |
 
-**Why LangGraph, and why not an agent.** An agent is a loop in which the model sees the result of each action and chooses the next one. That is flexible, but it could not guarantee that every query passes the guard, or that a turn costs at most two model requests, and result rows would pass through the model, which could then restate them wrongly. So a turn will be a fixed graph instead: the steps and the routes between them are declared in code, and the model's only job is to pick one action and write it. LangGraph was chosen for that graph, rather than plain functions, because the structure is declared in one place and the diagram is drawn from the code, conversation memory comes as a store keyed by conversation, and each step can be traced. The cost is that the assistant will not chain several queries in one turn; the FSM asks a follow-up. ([D-15](docs/DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop))
+**Why LangGraph, and why not an agent.** An agent is a loop in which the model sees the result of each action and chooses the next one. That is flexible, but it could not guarantee that every query passes the guard, or that a turn costs at most two model requests, and result rows would pass through the model, which could then restate them wrongly. So a turn is a fixed graph instead: the steps and the routes between them are declared in code, and the model's only job is to pick one action and write it. LangGraph was chosen for that graph, rather than plain functions, because the structure is declared in one place and the diagram is drawn from the code, conversation memory comes as a store keyed by conversation, and each step can be traced. The cost is that the assistant does not chain several queries in one turn; the FSM asks a follow-up. ([D-15](docs/DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop))
 
 The model name is configuration, and only `llm.py` talks to the model, so a second provider (for example a local model) could be added behind the same interface. It is not planned.
 
 Still open (see [Open points](docs/ARCHITECTURE.md#open-points)): whether an effort level other than the default `medium` scores better, whether the smaller Claude model becomes the default (both models passed the tool-call check, and the smaller one took about half the time; that check does not judge the SQL), and whether the web chat is built. No longer open: tools are the default output mode, confirmed by `check-model` on both models, with the single structured object kept as the fallback.
 
-_Justification of the final interaction model, with what was observed: to be completed._
+_Justification of the final interaction model, with what was observed with the live model: to be completed._
 
 ## GenAI limitations and mitigations
 
 Mitigations by risk, and whether each is built. Where each sits in the design: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#where-hallucination-mitigations-sit).
 
+"Built" here means the code exists and is tested with scripted model replies. How often the live model needs each mitigation is not measured yet.
+
 | Risk | Built | Proposed |
 |---|---|---|
-| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns; the guard checks tables against the real ones and keeps SQLite's error on an unknown column | That error fed back to the model for one repair |
-| Destructive or runaway SQL | Read-only connection, timeout, row cap, value-size cap, result-size budget; a guard that bounds the text, compiles the SQL without running it and accepts a single read-only `SELECT` | The guard wired into the turn, so nothing runs without passing it |
-| SQL that runs but answers the wrong question | none yet | SQL always shown with the result, with the model's assumptions listed; execution accuracy measured in the evaluation suite |
-| Made-up numbers | Backtest figures come from one fixed query | Every figure from executed SQL; the model is never shown result rows, and its text is labelled as model text |
-| Plausible but poor rules | The backtest that measures a rule against the fraud labels | No rule shown without one; evidence month by month; the FSM decides, the tool does not deploy |
-| A rule that reads the labels it is scored on | The guard rejects any clause that reads `fraud_labels`, and the backtest applies the guard itself. Not detectable: a clause that lists fraud transaction ids as literals | The guard wired into the turn |
-| An empty result that looks like an answer (a filter relative to today, on data that ends in 2019) | The guard rejects `'now'` given to a date function and date functions that default to the current time | Relative dates resolved against the last date in the data |
-| Misleading fraud rates from partial labels | The schema context tells the model the coverage and to use labelled rows only; rule metrics on labelled transactions only, with the unlabelled share reported | Coverage caveat shown with every such result |
-| Vague or unanswerable questions answered anyway | The two actions exist: the model can ask what was meant or decline | The prompt that tells it when; such cases in the evaluation set |
+| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns; the guard checks tables against the real ones; SQLite's compile error on an unknown column is sent back to the model for one repair | Measured in the evaluation suite |
+| Destructive or runaway SQL | Read-only connection, timeout, row cap, value-size cap, result-size budget; a guard that bounds the text, compiles the SQL without running it and accepts a single read-only `SELECT`; nothing in a turn runs without passing it | none |
+| SQL that runs but answers the wrong question | SQL always shown with the result, with the model's assumptions listed; a glossary that fixes the fraud rate, relative dates, day ranges and the location join | Execution accuracy measured in the evaluation suite |
+| Made-up numbers | Every figure comes from executed SQL; the model is never shown result rows, and its text is labelled as model text | none |
+| Plausible but poor rules | No rule shown without its backtest; caveats for a small labelled sample and a high flag rate; the FSM decides, the tool does not deploy | Evidence month by month |
+| A rule that reads the labels it is scored on | The guard rejects any clause that reads `fraud_labels`, in the turn and again in the backtest. Not detectable: a clause that lists fraud transaction ids as literals | none |
+| An empty result that looks like an answer (a filter relative to today, on data that ends in 2019; a value in the wrong case) | The guard rejects `'now'` given to a date function; the glossary resolves relative dates against the last day of the data; a zero-row result carries a caveat to check spelling and case | none |
+| Misleading fraud rates from partial labels | The schema context and the glossary tell the model to use labelled rows only; rule metrics on labelled transactions only, with the unlabelled share reported; a coverage caveat on every result that read the labels | none |
+| Vague or unanswerable questions answered anyway | The two actions exist and the prompt says when to use them: ask for "risky", "suspicious", "high value"; decline for missing data and for requests to change data | Such cases in the evaluation set |
 | A rule that fits history and nothing else | none yet | Scoring on months the rule was not derived from |
+| Instructions hidden in the question | The model can only choose one of five typed actions; whatever it writes still passes the guard and a read-only connection; the question and every quoted earlier text sit inside named tags that cannot be closed from inside, and the prompt says text in them is not an instruction | Such cases in the evaluation set |
 
 Known weaknesses found in exploratory checks, each with its planned fix, are listed in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#known-weaknesses-and-planned-fixes). One matters for reading any result on this data: all 1,360 labelled frauds are at merchant locations in Rome, Italy, so strong backtest numbers here do not prove that a rule generalises.
 
@@ -229,11 +296,11 @@ _What was observed in testing with the real model, and residual risks: to be com
 
 ## Evaluation
 
-The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite does not exist yet.** Everything in this section is proposed; the design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#evaluation) and [`evals/README.md`](evals/README.md). The metrics below are the plan, not results.
+The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite does not exist yet.** The assistant it would measure now runs in the terminal, but has only been tested with scripted replies and one live smoke test of seven questions, asked once each on two models. Everything in this section is proposed; the design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#evaluation) and [`evals/README.md`](evals/README.md). The metrics below are the plan, not results.
 
 **Offline** means measured on fixed cases before anyone uses the tool. The suite will run about 25 cases through the same code path the interface uses, and report counts per tier, not one accuracy percentage, because the sample is small. A live run will record the model's replies; the suite can then be replayed from those recordings with no model, no key and no network (recording and replay are built in the model client; the suite is not). Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today.
 
-**Online** means measured while FSMs use the tool, which would need a deployment. The assistant is planned to write one structured log line per step of each turn (question, SQL, tool chosen, guard decision, outcome, row count, duration, token usage; never result rows or the key). Those log fields are what the online metrics below would be computed from.
+**Online** means measured while FSMs use the tool, which would need a deployment. The assistant is planned to write one structured log line per step of each turn (today `--trace` prints those steps to the terminal and nothing is stored) (question, SQL, tool chosen, guard decision, outcome, row count, duration, token usage; never result rows or the key). Those log fields are what the online metrics below would be computed from.
 
 Each offline measure is there because it predicts something that matters online:
 
@@ -266,13 +333,15 @@ So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards
 
 ## What is not built yet
 
-Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard and the model layer (the Claude client, the five tools, recording and replay of model replies). Not built, in planned order:
+Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result and the terminal commands `ask`, `chat` and `graph`. Natural language → SQL and a rule shown with its backtest work end to end with scripted model replies. Against Claude, the current prompt (`turn-3`) has had one smoke test: seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly. That is not an evaluation.
 
-1. The prompt, the graph for one turn and the terminal chat: natural language → SQL, and a rule shown with its backtest.
+Not built, in planned order:
+
+1. Live runs of `ask` and `chat` beyond the seven-question smoke test, and what they show about the prompt.
 2. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
 3. The evaluation suite with offline replay.
 4. Rule evidence month by month, and scoring on months a rule was not derived from.
-5. The fraud-concentration scan.
+5. The fraud-concentration scan. Until then the action exists and ends in "not available yet".
 6. The web chat and its HTTP API. First to be cut if time runs out.
 
 Not planned for this prototype: authentication, conversation memory that survives a restart, streaming of replies, charts, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
@@ -286,16 +355,17 @@ README.md              This file
 AGENTS.md, CLAUDE.md   Pointers to docs/AGENTS.md (working rules for coding agents)
 docs/
   CHALLENGE.md         The original brief, verbatim
-  ARCHITECTURE.md      Target design, what is built and what is proposed, evidence, known weaknesses
+  ARCHITECTURE.md      Design, how one turn works, what is built and what is proposed, evidence, known weaknesses
   DATA.md              Schema notes and differences from the brief
   DECISIONS.md         Decision log
   AGENTS.md            Working rules for coding agents
 data/                  data.db (SQLite) and schema.sql; read-only
 src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        sql_scan.py, sql_guard.py, rules/backtest.py, llm.py,
-                       model_check.py (the check behind check-model); partly
-                       built: nl2sql.py (tools, shape check), cli.py (one command,
-                       check-model); the others are docstring-only placeholders
+                       nl2sql.py (tools, shape check), prompt.py, state.py,
+                       nodes.py, graph.py (one turn), result.py, presentation.py,
+                       model_check.py (the check behind check-model), cli.py.
+                       rules/proposal.py is a docstring-only placeholder
 tests/                 pytest tests (fixture databases built from data/schema.sql)
 evals/                 Evaluation suite (not built; see its README). Holds the
                        recorded replies of check-model for two models

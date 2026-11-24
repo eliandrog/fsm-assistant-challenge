@@ -1,8 +1,10 @@
 """nl2sql: the tool and intent schemas, and the shape check on a raw reply."""
 
 import json
+from typing import get_args
 
 import pytest
+from conftest import tool_reply
 from pydantic import JsonValue, ValidationError
 
 from fsm_assistant import nl2sql
@@ -357,3 +359,12 @@ def test_actions_and_intent_are_frozen_and_closed() -> None:
         action.sql = "SELECT 2"  # type: ignore[misc]  # the assignment is the thing under test
     with pytest.raises(ValidationError, match="extra_forbidden"):
         Intent.model_validate({**json.loads(intent_reply(kind="profile").text), "extra": 1})
+
+
+def test_every_tool_has_a_name_for_the_result() -> None:
+    names = [spec.name for spec in nl2sql.tool_specs()]
+    assert list(get_args(nl2sql.ToolName)) == names
+    for name in names:
+        action = nl2sql.check_shape(tool_reply(name))
+        assert not isinstance(action, nl2sql.ShapeFailure)
+        assert nl2sql.tool_name(action) == name

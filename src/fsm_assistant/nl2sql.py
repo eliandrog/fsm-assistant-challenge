@@ -9,8 +9,8 @@ or a `ShapeFailure` with a reason the model can be shown for its one repair.
 An action is still untrusted: `check_shape` settles which of the five things
 was asked for, not whether the SQL may run. That is `sql_guard`'s decision.
 
-The system prompt and glossary are not written yet; `PROMPT_VERSION` labels
-the prompt text, which today is only the descriptions below.
+The system prompt and glossary are in `prompt.py`. `PROMPT_VERSION` labels
+that text and the descriptions below together: change either, change it.
 """
 
 import json
@@ -30,7 +30,7 @@ from fsm_assistant.config import Settings
 from fsm_assistant.llm import JsonObject, ModelReply, ModelSpec, ToolSpec
 from fsm_assistant.sql_guard import normalise
 
-PROMPT_VERSION = "tools-1"
+PROMPT_VERSION = "turn-3"
 
 MIN_SUGGESTIONS = 2
 MAX_SUGGESTIONS = 3
@@ -285,6 +285,22 @@ _INTENT_DESCRIPTION = (
 )
 
 
+ToolName = Literal["run_sql", "propose_rule", "profile_fraud", "ask_clarification", "decline"]
+
+_TOOL_NAMES: dict[type[Action], ToolName] = {
+    RunSql: "run_sql",
+    ProposeRule: "propose_rule",
+    ProfileFraud: "profile_fraud",
+    AskClarification: "ask_clarification",
+    Decline: "decline",
+}
+
+
+def tool_name(action: Action) -> ToolName:
+    """The tool an action came from, whichever output mode the reply used."""
+    return _TOOL_NAMES[type(action)]
+
+
 def tool_specs() -> tuple[ToolSpec, ...]:
     """The five tools as offered to the model, in a fixed order."""
     return tuple(
@@ -346,6 +362,16 @@ def check_shape(reply: ModelReply) -> Action | ShapeFailure:
             kind="invalid_arguments",
             reason=f"The arguments of {call.name} are not valid: {_problems(error)}.",
         )
+
+
+def describe_reply(reply: ModelReply) -> str:
+    """A reply as text, to quote back to the model when its shape was not accepted."""
+    calls = "; ".join(
+        f"{call.name}({json.dumps(call.arguments, ensure_ascii=False)})"
+        for call in reply.tool_calls
+    )
+    text = reply.text.strip()
+    return " ".join(part for part in (calls, text) if part) or "(an empty reply)"
 
 
 def _from_json(text: str) -> Action | ShapeFailure:
