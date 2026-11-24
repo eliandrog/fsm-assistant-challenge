@@ -6,13 +6,13 @@ Instructions for any AI agent working in this repo. Read this file before doing 
 
 - **Never commit, stage, push, branch, or change git config/remotes unless the user explicitly says so.** A request to change code is not permission to commit; leave changes in the working tree for review.
 - **`data/` is read-only.** Never modify `data/data.db` or `data/schema.sql`. Open the database read-only: `sqlite3 'file:data/data.db?mode=ro'`, or in Python `sqlite3.connect("file:data/data.db?mode=ro", uri=True)`.
-- **Model-written SQL only ever runs on a read-only connection**, after validation in code. Never execute it on a writable connection, in tests either.
+- **Model-written SQL only ever runs on a read-only connection**, after validation in code (`sql_guard`). Never execute it on a writable connection, in tests or evals either.
 - **Never commit or print secrets.** API keys go in `.env` (git-ignored); `.env.example` lists names only.
 - **Scope priority: core functionality first.** In order: reliable natural language → SQL, rule proposal with backtesting, the evaluation suite. The interface stays deliberately minimal until those work.
 - **Be honest in docs.** The README must describe only what exists. Mark anything unbuilt as "to be completed" or "proposed".
 - **No dates about our work in docs** (no "as of", "last updated", dated decision entries). Dates that are facts about the data are fine.
-- **Do not settle an open design decision without the user.**
-- **No new dependencies without asking.** The model provider is not chosen yet, so no LLM SDK yet.
+- **Record decisions** in `docs/DECISIONS.md` (next D-number; never rewrite old entries), then update `docs/ARCHITECTURE.md` to match. Do not settle an item listed under "Open decisions" without the user.
+- **No new dependencies without asking.** The provider is decided (local Ollama with a Qwen model, D-05), but how the client talks to it is not, so no LLM SDK yet.
 
 ## What this project is
 
@@ -22,7 +22,7 @@ A take-home submission for Checkout.com's "Fraud Success Manager Assistant Chall
 2. Help turn an insight into a **rule**: a valid SQL `WHERE` clause over the `transactions` table, backtested against `fraud_labels`.
 3. Ship with an initial evaluation suite, and a README that justifies the design, covers GenAI limitations, and describes offline and online metrics.
 
-Current state: scaffold only. No module is implemented: the entry point prints a placeholder line and the other modules are docstring-only. Nothing reads the database or calls a model, and there is no evaluation suite.
+Current state: early. `config.py`, `db.py`, `schema_context.py` and `rules/backtest.py` are implemented and tested; the other modules are docstring-only, and there is no model call, pipeline, rule proposal or evaluation suite yet.
 
 ## Where to find things
 
@@ -30,10 +30,14 @@ Current state: scaffold only. No module is implemented: the entry point prints a
 |---|---|
 | `README.md` | Submission README (the brief requires setup, solution explanation, architecture, design choices, reproduction steps) |
 | `docs/CHALLENGE.md` | The original brief, verbatim. Do not edit |
+| `docs/ARCHITECTURE.md` | Architecture (which parts are implemented, which proposed), data flow, open decisions |
+| `docs/DATA.md` | The real schema, row counts, and where the data differs from the brief |
+| `docs/DECISIONS.md` | Decision log (D-01, D-02, …) |
 | `data/` | `data.db` (SQLite, about 100 MB, WAL mode) and `schema.sql`. Read-only |
-| `src/fsm_assistant/` | The package. One module per component; each docstring states its responsibility |
-| `tests/` | pytest tests (offline, no model calls). Only a smoke test so far |
-| `.env.example` | Names of the environment variables (none yet) |
+| `src/fsm_assistant/` | The package. One module per architecture component; each docstring states its responsibility |
+| `tests/` | pytest tests (offline, no model calls). Unit tests use small fixture databases; `test_real_db.py` runs against `data/data.db` and is skipped if it is missing |
+| `evals/` | Evaluation suite (empty; see `evals/README.md`) |
+| `.env.example` | Names of the environment variables |
 
 New project docs go in `docs/`. `README.md` stays at the root because the brief requires it.
 
@@ -49,15 +53,15 @@ Python 3.13, managed by uv. The package uses a `src/` layout built with `uv_buil
 
 ## Conventions
 
-- One responsibility per module. Only `llm.py` talks to a model provider.
+- One responsibility per module, matching `docs/ARCHITECTURE.md`. Only `db.py` opens the database (every query goes through `db.run_query`); only `llm.py` talks to a model provider.
 - Safety is enforced in code, not only in the prompt.
 - Numbers shown to the user (counts, fraud rates, precision, recall) come from executed SQL, never from model text.
-- Tests run offline: no test calls a real model.
+- Tests run offline. No test calls a real model; once code depends on one, tests use a scripted fake. Anything that calls a real model belongs in `evals/`.
 - Small, explainable changes. Say what changed and why.
 
 ## Data gotchas
 
-Where the data differs from the brief, and what causes wrong SQL:
+Full detail in `docs/DATA.md`. The ones that cause wrong SQL:
 
 - The brief's example rule uses `amount` and `'debit'`. The real column is `amount_usd_cents` (integer cents) and `card_type` is one of `'Credit'`, `'Debit'`, `'Debit (Prepaid)'` (case-sensitive).
 - Two tables are not in the brief: `merchants` and `merchant_locations`. MCC is reached through `transactions.merchant_id → merchants.mcc`.
