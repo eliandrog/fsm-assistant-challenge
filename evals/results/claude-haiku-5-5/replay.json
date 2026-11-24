@@ -10,10 +10,10 @@
   },
   "overall": {
     "name": "all",
-    "cases": 119,
+    "cases": 117,
     "passed": 116,
     "failed": 1,
-    "skipped": 2,
+    "skipped": 0,
     "with_extra_columns": 5,
     "known_limitation": 1
   },
@@ -127,15 +127,6 @@
       "known_limitation": 0
     },
     {
-      "name": "scan",
-      "cases": 2,
-      "passed": 0,
-      "failed": 0,
-      "skipped": 2,
-      "with_extra_columns": 0,
-      "known_limitation": 0
-    },
-    {
       "name": "paraphrases",
       "cases": 8,
       "passed": 8,
@@ -148,19 +139,19 @@
   "by_split": [
     {
       "name": "tuned",
-      "cases": 22,
+      "cases": 21,
       "passed": 21,
       "failed": 0,
-      "skipped": 1,
+      "skipped": 0,
       "with_extra_columns": 0,
       "known_limitation": 0
     },
     {
       "name": "held_out",
-      "cases": 97,
+      "cases": 96,
       "passed": 95,
       "failed": 1,
-      "skipped": 1,
+      "skipped": 0,
       "with_extra_columns": 5,
       "known_limitation": 1
     }
@@ -438,19 +429,19 @@
     },
     {
       "name": "labels",
-      "cases": 19,
+      "cases": 17,
       "passed": 17,
       "failed": 0,
-      "skipped": 2,
+      "skipped": 0,
       "with_extra_columns": 1,
       "known_limitation": 0
     },
     {
       "name": "location",
-      "cases": 11,
+      "cases": 9,
       "passed": 9,
       "failed": 0,
-      "skipped": 2,
+      "skipped": 0,
       "with_extra_columns": 2,
       "known_limitation": 0
     },
@@ -667,15 +658,6 @@
       "passed": 20,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 0,
-      "known_limitation": 0
-    },
-    {
-      "name": "scan",
-      "cases": 2,
-      "passed": 0,
-      "failed": 0,
-      "skipped": 2,
       "with_extra_columns": 0,
       "known_limitation": 0
     },

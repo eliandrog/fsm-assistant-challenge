@@ -334,12 +334,14 @@ def replay_run(
     differences: list[Difference] = []
     for case in cases:
         found = record.find(case.id)
-        if found is None or not found.replayable:
+        reason = skip_reason(case, available)
+        # A case the run skipped has no reply on file: once it can run, it is not recorded.
+        skipped_then = found is not None and found.run.skipped is not None and reason is None
+        if found is None or not found.replayable or skipped_then:
             not_recorded.append(case.id)
             continue
         if found.case_sha256 != case_digest(case, suite):
             changed.append(case.id)
-        reason = skip_reason(case, available)
         if reason is not None:
             run = CaseRun(case_id=case.id, skipped=reason)
         else:

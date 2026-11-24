@@ -139,6 +139,7 @@ def test_the_previous_turn_block(previous: PreviousTurn, expected: str, absent: 
 def test_the_previous_turn_has_no_field_for_rows_or_figures() -> None:
     assert set(PreviousTurn.model_fields) == {
         "question", "kind", "sql", "where_clause", "clarification", "suggestions",
+        "scan_dimensions",
     }  # fmt: skip
 
 

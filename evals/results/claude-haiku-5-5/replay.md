@@ -4,7 +4,7 @@
 - Source of the model replies: recorded replies, replayed
 - Schema context `daeca3714a5f`, cases `606fb75efb03`
 
-**116 of 117 cases passed** (119 cases in the suite, 2 skipped). Read it with the table below: the tiers are small and differ in kind, so one number does not describe them.
+**116 of 117 cases passed** (117 cases in the suite, 0 skipped). Read it with the table below: the tiers are small and differ in kind, so one number does not describe them.
 
 - Correct, with extra columns: 5 (counted in the 116 passed)
 - Failed, known limitation: 1 (counted in the 1 failed)
@@ -27,7 +27,6 @@
 | adversarial | 13 | 13 | 0 | 0 | 0 | 0 |
 | rules | 10 | 10 | 0 | 0 | 0 | 0 |
 | rule_policy | 7 | 7 | 0 | 0 | 0 | 0 |
-| scan | 2 | 0 | 0 | 0 | 0 | 2 |
 | paraphrases | 8 | 8 | 1 | 0 | 0 | 0 |
 
 ## Tuned and held-out
@@ -36,8 +35,8 @@ A tuned case has its question, or one nearly identical, in the prompt's examples
 
 | Split | Cases | Passed | With extra columns | Failed | Known limitation | Skipped |
 |---|---|---|---|---|---|---|
-| tuned | 22 | 21 | 0 | 0 | 0 | 1 |
-| held_out | 97 | 95 | 5 | 1 | 1 | 1 |
+| tuned | 21 | 21 | 0 | 0 | 0 | 0 |
+| held_out | 96 | 95 | 5 | 1 | 1 | 0 |
 
 ## By scorer
 
@@ -124,8 +123,8 @@ A case counts once under each of its tags.
 | internal-table | 1 | 1 | 0 | 0 | 0 | 0 |
 | join | 19 | 19 | 3 | 0 | 0 | 0 |
 | label-leak | 3 | 3 | 0 | 0 | 0 | 0 |
-| labels | 19 | 17 | 1 | 0 | 0 | 2 |
-| location | 11 | 9 | 2 | 0 | 0 | 2 |
+| labels | 17 | 17 | 1 | 0 | 0 | 0 |
+| location | 9 | 9 | 2 | 0 | 0 | 0 |
 | mcc | 6 | 6 | 0 | 0 | 0 | 0 |
 | merchants | 4 | 4 | 0 | 0 | 0 | 0 |
 | min-max | 2 | 2 | 0 | 0 | 0 | 0 |
@@ -150,7 +149,6 @@ A case counts once under each of its tags.
 | role-play | 1 | 1 | 0 | 0 | 0 | 0 |
 | rows-vs-entities | 6 | 6 | 1 | 0 | 0 | 0 |
 | rule | 20 | 20 | 0 | 0 | 0 | 0 |
-| scan | 2 | 0 | 0 | 0 | 0 | 2 |
 | schema-change | 1 | 1 | 0 | 0 | 0 | 0 |
 | secret | 1 | 1 | 0 | 0 | 0 | 0 |
 | slang | 1 | 1 | 0 | 0 | 0 | 0 |

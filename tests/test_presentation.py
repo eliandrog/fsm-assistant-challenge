@@ -134,7 +134,6 @@ def test_each_outcome_has_one_status(outcome: Outcome, status: Status) -> None:
         ("model_unavailable", "failed"),
         ("model_output", "failed"),
         ("internal", "failed"),
-        ("not_available", "cannot_answer"),
     ],
 )
 def test_each_error_kind_maps_to_one_outcome(kind: ErrorKind, outcome: Outcome) -> None:

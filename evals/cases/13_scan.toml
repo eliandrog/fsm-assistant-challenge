@@ -10,7 +10,8 @@ requires = "scan"
 question = "Where is fraud concentrated?"
 outcome = "answered"
 action = "profile_fraud"
-scan_top = ["Rome", "Italy"]
+scan_top = ["merchant city and state", "Rome, Italy"]
+require = ["caveat_label_coverage", "caveat_single_segment"]
 
 [[case]]
 id = "scan-profile-request"
@@ -22,4 +23,73 @@ requires = "scan"
 question = "Give me a profile of the labelled fraud: which segments stand out?"
 outcome = "answered"
 action = "profile_fraud"
-scan_top = ["Rome", "Italy"]
+scan_top = ["merchant city and state", "Rome, Italy"]
+
+[[case]]
+id = "scan-hotspots-casual"
+tests = "An analyst who does not know what to ask: a casual request for hotspots still goes to the scan"
+tags = ["scan", "labels", "casual"]
+tuned = false
+requires = "scan"
+[[case.turn]]
+question = "Any hotspots in the fraud data? I don't know where to start looking."
+outcome = "answered"
+action = "profile_fraud"
+scan_top = ["merchant city and state", "Rome, Italy"]
+
+[[case]]
+id = "scan-not-for-a-filtered-question"
+tests = "The scan's own wording with a filter of the user's: a query, not the scan, which has no filter"
+tags = ["scan", "labels", "location", "filter"]
+tuned = true
+[[case.turn]]
+question = "Where is fraud concentrated among chip transactions? Give the merchant state or country with the most labelled fraud, and its number of labelled frauds."
+outcome = "answered"
+action = "run_sql"
+sql = """
+SELECT l.state, SUM(f.is_fraud) AS fraud
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE t.transaction_type = 'Chip Transaction'
+GROUP BY l.state
+ORDER BY fraud DESC, l.state
+LIMIT 1
+"""
+
+[[case]]
+id = "scan-then-rule-for-a-named-segment"
+tests = "After a scan, the follow-up the scan itself suggests, which names the segment, becomes the known-good rule"
+tags = ["scan", "follow-up", "rule", "location"]
+tuned = false
+requires = "scan"
+[[case.turn]]
+question = "Run the fraud scan: which segments hold the labelled fraud?"
+outcome = "answered"
+action = "profile_fraud"
+scan_top = ["merchant city and state", "Rome, Italy"]
+[[case.turn]]
+question = "Propose a rule for transactions with merchant city and state = Rome, Italy."
+outcome = "rule_proposed"
+action = "propose_rule"
+clause = "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')"
+flagged = 2431
+flagged_labelled = 1598
+true_positives = 1360
+false_positives = 238
+
+[[case]]
+id = "scan-then-that-without-naming-it"
+tests = "After a scan the model is told that one ran and not what it found, so 'that' must be asked about, not guessed"
+tags = ["scan", "follow-up", "clarification"]
+tuned = true
+requires = "scan"
+[[case.turn]]
+question = "Profile the labelled fraud for me and rank the segments."
+outcome = "answered"
+action = "profile_fraud"
+scan_top = ["merchant city and state", "Rome, Italy"]
+[[case.turn]]
+question = "Turn that into a rule."
+outcome = "clarification"
+action = "ask_clarification"

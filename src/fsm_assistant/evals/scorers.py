@@ -246,6 +246,7 @@ def observed_facts(observation: Observation) -> frozenset[Fact]:
         "high_flag_rate": "caveat_high_flag_rate",
         "weak_month": "caveat_weak_month",
         "period_drop": "caveat_period_drop",
+        "single_segment": "caveat_single_segment",
     }
     facts.update(caveats[code] for code in observation.caveats if code in caveats)
     return frozenset(facts)

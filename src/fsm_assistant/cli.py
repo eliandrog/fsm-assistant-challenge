@@ -7,7 +7,8 @@ business logic here.
 `ask` answers one question and `chat` holds one conversation; both run the
 turn graph (`graph.py`) and print `presentation.render_text`. They call
 Claude, which is billed, unless `--replay-dir` names a folder of recorded
-replies. `graph` prints the turn graph as a Mermaid diagram. `check-model`,
+replies. `graph` prints the turn graph as a Mermaid diagram. `scan` runs the
+fraud-concentration scan of `explore.py` with no model and no key. `check-model`,
 whose logic is in `model_check.py`, sends nothing unless `--yes-spend` is
 given; its `--replay` re-prints a recorded run with no key and no request.
 `eval`, whose logic is in `evals/command.py`, runs the evaluation suite under
@@ -23,9 +24,10 @@ line whether they do.
 Exit codes. 0: the command did its job; for `ask`, the turn was answered,
 proposed a rule or asked for clarification. 1: the turn failed. 2: the
 command could not start (a bad argument or setting, no key, an unusable
-recordings folder). 3: `ask` could not answer (the model declined, or the
-scan is not available). 4: `ask` was rejected by the guard. 130: `ask` was
-interrupted with Ctrl-C. `chat` exits 0 whatever its turns ended in. For
+recordings folder). 3: `ask` could not answer (the model declined). 4: `ask`
+was rejected by the guard. 130: `ask` was interrupted with Ctrl-C. `chat`
+exits 0 whatever its turns ended in. `scan`: 0, 1 when the scan failed, 2
+when it could not start. For
 `eval`: 0 when every selected case that was not skipped passed (and for
 `--list`, or when nothing was sent); 1 when it ran and a case failed; 2 when
 it could not start or a recording is stale; 3 when a replay did not score as
@@ -38,10 +40,11 @@ import os
 import sys
 import uuid
 from collections.abc import Sequence
+from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from fsm_assistant import applog, config, model_check, tracing
+from fsm_assistant import applog, config, db, explore, model_check, tracing
 from fsm_assistant.config import ConfigError, Settings, load_settings
 from fsm_assistant.evals import command as eval_command
 from fsm_assistant.evals.cases import TIERS
@@ -59,7 +62,7 @@ from fsm_assistant.llm import (
     StaleRecording,
 )
 from fsm_assistant.nl2sql import model_spec
-from fsm_assistant.presentation import render_text, safe_text
+from fsm_assistant.presentation import render_scan, render_text, safe_text
 from fsm_assistant.result import Status
 
 logger = logging.getLogger(__name__)
@@ -116,6 +119,23 @@ def main(argv: Sequence[str] | None = None) -> int:
             help=f"name of the recording files (default: {case})",
         )
     commands.add_parser("graph", help="print the turn graph as a Mermaid diagram")
+    scan = commands.add_parser(
+        "scan", help="rank the segments where labelled fraud is concentrated (no model, no key)"
+    )
+    scan.add_argument(
+        "--period",
+        nargs=2,
+        metavar=("START", "END"),
+        help="only these days, both included, as YYYY-MM-DD (default: all the data)",
+    )
+    scan.add_argument(
+        "--top",
+        type=int,
+        default=explore.DEFAULT_TOP,
+        metavar="N",
+        help=f"how many segments to print (default: {explore.DEFAULT_TOP})",
+    )
+    scan.add_argument("--sql", action="store_true", help="also print every statement that ran")
     check = commands.add_parser(
         "check-model",
         help="measure how often a Claude model replies with exactly one valid tool call "
@@ -207,6 +227,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             case=arguments.case,
             verbose=arguments.verbose,
         )
+    if arguments.command == "scan":
+        if arguments.top < 1:
+            scan.error("--top must be at least 1")
+        return _scan(arguments.period, arguments.top, show_sql=arguments.sql)
     if arguments.command == "graph":
         # The diagram depends on no setting, so none is read: no `.env`, no key.
         defaults = config.load_settings({}, env_file=None)
@@ -287,6 +311,42 @@ def _turns(assistant: Assistant, question: str | None, trace: bool) -> int:
                 # Back to the prompt; the conversation keeps what it remembered before.
                 print("\nInterrupted. That question was not answered.")
             print()
+    return 0
+
+
+def _scan(period: Sequence[str] | None, top: int, *, show_sql: bool) -> int:
+    try:
+        settings = _start("scan", verbose=False)
+        chosen = None
+        if period is not None:
+            start, end = (date.fromisoformat(day) for day in period)
+            chosen = explore.Period(start=start, end=end)
+    except ValueError as error:  # a bad setting, a day that is not a date, or an end before the start
+        print(f"Cannot start: {error}")
+        return EXIT_CANNOT_START
+    try:
+        result = explore.scan(
+            db_path=settings.db_path,
+            row_cap=settings.row_cap,
+            timeout_seconds=settings.query_timeout_seconds,
+            max_result_bytes=settings.max_result_bytes,
+            period=chosen,
+        )
+    except (db.DbError, explore.ScanError) as error:
+        logger.error("scan failed: %s", type(error).__name__)
+        print(f"The scan failed: {error}")
+        return 1
+    # Counts and a time only: a segment's name is a value read from the data.
+    logger.info(
+        "scan finished: listed=%d statements=%d elapsed_ms=%d",
+        len(result.rows),
+        len(result.statements),
+        round(result.elapsed_seconds * 1000),
+    )
+    print(render_scan(result, top=top))
+    if show_sql:
+        for number, statement in enumerate(result.statements, start=1):
+            print(f"\nStatement {number} of {len(result.statements)}:\n{statement}")
     return 0
 
 

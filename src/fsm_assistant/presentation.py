@@ -5,8 +5,8 @@ Responsibility: turn the end state of a turn into what the user is shown
 hint per column, and caveats from a closed list in a fixed order.
 `render_text` is the terminal form of the same result.
 
-Every figure here comes from a `QueryResult` or a `RuleEvidence`, that is
-from executed SQL. The model's explanation and assumptions are passed
+Every figure here comes from a `QueryResult`, a `RuleEvidence` or a
+`ScanResult`, that is from executed SQL. The model's explanation and assumptions are passed
 through unchanged and labelled as the model's.
 """
 
@@ -14,8 +14,17 @@ import re
 import textwrap
 from collections.abc import Sequence
 
+from fsm_assistant import explore
 from fsm_assistant.db import Cell, QueryResult
-from fsm_assistant.nl2sql import AskClarification, Decline, ProposeRule, RunSql, tool_name
+from fsm_assistant.explore import ScanResult
+from fsm_assistant.nl2sql import (
+    AskClarification,
+    Decline,
+    ProfileFraud,
+    ProposeRule,
+    RunSql,
+    tool_name,
+)
 from fsm_assistant.result import (
     Caveat,
     Column,
@@ -101,13 +110,17 @@ _IDENTIFIER_NAME = re.compile(
     re.IGNORECASE,
 )
 
-SCAN_NOT_AVAILABLE = (
-    "The fraud-concentration scan is not available yet. Ask a specific question instead."
+LABEL_COVERAGE = (
+    "This result uses fraud labels, which only about two thirds of transactions have. "
+    "An unlabelled transaction is unknown, not legitimate."
 )
-SCAN_SUGGESTIONS = (
-    "What is the fraud rate by merchant city and state?",
-    "What is the fraud rate by hour of day?",
+SINGLE_SEGMENT = (
+    "One segment holds all the labelled fraud. A rule on it will score well on this "
+    "history, which says little about fraud elsewhere or later."
 )
+SCAN_COLUMNS = (
+    "dimension", "segment", "labelled", "fraud", "fraud_rate", "lift", "share_of_fraud"
+)  # fmt: skip
 
 
 def status_of(outcome: Outcome) -> Status:
@@ -116,9 +129,7 @@ def status_of(outcome: Outcome) -> Status:
 
 def outcome_of(kind: ErrorKind) -> Outcome:
     """The outcome a turn ends in when its last failure is of `kind`."""
-    if kind == "sql_rejected":
-        return "rejected"
-    return "cannot_answer" if kind == "not_available" else "failed"
+    return "rejected" if kind == "sql_rejected" else "failed"
 
 
 def column_format(name: str, values: Sequence[Cell]) -> ColumnFormat:
@@ -216,13 +227,7 @@ def query_caveats(result: QueryResult, *, reads_labels: bool) -> tuple[Caveat, .
             )
         )
     if reads_labels:
-        caveats.append(
-            Caveat(
-                code="label_coverage",
-                message="This result uses fraud labels, which only about two thirds of "
-                "transactions have. An unlabelled transaction is unknown, not legitimate.",
-            )
-        )
+        caveats.append(Caveat(code="label_coverage", message=LABEL_COVERAGE))
     if result.row_count == 0:
         caveats.append(
             Caveat(
@@ -348,6 +353,36 @@ def _period_span(period: RulePeriod | PeriodBacktest) -> str:
     return f"{period.first_month} to {period.last_month}"
 
 
+def scan_table(scan: ScanResult, *, top: int = explore.DEFAULT_TOP) -> TableResult:
+    """The first `top` listed segments as an ordinary result table."""
+    rows: tuple[tuple[Cell, ...], ...] = tuple(
+        (row.title, row.segment, row.labelled, row.fraud, row.fraud_rate, row.lift,
+         row.share_of_fraud)
+        for row in scan.rows[:top]
+    )  # fmt: skip
+    return present_table(
+        QueryResult(
+            columns=SCAN_COLUMNS, rows=rows, truncated=False, elapsed_seconds=scan.elapsed_seconds
+        )
+    )
+
+
+def scan_caveats(scan: ScanResult) -> tuple[Caveat, ...]:
+    caveats = [Caveat(code="label_coverage", message=LABEL_COVERAGE)]
+    if scan.rows and scan.rows[0].fraud == scan.total_fraud:
+        caveats.append(Caveat(code="single_segment", message=SINGLE_SEGMENT))
+    return tuple(caveats)
+
+
+def render_scan(scan: ScanResult, *, top: int = explore.DEFAULT_TOP) -> str:
+    """The scan as plain text, without a turn around it: headline, table, notes, caveats."""
+    lines = [explore.headline(scan), "", *_table_lines(scan_table(scan, top=top), top)]
+    lines += ["", "Notes:", *(f"  - {safe_text(note)}" for note in explore.notes(scan, top=top))]
+    lines += ["", "Caveats:"]
+    lines += [f"  - [{caveat.code}] {caveat.message}" for caveat in scan_caveats(scan)]
+    return "\n".join(lines)
+
+
 def _count(number: int, noun: str) -> str:
     return f"{number:,} {noun}{'' if number == 1 else 's'}"
 
@@ -374,6 +409,7 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
         assumptions: tuple[str, ...] = (),
         suggestions: tuple[str, ...] = (),
         caveats: tuple[Caveat, ...] = (),
+        notes: tuple[str, ...] = (),
     ) -> TurnResult:
         return TurnResult(
             outcome=outcome,
@@ -392,6 +428,7 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
             suggestions=suggestions,
             caveats=caveats,
             meta=meta,
+            notes=notes,
         )
 
     if failure is not None:
@@ -401,7 +438,6 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
             error=TurnError(
                 kind=failure.kind, message=failure.message, detail=state.failure_detail
             ),
-            suggestions=SCAN_SUGGESTIONS if failure.kind == "not_available" else (),
         )
     if isinstance(action, AskClarification):
         return reply(
@@ -437,6 +473,16 @@ def build_result(state: TurnState, meta: TurnMeta) -> TurnResult:
             explanation=action.explanation or None,
             assumptions=action.assumptions,
             caveats=rule_caveats(evidence.overall) + evidence_caveats(evidence),
+        )
+    if isinstance(action, ProfileFraud) and isinstance(result, ScanResult):
+        return reply(
+            "answered",
+            explore.headline(result),
+            sql=result.statements[0],
+            table=scan_table(result),
+            suggestions=explore.follow_ups(result),
+            caveats=scan_caveats(result),
+            notes=explore.notes(result),
         )
     # No route leads here; a turn that does is a fault of the graph, not of the user.
     message = "The turn ended without a result."
@@ -487,6 +533,8 @@ def render_text(result: TurnResult, *, max_rows: int = DEFAULT_PRINTED_ROWS) -> 
     if result.where_clause is not None and result.rule is not None:
         lines += ["", "Rule (a WHERE clause over transactions):", *_block(result.where_clause)]
         lines += ["", *_rule_lines(result.rule)]
+    if result.notes:
+        lines += ["", "Notes:", *(f"  - {safe_text(note)}" for note in result.notes)]
     if result.explanation:
         lines += ["", f"Model's explanation (not checked): {safe_text(result.explanation)}"]
     if result.assumptions:

@@ -28,13 +28,15 @@ from fsm_assistant.schema_context import label_join
 DATA_LAST_DATE = "2019-10-31"
 DATA_FIRST_DATE = "2019-01-01"
 
-PreviousKind = Literal["sql", "rule", "clarify"]
+PreviousKind = Literal["sql", "rule", "clarify", "scan"]
 
 
 class PreviousTurn(BaseModel):
     """What a later turn is told about the last turn a follow-up can build on.
 
-    It holds no result rows and no figures.
+    It holds no result rows and no figures. After the fraud scan it holds
+    the names of the dimensions profiled, which code wrote, and nothing the
+    scan found.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -45,6 +47,7 @@ class PreviousTurn(BaseModel):
     where_clause: str | None = None  # the rule clause that was backtested
     clarification: str | None = None  # the question the model asked the user
     suggestions: tuple[str, ...] = ()
+    scan_dimensions: tuple[str, ...] = ()  # what the fraud scan profiled by
 
 
 class Repair(BaseModel):
@@ -82,6 +85,14 @@ RULE_SCOPE = (
     "transactions.<column>). Reach any other table with a subquery, for example "
     "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit'). "
     "A rule never reads fraud_labels."
+)
+
+# Said after a scan turn: its segments are values read from the data, so the
+# model is told that a scan ran and never what it found.
+SCAN_RESULT_UNSEEN = (
+    "Its result was shown to the user and not to you: you do not know which segments it "
+    "found. If the user refers to one without naming it (\"that\", \"the top one\"), call "
+    "ask_clarification and ask which segment they mean."
 )
 
 _ROLE = """\
@@ -194,6 +205,12 @@ def _previous_block(previous: PreviousTurn) -> str:
                 "You suggested:",
                 tagged("earlier_suggestions", "\n".join(previous.suggestions)),
             ]
+    elif previous.kind == "scan":
+        lines += [
+            "You called profile_fraud, and the built-in fraud-concentration scan ran. It "
+            f"profiled the labelled fraud by: {'; '.join(previous.scan_dimensions)}.",
+            SCAN_RESULT_UNSEEN,
+        ]
     return "\n".join(lines)
 
 

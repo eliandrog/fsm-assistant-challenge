@@ -15,7 +15,7 @@ import pytest
 from conftest import RecordingSink, StampingModel, call_reply, rule_reply, sql_reply
 from pydantic import JsonValue
 
-from fsm_assistant import cli, db, nl2sql, prompt
+from fsm_assistant import cli, db, explore, nl2sql, nodes, prompt
 from fsm_assistant.config import Settings, load_settings
 from fsm_assistant.evals import command, evidence, recorded
 from fsm_assistant.evals.cases import Case, Fact, Suite, load_cases, load_suite
@@ -295,7 +295,12 @@ class Fixture:
 
 @pytest.fixture
 def fx(tmp_path: Path, fixture_db: Path, monkeypatch: pytest.MonkeyPatch) -> Fixture:
-    """No test writes into the repository's recordings or results folders."""
+    """No test writes into the repository's recordings or results folders.
+
+    The command is told that the scan is not built, so that this suite keeps
+    a case that is skipped for a missing feature.
+    """
+    monkeypatch.setattr(command, "available_features", lambda settings: frozenset())
     monkeypatch.setattr(recorded, "RUN_RECORDINGS_DIR", tmp_path / "recordings")
     monkeypatch.setattr(command, "RESULTS_DIR", tmp_path / "results")
     return Fixture(tmp_path, fixture_db)
@@ -413,7 +418,13 @@ def test_the_turns_of_a_case_share_a_conversation_and_cases_do_not(fx: Fixture) 
     assert len(count) == 1
 
 
-def test_the_scan_is_found_missing_by_trying_it(fx: Fixture) -> None:
+def test_the_scan_is_found_by_trying_it(fx: Fixture, monkeypatch: pytest.MonkeyPatch) -> None:
+    assert available_features(fx.settings) == frozenset({"scan"})
+
+    def broken(**arguments: object) -> explore.ScanResult:
+        raise explore.ScanError("no")
+
+    monkeypatch.setattr(nodes, "scan", broken)
     assert available_features(fx.settings) == frozenset()
 
 
@@ -423,11 +434,11 @@ def test_filters() -> None:
     def ids(**fields: object) -> list[str]:
         return [case.id for case in select(cases, Selection.model_validate(fields))]
 
-    assert len(ids()) == 124 and Selection().is_everything
-    assert len(ids(tiers=("scan", "top_n"))) == 8
+    assert len(ids()) == 128 and Selection().is_everything
+    assert len(ids(tiers=("scan", "top_n"))) == 12
     assert ids(case_ids=("fraud-count", "agg-date-range")) == ["agg-date-range", "fraud-count"]
     assert ids(tag="trap:velocity") == ["trap-velocity-window", "trap-velocity-same-minute-cards"]
-    assert len(ids(split="tuned")) + len(ids(split="held_out")) == 124
+    assert len(ids(split="tuned")) + len(ids(split="held_out")) == 128
     assert ids(tiers=("ambiguous",), split="held_out", limit=2) == [
         "ambiguous-recent",
         "ambiguous-big-merchants",
@@ -502,6 +513,25 @@ def test_a_run_is_recorded_and_its_replay_scores_the_same(fx: Fixture) -> None:
     assert replay.differences == () and not replay.suite_changed and replay.changed_cases == ()
     assert fx.replay(*PASSING, "wrong", "broken", "scan").reproduced
     assert files(fx.recordings).keys() == names  # a replay writes nothing here
+
+
+def test_a_case_the_run_skipped_is_not_recorded_once_it_can_run(fx: Fixture) -> None:
+    # The run was made before the scan existed: its scan case has an entry and no reply.
+    fx.record()
+    replay = replay_run(
+        select(fx.suite.cases, Selection(case_ids=(*PASSING, "scan"))),
+        fx.suite,
+        fx.settings,
+        fx.recordings,
+        available=frozenset({"scan"}),
+        cases_directory=fx.cases_directory,
+        pins_file=fx.pins_file,
+    )
+    assert replay.not_recorded == ("scan",) and not replay.reproduced
+    assert [run.case_id for run in replay.runs] == list(PASSING) and replay.differences == ()
+    text = command.render_comparison(replay)
+    assert "No recording for 1 selected case(s), which were not run: scan." in text
+    assert "All 7 replayed case(s) scored exactly as recorded in run.json." in text
 
 
 def test_the_run_record_holds_no_timestamp_no_path_and_no_key(fx: Fixture, tmp_path: Path) -> None:
@@ -892,8 +922,8 @@ def test_cli_sends_nothing_without_yes_spend(
 ) -> None:
     assert cli.main(["eval"]) == 0
     output = capsys.readouterr().out
-    assert "eval: 122 cases (128 turns) to claude-test" in output and "2 skipped" in output
-    assert "Upper bound: 256 requests" in output and "Nothing was sent." in output
+    assert "eval: 123 cases (129 turns) to claude-test" in output and "5 skipped" in output
+    assert "Upper bound: 258 requests" in output and "Nothing was sent." in output
     assert cli.main(["eval", "--model", "claude-other", "--tier", "rules", "--limit", "3"]) == 0
     assert "eval: 3 cases (3 turns) to claude-other" in capsys.readouterr().out
 
@@ -901,10 +931,10 @@ def test_cli_sends_nothing_without_yes_spend(
 def test_cli_list_and_filters(isolated: None, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["eval", "--list"]) == 0
     output = capsys.readouterr().out
-    assert "124 of 124 cases selected:" in output
-    assert re.search(r"^total +124 +23 +101$", output, re.MULTILINE)
+    assert "128 of 128 cases selected:" in output
+    assert re.search(r"^total +128 +25 +103$", output, re.MULTILINE)
     assert cli.main(["eval", "--list", "--tier", "scan", "--tier", "top_n", "--held-out"]) == 0
-    assert "7 of 124 cases selected:" in capsys.readouterr().out
+    assert "9 of 128 cases selected:" in capsys.readouterr().out
     assert cli.main(["eval", "--list", "--tuned", "--tag", "vague-term"]) == 0
     assert "tuned" in capsys.readouterr().out
     assert cli.main(["eval", "--list", "--case", "fraud-count", "--case", "no-such"]) == 2

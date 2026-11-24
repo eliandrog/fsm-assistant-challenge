@@ -114,11 +114,10 @@ def test_a_clarification_is_not_an_error(
     ("replies", "code", "line"),
     [
         ([call_reply("decline", reason="No email column.")], 3, "The assistant declined: "),
-        ([call_reply("profile_fraud")], 3, "The fraud-concentration scan is not available yet."),
         ([sql_reply("SELECT name FROM sqlite_master")] * 2, 4, "Rejected (sql_rejected): "),
         ([sql_reply("SELECT nope FROM users")] * 2, 1, "Failed (sql_execution): "),
     ],
-    ids=["declined", "scan not available", "rejected", "failed"],
+    ids=["declined", "rejected", "failed"],
 )
 def test_ask_exit_codes_tell_the_outcomes_apart(
     monkeypatch: pytest.MonkeyPatch,

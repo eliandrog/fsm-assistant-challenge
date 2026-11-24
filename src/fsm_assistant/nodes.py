@@ -25,6 +25,7 @@ import logging
 
 from fsm_assistant import db
 from fsm_assistant.config import Settings
+from fsm_assistant.explore import DIMENSIONS, ScanError, scan
 from fsm_assistant.llm import (
     IntentModel,
     ModelOutputError,
@@ -35,13 +36,14 @@ from fsm_assistant.llm import (
 )
 from fsm_assistant.nl2sql import (
     AskClarification,
+    ProfileFraud,
     ProposeRule,
     RunSql,
     ShapeFailure,
     check_shape,
     describe_reply,
 )
-from fsm_assistant.presentation import SCAN_NOT_AVAILABLE, build_result
+from fsm_assistant.presentation import build_result
 from fsm_assistant.prompt import PreviousTurn, Repair, build_messages
 from fsm_assistant.result import ErrorKind, RefusalCode, TurnMeta
 from fsm_assistant.rules.backtest import RuleClauseError
@@ -78,6 +80,7 @@ RUN_TIME_REASON = (
     "here. Write it another way, avoiding the operation that can fail on some rows."
 )
 NOT_A_READ = "Only reading is allowed, and it tried to do something other than read."
+SCAN_FAILED_RUNNING = "The fraud-concentration scan failed while it was running."
 
 
 class TurnNodes:
@@ -298,8 +301,32 @@ class TurnNodes:
         return update(result=evidence.overall, evidence=evidence)
 
     def run_scan(self, state: TurnState) -> Update:
-        # The scan is a later task. Nothing runs and no figure is invented.
-        return update(failure=Failure(kind="not_available", message=SCAN_NOT_AVAILABLE))
+        """Run the code-written scan. The model chose it and wrote none of its SQL."""
+        if not isinstance(state.action, ProfileFraud):
+            raise RuntimeError("run_scan ran without a profile_fraud action")
+        settings = self._settings
+        try:
+            result = scan(
+                db_path=settings.db_path,
+                row_cap=settings.row_cap,
+                timeout_seconds=settings.query_timeout_seconds,
+                max_result_bytes=settings.max_result_bytes,
+            )
+        except db.QueryTimeout:
+            seconds = settings.query_timeout_seconds
+            message = f"The fraud-concentration scan was interrupted after {seconds:g} seconds."
+            return update(failure=Failure(kind="timeout", message=message))
+        except db.QueryError as error:
+            return update(
+                failure=Failure(kind="internal", message=SCAN_FAILED_RUNNING),
+                failure_detail=error.sqlite_message,
+            )
+        except db.DbError as error:
+            return update(failure=_environment(error))
+        except ScanError as error:
+            message = f"The fraud-concentration scan could not finish: {error}."
+            return update(failure=Failure(kind="internal", message=message))
+        return update(result=result, reads_labels=True)
 
     def present(self, state: TurnState) -> Update:
         meta = TurnMeta(
@@ -320,7 +347,14 @@ class TurnNodes:
     def remember(self, state: TurnState) -> Update:
         """Keep the turn if a follow-up can build on it; any other turn leaves memory as it was."""
         action = state.action
-        if state.outcome == "answered":
+        if isinstance(action, ProfileFraud) and state.outcome == "answered":
+            # That a scan ran and what it profiled by; never a segment it found.
+            record = PreviousTurn(
+                question=state.question,
+                kind="scan",
+                scan_dimensions=tuple(dimension.title for dimension in DIMENSIONS),
+            )
+        elif state.outcome == "answered":
             record = PreviousTurn(question=state.question, kind="sql", sql=state.approved_sql)
         elif state.outcome == "rule_proposed":
             record = PreviousTurn(
