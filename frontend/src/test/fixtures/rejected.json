@@ -1,0 +1,38 @@
+{
+  "outcome": "rejected",
+  "status": "rejected",
+  "error": {
+    "kind": "sql_rejected",
+    "message": "The query was not allowed to run. sqlite_master is not a table that may be read. The tables are: cards, fraud_labels, mcc_codes, merchant_locations, merchants, transactions, users.",
+    "detail": null
+  },
+  "answer": "The query was not allowed to run. sqlite_master is not a table that may be read. The tables are: cards, fraud_labels, mcc_codes, merchant_locations, merchants, transactions, users.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [
+    "table_not_allowed",
+    "table_not_allowed"
+  ],
+  "write_attempts": 0,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 2,
+    "model_calls": 2,
+    "input_tokens": 2000,
+    "output_tokens": 200,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

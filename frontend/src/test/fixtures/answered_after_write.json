@@ -1,0 +1,47 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "transactions: 6",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [
+    "not_read_only"
+  ],
+  "write_attempts": 1,
+  "sql": "SELECT count(*) AS transactions FROM transactions",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "transactions",
+        "format": "plain"
+      }
+    ],
+    "rows": [
+      [
+        6
+      ]
+    ],
+    "row_count": 1,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": "What it returns.",
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 2,
+    "model_calls": 2,
+    "input_tokens": 2000,
+    "output_tokens": 200,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

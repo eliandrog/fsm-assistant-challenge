@@ -1,0 +1,38 @@
+{
+  "outcome": "rejected",
+  "status": "rejected",
+  "error": {
+    "kind": "sql_rejected",
+    "message": "The query was not allowed to run. Only read-only queries are allowed; denied: DELETE fraud_labels.",
+    "detail": null
+  },
+  "answer": "The query was not allowed to run. Only read-only queries are allowed; denied: DELETE fraud_labels.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [
+    "not_read_only",
+    "not_read_only"
+  ],
+  "write_attempts": 2,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 2,
+    "model_calls": 2,
+    "input_tokens": 2000,
+    "output_tokens": 200,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

@@ -2,13 +2,14 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; that shows a proposed rule only with its backtest against the fraud labels, overall and month by month; and that answers "where is fraud concentrated?" with a scan whose SQL is written by code, not by the model (`fsm-assistant scan` runs it with no model and no key). Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest and its evidence by month, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Measured once, on one model:** the evaluation suite is built (146 cases, scorers, a runner, recording and offline replay) and has two recorded runs, both on `claude-haiku-5-5`, every case that existed then asked once (119, when the fraud scan was not built). On the current prompt 116 of 117 cases passed, 1 failed (a marked known limitation) and the 2 scan cases were skipped ([Evaluation](#evaluation)). Those runs were made before the suite's scorers were corrected after a review; the suite as it is now has not been run on a model. 29 cases have not been asked of a model and have no recording: the five added since with the rule evidence by month, the six of the scan tier, four of them added with the scan, and the 18 added after the review. That is a single run, made after the prompt and the suite had been adjusted to the first one (109 of 117), on cases of our own: one sample, not a rate, and not a statement of how well the model answers in general. `claude-opus-5-5` has not been run on the suite. Before the suite existed, the assistant was tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with seven questions asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)). The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). An application log and opt-in LangSmith tracing are built ([See what the assistant did](#see-what-the-assistant-did)). **Proposed**, with the design written down but no code: the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; that shows a proposed rule only with its backtest against the fraud labels, overall and month by month; and that answers "where is fraud concentrated?" with a scan whose SQL is written by code, not by the model (`fsm-assistant scan` runs it with no model and no key). Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest and its evidence by month, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Measured once, on one model:** the evaluation suite is built (146 cases, scorers, a runner, recording and offline replay) and has two recorded runs, both on `claude-haiku-5-5`, every case that existed then asked once (119, when the fraud scan was not built). On the current prompt 116 of 117 cases passed, 1 failed (a marked known limitation) and the 2 scan cases were skipped ([Evaluation](#evaluation)). Those runs were made before the suite's scorers were corrected after a review; the suite as it is now has not been run on a model. 29 cases have not been asked of a model and have no recording: the five added since with the rule evidence by month, the six of the scan tier, four of them added with the scan, and the 18 added after the review. That is a single run, made after the prompt and the suite had been adjusted to the first one (109 of 117), on cases of our own: one sample, not a rate, and not a statement of how well the model answers in general. `claude-opus-5-5` has not been run on the suite. Before the suite existed, the assistant was tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with seven questions asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)). The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). An application log and opt-in LangSmith tracing are built ([See what the assistant did](#see-what-the-assistant-did)). **A local web chat is built** over the same assistant: an HTTP API and a React page that renders everything a turn returns ([The web chat](#the-web-chat)). It is tested with scripted model replies and has been run over HTTP in its offline demo, which needs no key; its page has been reviewed in a browser in that offline demo (1400px wide, dark theme: the start screen, the scan answer, and the rule card with its month table), where a width problem in the scan table was found and fixed. It has also been run live through the browser on `claude-haiku-5-5`: six turns in two conversations (a three-table query, a clarification, a declined delete, the fraud scan, and a rule proposed from one of the scan's suggestions), each answered with one model request ([Evidence](docs/ARCHITECTURE.md#a-live-run-of-the-web-chat)). That is a handful of questions asked once on one model, by us, in one browser at one window size (1400px wide, dark theme); it is not an evaluation and says nothing about other questions. **What remains** is the final recorded runs: the suite as it is now, on a model. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
 - [What it is](#what-it-is)
 - [Setup](#setup)
 - [How to run](#how-to-run)
+- [The web chat](#the-web-chat)
 - [See what the assistant did](#see-what-the-assistant-did)
 - [How to reproduce](#how-to-reproduce)
 - [Solution overview](#solution-overview)
@@ -43,7 +44,7 @@ cd fsm-assistant-challenge-python
 uv sync
 ```
 
-`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its four runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the graph that runs one turn, and `langsmith`, which those two already install, for opt-in tracing) and installs the dev tools (pytest, mypy).
+`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its six runtime dependencies (`pydantic` for typed data models, `langchain-anthropic` for the Claude client, `langgraph` for the graph that runs one turn, `fastapi` and `uvicorn` for the web chat's API, and `langsmith`, which the first two already install, for opt-in tracing) and installs the dev tools (pytest, mypy).
 
 **Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only. The `data/` directory itself must be writable: the database is in WAL mode, and SQLite creates two git-ignored sidecar files next to it on the first read ([`docs/DATA.md`](docs/DATA.md#access)).
 
@@ -51,7 +52,7 @@ uv sync
 
 - **The tests need no key and no network.** They never call a model, and every test runs with network connections refused.
 - **A live call needs a key and costs money.** Put the key in `.env` in the project root, as `ANTHROPIC_API_KEY=...` (see Configuration below). `.env` is git-ignored; `.env.example` lists the names only. The key is never printed or logged, and a missing key is an error only when a live call is attempted.
-- Three commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask` and `fsm-assistant chat`, one or two requests per question, and `fsm-assistant check-model --yes-spend`. Each prints the model it is about to use. `ask` and `chat` stop with a message when the key is missing; `check-model` sends nothing without its flag.
+- Four commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask`, `fsm-assistant chat` and `fsm-assistant serve` (the web chat, unless it is given `--offline-demo`), one or two requests per question, and `fsm-assistant check-model --yes-spend`. Each prints the model it is about to use. `ask`, `chat` and `serve` stop with a message when the key is missing; `check-model` sends nothing without its flag.
 - The evaluation suite replays offline from recorded model replies (`fsm-assistant eval --replay --model claude-haiku-5-5`), so checking reported results needs no key. One evaluation run is recorded, on `claude-haiku-5-5`; the recordings of `check-model`, for two models, replay with no key too.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
@@ -96,9 +97,11 @@ uv run fsm-assistant ask --trace "What is the overall fraud rate?"   # PAID: als
 uv run fsm-assistant chat                                     # PAID: a conversation; 'exit' or Ctrl-D to leave
 uv run fsm-assistant graph                                    # the turn graph as a Mermaid diagram; free, no key
 uv run fsm-assistant scan                                     # where labelled fraud is concentrated; free, no model, no key
+uv run fsm-assistant serve --offline-demo                     # the web chat with canned model replies; free, no key
+uv run fsm-assistant serve                                    # PAID: the web chat; each question asked in the browser calls Claude
 ```
 
-`uv run python -m fsm_assistant` is the same program.
+`uv run python -m fsm_assistant` is the same program. The two `serve` lines are described under [The web chat](#the-web-chat).
 
 **`ask` and `chat` call the Anthropic API and are billed to your key.** They need `ANTHROPIC_API_KEY` ([Setup](#setup)) and stop with "Cannot start: ANTHROPIC_API_KEY is not set" when it is missing. A question costs one request, or two when the first reply has to be repaired: about 4,450 input tokens each (the schema, the rules and the tool definitions, sent every time; measured in the live smoke test, on both models, on the prompt as it then was; the two lines added since are an estimated 130 tokens more) and 87 to 471 output tokens in that test. They print the model in use before anything is sent.
 
@@ -218,6 +221,56 @@ The check has been run once on each of two models, and both sets of recordings a
 
 _More example questions with the live model's output: to be completed._
 
+## The web chat
+
+**Built** ([D-31](docs/DECISIONS.md#d-31-two-interfaces-over-one-result-the-terminal-and-a-local-web-chat-over-an-http-api); [Interfaces](docs/ARCHITECTURE.md#interfaces)). A chat page in the browser over the same assistant the terminal runs: conversations in a sidebar, and for each answer the SQL, the result table, the rule card with its month table, the scan with its notes, the caveats, and suggestions that can be clicked. It adds nothing to what a turn does; it shows the same result.
+
+![The web chat in the dark theme, 1400 pixels wide, in live mode: the header shows the model claude-haiku-5-5 and Tracing on, and the sidebar lists two conversations. The question 'What is the fraud rate by card type?' is answered with 'The query returned 3 rows', the one-line SQL that ran, and a result table of three rows: Credit 0.237%, Debit 0.143% and Debit (Prepaid) 0.188%, each with its labelled transactions and fraud count. Under the table are a note that fractions are shown as percentages, the label_coverage caveat saying only about two thirds of transactions have a fraud label, the model's explanation and assumptions marked as written by the model and not checked against the data, and a footer line: tool run_sql, claude-haiku-5-5, 1 model request, 4,616 in and 384 out tokens, 3.2 s.](docs/img/web-chat.png)
+
+_A live answer on `claude-haiku-5-5`, 1400px wide, dark theme. The small badge at the right of the message box belongs to a browser extension, not to the page._
+
+**Run live, a few questions, once.** The page has been run against `claude-haiku-5-5` through the browser, with the server started by `fsm-assistant serve` and hosted tracing on: six turns in two conversations, each answered with one model request. They were the query in the screenshot, a clarification ("Show me the suspicious merchants"), a declined delete, the fraud scan chosen for "Where is fraud concentrated?", and a rule proposed by clicking the scan's first suggestion; the turns are listed under [Evidence](docs/ARCHITECTURE.md#a-live-run-of-the-web-chat). That is a handful of questions asked once on one model, by us, in one browser at one window size (1400px wide, dark theme); it is not an evaluation and says nothing about other questions. `claude-opus-5-5` has not been run through the web chat, and narrow or mobile layouts and the light theme have not been reviewed in a browser.
+
+**It is for local use only.** The server listens on `127.0.0.1` and has no authentication: anyone who can reach its address can ask questions, read the data and spend the key. Do not put it on a network.
+
+**Run it: built, with one command.** Needs Node 22.12 or later and npm, once, to build the page.
+
+```bash
+cd frontend && npm ci && npm run build && cd ..   # once: builds the page into frontend/dist
+uv run fsm-assistant serve --offline-demo         # free: no key, nothing sent
+uv run fsm-assistant serve                        # PAID: needs ANTHROPIC_API_KEY; each question calls Claude
+```
+
+Then open `http://127.0.0.1:8000/`. `--port N` changes the port, `--verbose` prints the log lines, Ctrl-C stops the server. Without a build the API still runs, and the address shows a message saying how to build the page.
+
+**Run it: development mode.** Two terminals; the Vite server reloads the page as it is edited and forwards `/api` to the backend.
+
+```bash
+uv run fsm-assistant serve --offline-demo         # or without the flag, for Claude
+cd frontend && npm ci && npm run dev              # then open the address it prints, http://127.0.0.1:5173/
+```
+
+**The offline demo** (`--offline-demo`) is for looking at the interface without a key. It reads neither `.env` nor the environment, builds no model client and no tracer, and sends nothing. A stand-in for the model answers eight fixed questions, which the page lists, with tool calls written in advance (`src/fsm_assistant/demo.py`): a count, two tables, the fraud scan, a rule, a clarification, a decline, and a `DELETE` that the guard rejects. **Only the model's reply is canned.** Each one goes through the real SQL guard, the real database, the real backtest and scan and the real presentation, so every figure on the page is computed from `data/data.db`. A message that starts with "Propose a rule" gets the one canned rule (for Rome, Italy) whatever else it says, which is what makes the scan's first suggestion work in one click; any other message gets a question back that offers the list. The demo shows what the interface and the checks do. It says nothing about how well a model reads a question.
+
+**With a key** the page shows the model in use, and each question costs what it costs in the terminal: one request, or two when the first reply has to be repaired. A question stopped in the browser still runs to its end on the server and is billed.
+
+**The API.** `POST /api/chat` with `{"conversation_id": "...", "message": "..."}` returns the turn's result as JSON, the same typed result `ask` prints; a turn that failed is still a 200 whose result says so. `GET /api/health` says whether the database can be read, whether a key is set, which model is used and whether turns are traced; it calls no model and returns no key. A body that is not a valid request gets a 422 with a typed error. Two requests for the same conversation never run at once: the second waits for the first (up to 30 seconds, then a 409).
+
+```bash
+curl -s http://127.0.0.1:8000/api/health
+curl -s -X POST http://127.0.0.1:8000/api/chat -H 'Content-Type: application/json' \
+  -d '{"conversation_id": "demo-1", "message": "How many transactions are there?"}'
+```
+
+**What is stored where.**
+
+- On the server, in memory: for each conversation, the question and the accepted SQL or rule clause of its last usable turn, never rows, exactly as in `chat`. It is lost when the server stops. The page then still shows the conversation; the next question in it is answered as a first turn, without the earlier ones as context, and the page says so on that answer.
+- On the server, on disk: the application log, which holds no question, SQL or result. Nothing else: no response is logged or cached.
+- In the browser: the conversations of the sidebar, results included, in `localStorage`, on your own machine. Deleting a conversation, or clearing the site's data, removes them.
+- A LangSmith trace of each turn, labelled `web`, only if tracing is switched on, and never with result rows ([See what the assistant did](#see-what-the-assistant-did)).
+
+**Not built:** authentication, conversations kept on the server or shared between browsers, streaming of a reply, charts, and accept or reject on a proposed rule. The interface's own notes, its tests and how its types are generated from the backend's models are in [`frontend/README.md`](frontend/README.md).
+
 ## See what the assistant did
 
 Three things, each for a different question ([D-27](docs/DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list); [Observability](docs/ARCHITECTURE.md#observability)).
@@ -252,7 +305,7 @@ or, in place of the two agent lines, `LANGSMITH_PROJECT=<name>` (with neither, t
 | Never in a trace | | Result rows, cell values, backtest figures (overall or month by month: a rule turn sends its clause, its caveat codes and the time the backtest took), what the fraud scan found (segment names, the figures of its table, its headline, notes and suggested questions, and the statements that name a segment: a scan turn sends how many segments it listed, how many statements it ran, the time they took, its caveat codes and its profile statement, which code writes with no value of the data in it), SQLite's message for a query that failed while running, the answer text, the Anthropic key, the LangSmith key, details of this machine |
 | The system prompt | | Its version and SHA-256. `FSM_TRACE_SYSTEM_PROMPT=full` sends its text, which includes the schema context: table row counts, the values of low-cardinality columns such as card type, and the date range of the data |
 
-A trace is built from a fixed list of fields and not from the assistant's internal state, so a result row has no way into it. If LangSmith cannot be reached, the turn is answered as usual and a warning is printed once and logged. Anything replayed from recordings (`--replay-dir`, `eval --replay`) is never traced, and the tests cannot reach LangSmith. **Not yet checked:** no trace has been sent to LangSmith from this code, so how it is displayed there has not been seen.
+A trace is built from a fixed list of fields and not from the assistant's internal state, so a result row has no way into it. If LangSmith cannot be reached, the turn is answered as usual and a warning is printed once and logged. Anything replayed from recordings (`--replay-dir`, `eval --replay`) is never traced, and the tests cannot reach LangSmith. **Not yet checked:** how a trace is displayed in LangSmith. Hosted tracing has been checked once against LangSmith itself: two `ask` turns on `claude-haiku-5-5` were opened there, one with the system prompt sent as a hash and one with it sent in full; each showed the graph's steps in order, the model run with its tokens, the SQL and the row count, and no result value. The web chat's traces have not been opened.
 
 ## How to reproduce
 
@@ -317,7 +370,7 @@ The recorded run behind the reported numbers was made on `claude-haiku-5-5` (eff
 
 ## Solution overview
 
-**Built for the terminal; run against Claude as a seven-question smoke test on two models and as two recorded runs of the evaluation suite on one of them.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+**Built for the terminal and, over the same result, for a local web chat; run against Claude, in the terminal, as a seven-question smoke test on two models and as two recorded runs of the evaluation suite on one of them, and through the web chat as six turns on one model.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 The principle: the model only chooses and writes; code decides what runs, runs it and computes every number. For each message, Claude is given the real schema and a short glossary and picks exactly one of five actions: answer with a SQL query, propose a rule, ask for a fixed fraud scan, ask the FSM what was meant, or decline. Code then checks the SQL without running it, accepts only a single read-only `SELECT` over the known tables, runs it on a read-only connection with a timeout and a row cap, and shows the SQL next to the result. A rule is a `WHERE` clause and is never shown without its backtest against the fraud labels, over the whole period and month by month. If the first attempt fails, the model gets the exact error once; a second failure is shown as a failure. The model is never shown a result row, so it has no number to restate.
 
@@ -376,7 +429,7 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | The model picks one of five tools; code executes it | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
 | One model interface with our own record and replay, keyed by case, turn and call, with a hash of the request | A reviewer can replay an evaluation with no key; a recording made for a different prompt or setting is refused, not silently reused | Any change to a prompt, tool description or model setting means recording again, which is a paid run |
 | Client retries off, key and address passed explicitly | A turn's cost stays countable; no environment variable can redirect the key | A rate-limited request fails at once; a proxy would need its own setting |
-| Hosted tracing off unless switched on, and then built from an allow-list of fields, never from the graph's state ([D-27](docs/DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list)) | By default nothing leaves the machine except the model call. LangGraph's own tracing would send the state, result rows included; a list of what may be sent fails safe when a field is added | A trace shows counts and column names, not the rows; no trace has been sent to LangSmith yet, so how it displays there is unchecked |
+| Hosted tracing off unless switched on, and then built from an allow-list of fields, never from the graph's state ([D-27](docs/DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list)) | By default nothing leaves the machine except the model call. LangGraph's own tracing would send the state, result rows included; a list of what may be sent fails safe when a field is added | A trace shows counts and column names, not the rows; tracing has been switched on for one live run, of the web chat, but what LangSmith received and how it displays there is unchecked |
 | A plain application log for errors and health; no local copy of the trace | Two tools with two jobs: the log says whether turns fail and why, LangSmith shows one turn step by step | Without a LangSmith account there is no stored record of a turn's steps, only `--trace` while it runs |
 | A fixed glossary in the prompt: fraud rate as a fraction, "debit card" as `'Debit'` only, relative dates against the last day of the data | Two models read "debit card" differently and both returned a rounded percentage when not told; one stated convention makes runs comparable, and each reading is listed as an assumption the FSM can overrule | A user who meant prepaid cards too has to say so; the prompt is longer |
 | One repair: a fresh request with the previous answer and the reason it failed | Many first failures are a wrong column name, and SQLite's compile message is enough to fix them; a counter keeps a turn at two requests | A question that needs a third try fails. A statement that fails while running gets only a generic reason, because SQLite's run-time message can quote a value from a row |
@@ -388,7 +441,7 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 
 The model name is configuration, and only `llm.py` talks to the model, so a second provider (for example a local model) could be added behind the same interface. It is not planned.
 
-Still open (see [Open points](docs/ARCHITECTURE.md#open-points)): whether an effort level other than the default `medium` scores better, whether the smaller Claude model becomes the default (both models passed the tool-call check, and the smaller one took about half the time; that check does not judge the SQL), and whether the web chat is built. No longer open: tools are the default output mode, confirmed by `check-model` on both models, with the single structured object kept as the fallback.
+Still open (see [Open points](docs/ARCHITECTURE.md#open-points)): whether an effort level other than the default `medium` scores better, whether the smaller Claude model becomes the default (both models passed the tool-call check, and the smaller one took about half the time; that check does not judge the SQL), and whether a rule card in the web chat gets accept and reject buttons. No longer open: tools are the default output mode, confirmed by `check-model` on both models, with the single structured object kept as the fallback.
 
 _Justification of the final interaction model, with what was observed with the live model: to be completed._
 
@@ -449,7 +502,7 @@ uv run fsm-assistant eval --yes-spend --repeat 3 --held-out --model claude-haiku
 
 **Offline** means measured on fixed cases before anyone uses the tool. A live run records the model's replies under `evals/recordings/runs/<model id>/` with a `run.json` of every score. A replay then sends the same cases through the real graph, guard, database and scorers with the recorded replies in place of the model: no key, no network. It stops with "stale recording" if the prompt, the tools, the model settings, the row cap, the query timeout, the result-size limit or a question changed since, naming what changed, and says whether every case scored as recorded. Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today. A filtered run replaces only the cases it ran and leaves the rest of the record in place.
 
-**Online** means measured while FSMs use the tool, which would need a deployment. What exists for it is the trace: with LangSmith tracing switched on ([See what the assistant did](#see-what-the-assistant-did)), every turn is recorded there with its question, SQL, tool chosen, guard decision and reason code, outcome, error kind, row count, durations and token usage, tagged by model and prompt version and grouped by conversation; never result rows or a key. **No dashboard, saved filter or aggregation is built, and no trace has been sent yet**: the table names the trace fields each metric would be computed from in LangSmith, as a plan. The fields are those of the turn's root run unless the table says otherwise. The application log is for errors and health, not for metrics.
+**Online** means measured while FSMs use the tool, which would need a deployment. What exists for it is the trace: with LangSmith tracing switched on ([See what the assistant did](#see-what-the-assistant-did)), every turn is recorded there with its question, SQL, tool chosen, guard decision and reason code, outcome, error kind, row count, durations and token usage, tagged by model and prompt version and grouped by conversation; never result rows or a key. **No dashboard, saved filter or aggregation is built, and only two traced turns have been opened in LangSmith**: the table names the trace fields each metric would be computed from in LangSmith, as a plan. The fields are those of the turn's root run unless the table says otherwise. The application log is for errors and health, not for metrics.
 
 Each offline measure is there because it predicts something that matters online. The offline column is built, except where it says otherwise; the online columns are proposed.
 
@@ -555,17 +608,17 @@ So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards
 
 ## What is not built yet
 
-Built: configuration, read-only execution, the schema context, the rule backtest and its evidence by month, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result, the fraud-concentration scan, the terminal commands `ask`, `chat`, `graph` and `scan`, the evaluation suite with its `eval` command, and the application log with opt-in LangSmith tracing. Natural language → SQL and a rule shown with its backtest, overall and month by month, work end to end with scripted model replies. Against Claude, an earlier prompt (`turn-3`) has had one smoke test (seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly; not an evaluation), and the evaluation suite has two recorded runs on `claude-haiku-5-5`: 109 of 117 cases passed on `turn-3`, and 116 of 117 on the current prompt (`turn-4`) after the prompt and the suite were adjusted to the first run ([Evaluation](#evaluation)).
+Built: configuration, read-only execution, the schema context, the rule backtest and its evidence by month, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result, the fraud-concentration scan, the terminal commands `ask`, `chat`, `graph` and `scan`, the local web chat with its HTTP API (`serve`) and its offline demo, the evaluation suite with its `eval` command, and the application log with opt-in LangSmith tracing. Natural language → SQL and a rule shown with its backtest, overall and month by month, work end to end with scripted model replies. Against Claude, an earlier prompt (`turn-3`) has had one smoke test (seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly; not an evaluation), and the evaluation suite has two recorded runs on `claude-haiku-5-5`: 109 of 117 cases passed on `turn-3`, and 116 of 117 on the current prompt (`turn-4`) after the prompt and the suite were adjusted to the first run ([Evaluation](#evaluation)). The web chat has been run live on `claude-haiku-5-5` through the browser: six turns, asked once, which is not an evaluation either ([The web chat](#the-web-chat)).
 
 Not built, in planned order:
 
 1. Live runs of `ask` and `chat` beyond the seven-question smoke test, and what they show about the prompt.
-2. A live check of hosted tracing: no trace has been sent to LangSmith yet. And any dashboard or aggregation of the online metrics.
+2. A fuller check of hosted tracing in LangSmith: two `ask` traces have been opened there and held no result value; the web chat's traces, a traced rule turn, a traced scan and a traced evaluation run have not been opened. And any dashboard or aggregation of the online metrics.
 3. A recorded run of the evaluation suite on `claude-opus-5-5`, planned as the final recorded run. Only `claude-haiku-5-5` has been run.
 4. A recorded run of the six scan-tier cases and of the five cases about the rule evidence by month. Both features are built; whether a model chooses the scan, and what it does with a rule request that has a month table to be scored, have not been measured.
-5. The web chat and its HTTP API. First to be cut if time runs out.
+5. The web chat beyond what has been seen of it: a run on `claude-opus-5-5`, and a review of its page at other window sizes and in the light theme. It has been run live on `claude-haiku-5-5` only (six turns, asked once; [The web chat](#the-web-chat)), and its page has been looked at in one browser, 1400px wide, in the dark theme; narrow and mobile layouts and the light theme are covered by tests, not by eye.
 
-Not planned for this prototype: authentication, conversation memory that survives a restart, streaming of replies, charts, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
+Not planned for this prototype: authentication (the web chat is for local use only), conversation memory that survives a restart, streaming of replies, charts, accept and reject buttons on a rule, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
 
 _What was cut for time and how it would be built: to be completed at the end, as the brief requests._
 
@@ -589,8 +642,15 @@ src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        explore.py (the fraud scan),
                        model_check.py (the check behind check-model), cli.py,
                        events.py, applog.py (the log), tracing.py (LangSmith),
+                       api.py (the HTTP API), runtime.py (start-up shared by the
+                       interfaces), demo.py (the offline demo's canned replies),
+                       typescript.py (writes the web interface's types),
                        evals/ (cases, scorers, evidence, report, runner,
                        recorded runs, the eval command).
+frontend/              The web chat: Vite, React and TypeScript (see its README).
+                       src/api/types.gen.ts is generated from the backend's models;
+                       src/test/fixtures/ holds response bodies written by a backend test.
+                       node_modules/ and dist/ are git-ignored
 tests/                 pytest tests (fixture databases built from data/schema.sql)
 logs/                  The application log, app.log; git-ignored, made on first use
 evals/                 Evaluation suite data (see its README): 146 cases in

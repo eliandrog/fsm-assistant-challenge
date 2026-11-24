@@ -1,0 +1,100 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "Labelled fraud is most concentrated in merchant city and state = Rome, Italy: 150 of 189 labelled frauds (79.4%), at 3.2 times the base rate.",
+  "answer_source": "code",
+  "tool": "profile_fraud",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "dimension",
+        "format": "plain"
+      },
+      {
+        "name": "segment",
+        "format": "plain"
+      },
+      {
+        "name": "labelled",
+        "format": "plain"
+      },
+      {
+        "name": "fraud",
+        "format": "plain"
+      },
+      {
+        "name": "fraud_rate",
+        "format": "fraction"
+      },
+      {
+        "name": "lift",
+        "format": "plain"
+      },
+      {
+        "name": "share_of_fraud",
+        "format": "fraction"
+      }
+    ],
+    "rows": [
+      [
+        "merchant city and state",
+        "Rome, Italy",
+        200,
+        150,
+        0.75,
+        3.170634920634921,
+        0.7936507936507936
+      ],
+      [
+        "merchant category (MCC)",
+        "5411 Grocery Stores, Supermarkets",
+        300,
+        150,
+        0.5,
+        2.113756613756614,
+        0.7936507936507936
+      ]
+    ],
+    "row_count": 2,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [
+    "Propose a rule for transactions with merchant city and state = Rome, Italy.",
+    "What is the fraud rate by month for transactions with merchant city and state = Rome, Italy?",
+    "How many transactions, labelled or not, have merchant city and state = Rome, Italy?"
+  ],
+  "caveats": [
+    {
+      "code": "label_coverage",
+      "message": "This result uses fraud labels, which only about two thirds of transactions have. An unlabelled transaction is unknown, not legitimate."
+    }
+  ],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": [
+    "Scanned 799 labelled transactions (all dates): 189 labelled frauds, a base rate of 23.655%.",
+    "A segment is listed when it has at least 100 labelled transactions and 10 frauds, and a fraud rate above the base rate. Of 28 segments in 9 dimensions, 9 are below that floor (6 of them with at least one fraud) and 10 pass it at or under the base rate.",
+    "merchant city and state = Rome, Italy holds exactly the same labelled transactions as transaction type = Chip Transaction; merchant state or country = Italy; hour of day = 11; error = No error; amount band = $10 to under $50; card type = Credit; card brand = Visa. It is listed once.",
+    "Outside merchant city and state = Rome, Italy, 39 labelled frauds remain in 599 labelled transactions, and 3 segment(s) still pass the floor: merchant city and state = Sacramento, CA; error = Insufficient Balance; merchant category (MCC) = 4829 Money Transfer.",
+    "1 of the other 1 listed segment(s) do not pass the floor without the top segment: they overlap it and are not findings of their own.",
+    "11 code-written statement(s) ran in 0.1 s; the SQL shown is the profile."
+  ]
+}

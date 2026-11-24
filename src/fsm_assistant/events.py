@@ -41,7 +41,7 @@ from fsm_assistant.rules.backtest import BacktestResult
 from fsm_assistant.rules.proposal import RuleEvidence
 from fsm_assistant.state import Failure
 
-Command = Literal["ask", "chat", "eval", "other"]
+Command = Literal["ask", "chat", "web", "eval", "other"]
 NodeName = Literal[
     "begin_turn",
     "call_model",

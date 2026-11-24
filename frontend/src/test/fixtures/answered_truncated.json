@@ -1,0 +1,77 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "The query returned the first 3 rows.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "SELECT id, date, amount_usd_cents, errors FROM transactions ORDER BY id",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "id",
+        "format": "identifier"
+      },
+      {
+        "name": "date",
+        "format": "plain"
+      },
+      {
+        "name": "amount_usd_cents",
+        "format": "usd_cents"
+      },
+      {
+        "name": "errors",
+        "format": "plain"
+      }
+    ],
+    "rows": [
+      [
+        1001,
+        "2019-01-01 00:02:00",
+        2500,
+        null
+      ],
+      [
+        1002,
+        "2019-02-10 12:30:00",
+        150000,
+        null
+      ],
+      [
+        1003,
+        "2019-03-05 08:15:00",
+        -5000,
+        null
+      ]
+    ],
+    "row_count": 3,
+    "truncated": true
+  },
+  "rule": null,
+  "explanation": "What it returns.",
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [
+    {
+      "code": "truncated",
+      "message": "Only the first 3 rows were fetched (the row cap). The query matches more rows than are shown."
+    }
+  ],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

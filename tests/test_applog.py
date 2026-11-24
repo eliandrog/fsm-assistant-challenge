@@ -245,7 +245,7 @@ def test_ask_logs_its_start_and_its_turn_and_prints_no_log_line(
     assert "Hosted tracing: off.\n" in output.out and output.err == ""
     started, finished = (settings.log_dir / LOG_FILE).read_text().splitlines()
     assert re.search(
-        r"INFO fsm_assistant\.cli: ask started: model=claude-opus-5-5 prompt=turn-\d+ "
+        r"INFO fsm_assistant\.runtime: ask started: model=claude-opus-5-5 prompt=turn-\d+ "
         r"tool_mode=tools replies=live tracing=off$",
         started,
     )
@@ -253,7 +253,7 @@ def test_ask_logs_its_start_and_its_turn_and_prints_no_log_line(
 
     assert cli.main(["ask", "--verbose", "How many?"]) == 0
     output = capsys.readouterr()
-    assert "fsm_assistant.cli: ask started" in output.err and "turn finished" in output.err
+    assert "fsm_assistant.runtime: ask started" in output.err and "turn finished" in output.err
     assert ANTHROPIC_KEY not in output.out + output.err
     assert ANTHROPIC_KEY not in (settings.log_dir / LOG_FILE).read_text()
 
@@ -291,7 +291,7 @@ def test_what_stops_a_command_from_starting_is_logged(
     assert cli.main(["ask", "q"]) == 2
     assert "Cannot start: FSM_LOG_LEVEL must be one of" in capsys.readouterr().out
     last = (log_directory / LOG_FILE).read_text().splitlines()[-1]
-    assert "ERROR fsm_assistant.cli: ask cannot start: invalid setting: FSM_LOG_LEVEL" in last
+    assert "ERROR fsm_assistant.runtime: ask cannot start: invalid setting: FSM_LOG_LEVEL" in last
 
     half = settings.model_copy(
         update={"anthropic_api_key": None, "langsmith_tracing": True, "langsmith_agent_id": "fsm"}

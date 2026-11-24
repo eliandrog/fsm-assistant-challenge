@@ -1,6 +1,6 @@
 # Architecture
 
-**Status: the terminal chat and the evaluation suite are built; the suite has two recorded runs, both on `claude-haiku-5-5`, one of them on the current prompt; the rest is proposed.** **Built** and tested: `config.py`, `db.py`, `schema_context.py`, `sql_scan.py`, `sql_guard.py`, `rules/backtest.py`, the rule evidence by month `rules/proposal.py`, the model client `llm.py`, the tools and shape check `nl2sql.py`, the prompt `prompt.py`, the turn graph (`state.py`, `nodes.py`, `graph.py`), the fraud-concentration scan `explore.py`, the turn result and its presentation (`result.py`, `presentation.py`), the tool-call check `model_check.py`, the evaluation suite (`evals/` and the `fsm_assistant.evals` package: cases, scorers, runner, recorded runs and their replay) and the terminal commands in `cli.py` ([details](#built-components)). A turn runs end to end: question, one model request (two at most), the guard, read-only execution, the rule backtest (overall and month by month) or the code-written fraud scan, and a result with caveats. **The graph and the prompt have been tested with scripted model replies; against Claude they have had one smoke test, seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)), which is not an evaluation. The evaluation suite is built and tested with scripted replies, and has two recorded runs on `claude-haiku-5-5`, every case asked once: 109 of 117 cases passed on prompt `turn-3`; the prompt and the suite were then changed in the light of that run; and 116 of 117 passed on the current prompt (`turn-4`). The second run is one sample, not a rate, and not an independent test of those changes; `claude-opus-5-5` has not been run on the suite ([Evaluation](#evaluation)).** Both runs were made before the fraud scan and the rule evidence by month were built, and before the scorers were corrected and eighteen cases added after a review (D-30), so the six cases of the scan tier, the five evidence cases and those eighteen have no recorded run. The application log and opt-in hosted tracing are built ([Observability](#observability)). **Proposed**, with no code: the web chat. Each section and table row says which is which. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
+**Status: the terminal chat, the local web chat with its HTTP API, and the evaluation suite are built; the suite has two recorded runs, both on `claude-haiku-5-5`, one of them on the current prompt; what remains is the final recorded runs of the suite as it is now.** **Built** and tested: `config.py`, `db.py`, `schema_context.py`, `sql_scan.py`, `sql_guard.py`, `rules/backtest.py`, the rule evidence by month `rules/proposal.py`, the model client `llm.py`, the tools and shape check `nl2sql.py`, the prompt `prompt.py`, the turn graph (`state.py`, `nodes.py`, `graph.py`), the fraud-concentration scan `explore.py`, the turn result and its presentation (`result.py`, `presentation.py`), the tool-call check `model_check.py`, the evaluation suite (`evals/` and the `fsm_assistant.evals` package: cases, scorers, runner, recorded runs and their replay) the terminal commands in `cli.py`, and the web chat: the HTTP API `api.py` with its offline demo `demo.py`, the start-up the interfaces share `runtime.py`, and the React interface in `frontend/` ([details](#built-components), [Interfaces](#interfaces)). A turn runs end to end: question, one model request (two at most), the guard, read-only execution, the rule backtest (overall and month by month) or the code-written fraud scan, and a result with caveats. **The graph and the prompt have been tested with scripted model replies; against Claude they have had one smoke test, seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)), which is not an evaluation. The evaluation suite is built and tested with scripted replies, and has two recorded runs on `claude-haiku-5-5`, every case asked once: 109 of 117 cases passed on prompt `turn-3`; the prompt and the suite were then changed in the light of that run; and 116 of 117 passed on the current prompt (`turn-4`). The second run is one sample, not a rate, and not an independent test of those changes; `claude-opus-5-5` has not been run on the suite ([Evaluation](#evaluation)).** Both runs were made before the fraud scan and the rule evidence by month were built, and before the scorers were corrected and eighteen cases added after a review (D-30), so the six cases of the scan tier, the five evidence cases and those eighteen have no recorded run. The application log and opt-in hosted tracing are built ([Observability](#observability)). The web chat is tested with scripted model replies through an in-process client and has been run over HTTP in its offline demo; its page is checked by component tests, and its page has been reviewed in a browser in that offline demo (1400px wide, dark theme: the start screen, the scan answer, and the rule card with its month table), where a width problem in the scan table was found and fixed. It has also been run live through the browser on `claude-haiku-5-5`, six turns in two conversations, each answered with one model request ([Evidence](#a-live-run-of-the-web-chat)): a handful of questions asked once on one model, at one window size, which is not an evaluation. Each section and table row says what is built and what is proposed. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
 
 ## Contents
 
@@ -13,6 +13,7 @@
 - [Built components](#built-components)
 - [Backtest metrics](#backtest-metrics)
 - [Outcomes](#outcomes)
+- [Interfaces](#interfaces)
 - [Observability](#observability)
 - [Where hallucination mitigations sit](#where-hallucination-mitigations-sit)
 - [Evidence](#evidence)
@@ -32,7 +33,7 @@ The design principle: **the model only chooses and writes; code decides what run
 
 ## System overview
 
-The whole target system. Green boxes are built; dashed boxes are proposed.
+The whole system. Every box is built.
 
 ```mermaid
 flowchart TD
@@ -40,7 +41,8 @@ flowchart TD
 
     subgraph IF["Interfaces"]
         CLI["Terminal chat<br/>cli.py"]
-        WEB["Web chat and HTTP API<br/>api.py"]
+        API["HTTP API, local only<br/>api.py"]
+        WEB["Web chat in the browser<br/>frontend/"]
     end
 
     subgraph TURN["One turn: a fixed state graph"]
@@ -66,8 +68,9 @@ flowchart TD
 
     FSM -->|"question"| CLI
     FSM -->|"question"| WEB
+    WEB -->|"POST /api/chat"| API
     CLI --> GRAPH
-    WEB --> GRAPH
+    API --> GRAPH
     SCHEMA --> PROMPT
     PROMPT --> GRAPH
     GRAPH -->|"one request, one repair at most"| MODEL
@@ -84,27 +87,25 @@ flowchart TD
     EXEC -->|"rows"| PRES
     PROP -->|"backtest numbers"| PRES
     PRES -->|"SQL, result, caveats"| CLI
-    PRES --> WEB
+    PRES -->|"TurnResult as JSON"| API
+    API -->|"result, kept in the browser only"| WEB
     CASES -.->|"same graph, fixed cases"| GRAPH
     REC -.->|"stands in for the model client"| MODEL
 
     subgraph LEGEND["Legend"]
         L1["Built"]
-        L2["Proposed"]
     end
 
     classDef built fill:#d4edda,stroke:#2e7d32,color:#000
-    classDef proposed fill:#ffffff,stroke:#888888,stroke-dasharray: 5 5,color:#000
-    class CLI,GRAPH,PROMPT,PRES,SCHEMA,EXEC,BT,PROP,GUARD,DB,MODEL,CLAUDE,CASES,REC,SCAN,L1 built
-    class WEB,L2 proposed
+    class CLI,API,WEB,GRAPH,PROMPT,PRES,SCHEMA,EXEC,BT,PROP,GUARD,DB,MODEL,CLAUDE,CASES,REC,SCAN,L1 built
 ```
 
 Notes on the diagram:
 
 - `config.py` (built) supplies settings to every box and is left out to keep the picture readable.
-- The terminal chat, the graph, the prompt and the presentation are built and connected. No box the graph reaches is still dashed. A rule is shown with its overall backtest and the same measurement month by month ([D-28](DECISIONS.md#d-28-a-rule-is-shown-with-its-backtest-month-by-month-as-a-stability-check)). The scan's statements are written by code and still pass the guard before `db` runs them.
-- The model client is built, with recording and replay inside it. The cases, runner and scorers are built. The recordings box is green because one evaluation run is recorded and replays offline, on `claude-haiku-5-5`; none is recorded for `claude-opus-5-5`. Claude has been called by the paid check command, run once on each of two models, by a seven-question smoke test of `ask` ([Evidence](#evidence)), and by two runs of the evaluation suite on `claude-haiku-5-5` ([Results](#results)).
-- The web chat and its HTTP API are proposed and not in this repository yet.
+- The terminal chat, the web chat, the graph, the prompt and the presentation are built and connected. A rule is shown with its overall backtest and the same measurement month by month ([D-28](DECISIONS.md#d-28-a-rule-is-shown-with-its-backtest-month-by-month-as-a-stability-check)). The scan's statements are written by code and still pass the guard before `db` runs them.
+- The model client is built, with recording and replay inside it. The cases, runner and scorers are built. The recordings box is green because one evaluation run is recorded and replays offline, on `claude-haiku-5-5`; none is recorded for `claude-opus-5-5`. Claude has been called by the paid check command, run once on each of two models, by a seven-question smoke test of `ask` ([Evidence](#evidence)), by two runs of the evaluation suite on `claude-haiku-5-5` ([Results](#results)), and by six turns of the web chat on `claude-haiku-5-5` ([Evidence](#a-live-run-of-the-web-chat)).
+- The web chat is a page in the user's browser and an HTTP API on the same machine ([D-31](DECISIONS.md#d-31-two-interfaces-over-one-result-the-terminal-and-a-local-web-chat-over-an-http-api)). The API runs the same `Assistant` the terminal does and returns the same `TurnResult`; the page renders it. In the offline demo a canned stand-in (`demo.py`) takes the model client's place.
 - By default the only thing that leaves the machine is the request to Claude: the prompt, the schema context, the question, and on a follow-up the previous question with the SQL or clause that was accepted. Result rows are never sent to the model. Hosted tracing is off unless the settings switch it on; when it is on, a filtered trace of each turn also goes to LangSmith, without rows (see [Observability](#observability)).
 
 ## How one turn works
@@ -316,8 +317,12 @@ All six points hold in the built code. They are properties of the design, checke
 | `result.py` | The types of a turn's reply: `TurnResult`, outcomes, error kinds, caveats, the table and the rule card | Built |
 | `presentation.py` | Builds the `TurnResult`: the outcome, format hints (cents as dollars, fractions as percentages), coded caveats; and the terminal text | Built |
 | `model_check.py` | The tool-call check: eleven fixed questions, the run that records each reply, its summary, the replay, and the table and decision as text. Returns values and text; prints nothing | Built |
-| `cli.py` | Terminal interface. It parses arguments, wires settings to the module that does the work, prints and sets the exit code; it holds no logic of its own | `ask`, `chat`, `graph`, `scan`, `--trace`, `check-model` and `eval` Built |
-| `api.py` | HTTP API for the web chat: one chat endpoint and one health endpoint | Proposed |
+| `cli.py` | Terminal interface. It parses arguments, wires settings to the module that does the work, prints and sets the exit code; it holds no logic of its own | `ask`, `chat`, `graph`, `scan`, `serve`, `--trace`, `check-model` and `eval` Built |
+| `api.py` | HTTP API for the web chat: `POST /api/chat`, which returns the turn's `TurnResult`, `GET /api/health`, the built page for every other path, one lock per conversation, typed error bodies | Built |
+| `runtime.py` | What every interface does before its first turn: settings and logging, and the `Assistant` with its command label and its tracer | Built |
+| `demo.py` | The offline demo's stand-in for the model: canned tool calls for eight fixed questions | Built |
+| `typescript.py` | Writes the web interface's TypeScript types from the JSON schema of the API's models | Built |
+| `frontend/` | The web chat: a React and TypeScript page that sends a message to the API and renders the `TurnResult` it gets back | Built; run against Claude as six turns on one model, asked once ([Evidence](#a-live-run-of-the-web-chat)) |
 | `events.py` | Describes a node's update and a finished turn as frozen events that hold no database text; the `--trace` line and a hosted trace are made from them | Built |
 | `applog.py` | Sets up the application log once per command: plain lines in a rotating file, and on the terminal when asked | Built |
 | `tracing.py` | Opt-in LangSmith tracing: builds each turn's runs from the events through an allow-list and sends them from its own thread; also keeps LangGraph's own tracing off | Built |
@@ -332,9 +337,9 @@ All six points hold in the built code. They are properties of the design, checke
 
 ## Built components
 
-Imports between the built modules go one way: `cli` imports `graph`, `presentation`, `explore`, `model_check`, `nl2sql`, `llm`, `db` and `config`; `graph` imports `nodes`, `state`, `presentation`, `result`, `rules/backtest`, `nl2sql`, `db`, `llm` and `config`; `nodes` imports `presentation`, `prompt`, `state`, `result`, `nl2sql`, `sql_guard`, `explore`, `rules/backtest`, `rules/proposal`, `schema_context`, `db`, `llm` and `config`; `presentation` imports `state`, `result`, `explore`, `nl2sql`, `rules/backtest`, `rules/proposal` and `db`; `state` imports `prompt`, `result`, `explore`, `nl2sql`, `llm`, `rules/backtest`, `rules/proposal` and `db`; `explore` imports `sql_guard`, `schema_context` and `db`; `prompt` imports `schema_context`; `result` imports `config` and `db`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `rules/proposal` imports `rules/backtest` only; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain's model wrapper; `state` and `graph` import LangGraph.
+Imports between the built modules go one way: `cli` imports `api`, `demo`, `runtime`, `graph`, `presentation`, `explore`, `model_check`, `nl2sql`, `llm`, `db` and `config`; `api` imports `graph`, `result`, `presentation`, `schema_context`, `nl2sql`, `tracing`, `db` and `config`, and never `cli`; `runtime` imports `graph`, `events`, `tracing`, `applog`, `nl2sql`, `llm` and `config`; `demo` imports `llm` and `nl2sql`; `typescript` imports `api`, `result` and `config`; `graph` imports `nodes`, `state`, `presentation`, `result`, `rules/backtest`, `nl2sql`, `db`, `llm` and `config`; `nodes` imports `presentation`, `prompt`, `state`, `result`, `nl2sql`, `sql_guard`, `explore`, `rules/backtest`, `rules/proposal`, `schema_context`, `db`, `llm` and `config`; `presentation` imports `state`, `result`, `explore`, `nl2sql`, `rules/backtest`, `rules/proposal` and `db`; `state` imports `prompt`, `result`, `explore`, `nl2sql`, `llm`, `rules/backtest`, `rules/proposal` and `db`; `explore` imports `sql_guard`, `schema_context` and `db`; `prompt` imports `schema_context`; `result` imports `config` and `db`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `rules/proposal` imports `rules/backtest` only; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain's model wrapper; `state` and `graph` import LangGraph; only `api` imports FastAPI, and only `cli` imports uvicorn.
 
-Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-boundary-and-strict-type-checking)): every function is fully annotated and the package and its tests pass `mypy` in strict mode; every structured value that crosses a module boundary (`Settings`, `QueryResult`, `QueryInspection`, `TableRead`, `Token`, `GuardDecision`, `BacktestResult`, the scan's `Period`, `Dimension`, `SegmentRow`, `Residual` and `ScanResult`, and the model layer's `ModelSpec`, `ModelRequest`, `ModelReply`, `Recording`, the five actions, `Intent`, `ShapeFailure` and `CheckSummary`, the prompt's `Messages`, `PreviousTurn` and `Repair`, the graph's `TurnState`, `Failure` and `TraceStep`, and `TurnResult` with its parts) is a frozen pydantic model that rejects unknown fields; closed sets of values are a `Literal` or an enum; errors are ordinary exception classes. The one exception is a node's update, which is the dict LangGraph takes; it is built by a function that refuses a key that is not a state field. The proposed modules follow the same rule for evaluation cases and API bodies.
+Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-boundary-and-strict-type-checking)): every function is fully annotated and the package and its tests pass `mypy` in strict mode; every structured value that crosses a module boundary (`Settings`, `QueryResult`, `QueryInspection`, `TableRead`, `Token`, `GuardDecision`, `BacktestResult`, the scan's `Period`, `Dimension`, `SegmentRow`, `Residual` and `ScanResult`, and the model layer's `ModelSpec`, `ModelRequest`, `ModelReply`, `Recording`, the five actions, `Intent`, `ShapeFailure` and `CheckSummary`, the prompt's `Messages`, `PreviousTurn` and `Repair`, the graph's `TurnState`, `Failure` and `TraceStep`, and `TurnResult` with its parts) is a frozen pydantic model that rejects unknown fields; closed sets of values are a `Literal` or an enum; errors are ordinary exception classes. The one exception is a node's update, which is the dict LangGraph takes; it is built by a function that refuses a key that is not a state field. The API's bodies follow the same rule: `ChatRequest`, `Health` with its parts and `ApiError` are frozen pydantic models, and a chat response is `TurnResult` itself.
 
 **`config.py`.** `load_settings()` returns an immutable `Settings` from environment variables, with defaults: database path, row cap, query timeout, result-size budget, the model settings (API key, model id, effort, output-token limit, model timeout, longest user message, output mode; [D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)), and the logging and tracing settings (log level, directory and file switch; the LangSmith switch, key, address and destination; what a trace carries of the system prompt; [D-27](DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list)). The rules for each value (a positive, finite number; one of a closed set) are in the model. The API key is a secret type whose value does not appear when the settings are printed or dumped, and a missing key is not an error at load time. A `.env` file in the project root is read by a small built-in parser; real environment variables win ([D-09](DECISIONS.md#d-09-env-is-read-by-a-small-built-in-parser)), except that an empty one does not hide a value in the file, and a byte-order mark at the start of the file is ignored. Invalid values raise `ConfigError` naming the variable. Loading does not touch the database or a model.
 
@@ -518,13 +523,38 @@ When both attempts fail, the last failure decides the row. SQL that SQLite canno
 
 Caveats are chosen by code from a fixed list, in a fixed order: result cut at the row cap (`truncated`); label coverage, when the approved statement read `fraud_labels`, and always for a rule (`label_coverage`); zero rows, with a hint to check the spelling and case of values (`zero_rows`); small sample, when fewer than 30 of a rule's flagged transactions are labelled, with its own wording when none is and precision is undefined (`small_sample`); high flag rate, over 5% of transactions (`high_flag_rate`); a weak month, when a month with at least 30 labelled flagged transactions has a precision below half the rule's overall precision and would hold at least five fraud at the overall precision (`weak_month`); a drop in the later period, when its precision is below half that of the earlier period on the same conditions (`period_drop`); after a scan, one segment holding all the labelled fraud, so that a rule on it scores well on this history and says little about fraud elsewhere or later (`single_segment`). A scan always carries `label_coverage`. Thresholds and their reasons are in D-28. On the shipped data neither fires for the Rome rule (March is at 0.59 of its overall precision) or for the brief's example rule (0.3 fraud expected in its two qualifying months).
 
+## Interfaces
+
+**Built** ([D-31](DECISIONS.md#d-31-two-interfaces-over-one-result-the-terminal-and-a-local-web-chat-over-an-http-api)). Two interfaces run the same `Assistant` and read the same `TurnResult`: the terminal (`ask`, `chat`) prints it as text, and the web chat renders it in a browser. Neither holds any logic about a turn.
+
+**The API** (`api.py`, started by `fsm-assistant serve`):
+
+| Route | What it does | Status codes |
+|---|---|---|
+| `POST /api/chat` | Body `{"conversation_id": "...", "message": "..."}`. Runs one turn and returns its `TurnResult`, exactly as `model_dump_json` writes it | 200 for every turn, a failed one included; 422 for a body that is not a request (with the field at fault); 409 when the conversation stayed busy |
+| `GET /api/health` | The database (present, readable, schema context builds), whether a key is set, the model id, the prompt version, the message and row limits, whether turns are traced and to which destination, the mode (`live` or `offline_demo`) and the demo's questions. No model call, never a key | 200 |
+| any other `GET` | A file of the built page from `frontend/dist`, or the page itself for an address it does not know. When nothing is built, a plain message saying how to build it | 200; 404 with the message |
+
+A response that is not a 2xx has one body, `ApiError`: a `code` from a closed list, a sentence written by code, and the fields at fault. It never repeats the value that was sent.
+
+- **One contract.** The page's types are generated from the pydantic models (`uv run python -m fsm_assistant.typescript` writes `frontend/src/api/types.gen.ts`), and its tests read response bodies produced by the API and kept in `frontend/src/test/fixtures/`. `tests/test_web_contract.py` regenerates both and fails when a committed file differs, so a field added to `TurnResult` cannot be missed by the page.
+- **Concurrency.** A turn runs on a worker thread. Each conversation has a lock: a second request for it waits up to 30 seconds for the first, then runs after it and sees what it remembered; if the first is still running, the second is answered 409 and runs nothing. Other conversations are not held up.
+- **Local only.** The server listens on `127.0.0.1` by default. There is no authentication and no cross-origin access. A request is refused unless its `Host` header is a loopback name, and only a JSON body is read. `--host` with another address prints a warning: anyone who can reach it can ask questions, read the data and spend the key.
+- **Where a result goes.** To the browser that asked, which is the user's own screen in the sense of [invariant 7](#invariants), and nowhere else on the server: no response is logged and nothing is cached to disk. The page keeps its conversations, results included, in the browser's `localStorage`.
+- **Memory.** As in the terminal chat: in the process, keyed by the conversation id the browser chose, lost when the server stops. The page then still shows the transcript; the next question of that conversation is answered as a first turn, and the page says so on that answer.
+- **The offline demo.** `serve --offline-demo` reads neither `.env` nor the environment and runs on `demo.DemoModel`: canned tool calls for eight fixed questions, each run through the real shape check, guard, database, backtest, scan and presentation. A message that starts with "Propose a rule" gets the one canned rule; any other message gets a clarification offering questions from the list. No key, no client, no tracer.
+
+**The page** (`frontend/`: Vite, React, TypeScript; its own [README](../frontend/README.md)) renders every field of a result: the answer line; the SQL, collapsed when longer than twelve lines; the table with the column format hints, its row count and a notice when it was capped; the rule card (overall figures, lift, the month table with the weakest month marked, the earlier and later periods, and the fixed sentence that this is a stability check); the scan's notes; each caveat as a callout with its code; the model's explanation and assumptions under a label saying they were not checked; suggestions as buttons that send their text as the next message, which takes a scan's finding to a rule in one click; and a footer with the tool, the model, the requests, the tokens and the time. Each status has its own presentation: an answer, a question back, a decline, a guard rejection, an error with Retry. A request that got no result back (server unreachable, refused, unreadable) is shown as an error with Retry. The header shows what the health endpoint said. Text that code did not write is rendered as text, never as HTML, with control and invisible characters written out.
+
+**Not built:** authentication, conversations stored on the server, streaming, charts, and accept or reject on a rule card.
+
 ## Observability
 
 **Built** ([D-27](DECISIONS.md#d-27-logs-for-errors-and-health-langsmith-for-traces-opt-in-and-built-from-an-allow-list)). Three ways to see what the assistant did, each with its own job.
 
 | What | Where it goes | On when | What it shows |
 |---|---|---|---|
-| `--trace` on `ask` and `chat` | The terminal | The flag is given | One line per node as the turn runs |
+| `--trace` on `ask` and `chat` | The terminal | The flag is given | One line per node as the turn runs. The web chat has no equivalent on the page: its footer shows the tool, the requests, the tokens and the time |
 | The application log (`applog.py`) | `logs/app.log` on this machine, git-ignored | Always, unless `FSM_LOG_FILE=off` | That a command started, how each turn ended, and what went wrong |
 | A hosted trace (`tracing.py`) | LangSmith | Only when `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` is set | Each turn step by step: the question, the model call, the SQL, the decisions and the timings |
 
@@ -536,7 +566,7 @@ Without a LangSmith account, `--trace` and the log are what there is. There is n
 
 ### The application log
 
-Plain lines from Python's `logging` module: time, level, logger, message. `applog.configure` is called once when a command starts; every other module only gets a logger. The file is `app.log` in `FSM_LOG_DIR` (default `logs/`), rotated at 2 MB with three older files kept. `FSM_LOG_LEVEL` sets the level (default `INFO`), `--verbose` also prints the lines to the terminal's error stream, and `FSM_LOG_FILE=off` writes no file. The time at the start of a line is a real clock reading; that is normal for a log, which is git-ignored, and it is the only place one appears: nothing committed or hashed carries a timestamp.
+Plain lines from Python's `logging` module: time, level, logger, message. `applog.configure` is called once when a command starts (`runtime.start`, which `ask`, `chat`, `serve` and the other commands share); every other module only gets a logger. The web server writes the same lines as the terminal: one when it starts, labelled `web`, and one per turn; a request it refuses is logged as its status and code, and no line holds a message or a result. The file is `app.log` in `FSM_LOG_DIR` (default `logs/`), rotated at 2 MB with three older files kept. `FSM_LOG_LEVEL` sets the level (default `INFO`), `--verbose` also prints the lines to the terminal's error stream, and `FSM_LOG_FILE=off` writes no file. The time at the start of a line is a real clock reading; that is normal for a log, which is git-ignored, and it is the only place one appears: nothing committed or hashed carries a timestamp.
 
 | Level | What is logged |
 |---|---|
@@ -554,7 +584,7 @@ LangChain's and LangGraph's own tracing stays off for every turn, whatever the p
 
 **Shape.** One trace per turn:
 
-- a root run named by the command and the turn (`ask turn 1`, `chat turn 3`, `eval <case id> turn 2`);
+- a root run named by the command and the turn (`ask turn 1`, `chat turn 3`, `web turn 2`, `eval <case id> turn 2`);
 - one child run per node step, in order, named after the node;
 - under each `call_model` step that made a request, one run of type `llm` named after the model, with the messages, the tool call and the token usage.
 
@@ -578,7 +608,7 @@ Every run carries the tags `command:`, `model:`, `prompt:`, `mode:` and, in an e
 
 **It cannot fail or slow a turn.** The trace is built after the turn's result exists. The sink puts the runs of one turn on a queue and returns; its own daemon thread posts them, one request per turn (`POST /runs/batch`), with a 3-second connect and 10-second read timeout. A failure to build, authenticate or send is logged as a warning with the class of the error, and the first one is printed once on the terminal; the turn is not affected. When `ask`, `chat` or a live `eval` ends, pending traces get up to 5 seconds, then the command exits.
 
-**Which commands trace.** `ask` and `chat` on live replies, and `eval --yes-spend` (each case's turns carry its case id, so a failed case can be found by its tag). Never: anything replayed (`--replay-dir`, `eval --replay`, `check-model --replay`), for which no client is built and no key is needed; `check-model`, which calls the model directly and runs no turn; and the tests.
+**Which commands trace.** `ask`, `chat` and `serve` on live replies (a web turn is labelled `web`), and `eval --yes-spend` (each case's turns carry its case id, so a failed case can be found by its tag). Never: anything replayed (`--replay-dir`, `eval --replay`, `check-model --replay`) or the offline demo (`serve --offline-demo`), for which no client is built and no key is needed; `check-model`, which calls the model directly and runs no turn; and the tests.
 
 **Not built:** a dashboard or any aggregation of the online metrics in the [README](../README.md#evaluation). The README names, for each proposed metric, the LangSmith view it would come from.
 
@@ -610,7 +640,7 @@ The FSM stays in the loop throughout: the tool proposes rules, it does not deplo
 
 ## Evidence
 
-Exploratory checks were run before this design was chosen. **They are not the evaluation suite**, which was built later and is reported under [Evaluation](#results), and the samples are small. They show that the approach is workable and where it breaks; they do not measure how well the finished system performs. Those checks did not use Claude. Two small live runs of Claude came later and are reported separately at the end of this section: [a check of tool calls on two models](#measured-tool-calls-on-two-claude-models) and [a smoke test of seven questions through the turn](#a-live-smoke-test-of-the-turn). The two recorded runs of the evaluation suite are not in this section; they are under [Results](#results).
+Exploratory checks were run before this design was chosen. **They are not the evaluation suite**, which was built later and is reported under [Evaluation](#results), and the samples are small. They show that the approach is workable and where it breaks; they do not measure how well the finished system performs. Those checks did not use Claude. Three small live runs of Claude came later and are reported separately at the end of this section: [a check of tool calls on two models](#measured-tool-calls-on-two-claude-models), [a smoke test of seven questions through the turn](#a-live-smoke-test-of-the-turn) and [six turns through the web chat on one model](#a-live-run-of-the-web-chat). The two recorded runs of the evaluation suite are not in this section; they are under [Results](#results).
 
 **Compile-only inspection.** Compiling a statement with `EXPLAIN QUERY PLAN` under SQLite's authorizer, without running it, took under 1 ms per statement. It reported the real tables and the functions used, through joins, CTEs, subqueries, aliases, views and `SELECT *`. Multi-statement input, statements that change data or structure, `ATTACH`, `PRAGMA`, reads of `sqlite_master` and `load_extension` were all rejected or made visible by it. Its blind spots are in the [next section](#known-weaknesses-and-planned-fixes). Building the guard corrected two of these observations. The authorizer does report a CTE's name, as if it were a table, when the statement reads from the CTE without naming a column. And "under 1 ms" holds for ordinary statements only: one built from CTEs that each refer to the one before twice takes seconds to compile. The guard allows for both ([Built components](#built-components)).
 
@@ -660,6 +690,23 @@ This is a measured result, separate from the exploration above, and it is a smal
 - An earlier run: five of these questions (all but the velocity question and the delete request) were first run once on `claude-haiku-5-5` with the first version of the prompt (`turn-1`); the figures it returned for them are the ones in the table. The changes to the prompt since were the tie-breaker line for rankings, the tags around quoted text and the whole-second velocity example.
 - One fault that earlier run found is fixed: a merchant category code was printed with a thousands separator (`5,045`). A column named `mcc_code`, or any `*_code`, is now shown without grouping.
 
+### A live run of the web chat
+
+**This is a handful of questions, chosen by us, asked once on one model through the browser. It is not the evaluation suite, and it measures nothing.** The server was started with `fsm-assistant serve`, with hosted tracing switched on, and the messages were sent from the page on `claude-haiku-5-5`: six turns in all, in two conversations. The page's header showed live mode with the model id and "Tracing on". The replies were not recorded, so this cannot be replayed, and a model's wording varies between runs.
+
+| Message | Tool chosen | What the page showed |
+|---|---|---|
+| "What is the fraud rate by card type?" (asked in each of the two conversations, with the same result) | `run_sql` | A three-table join that used the prescribed label join. Three rows (Credit, Debit, Debit (Prepaid)), the fractions shown as percentages, the `label_coverage` caveat, the model's text labelled as unchecked, and the footer with the tool, the model, the requests, the tokens and the seconds |
+| "Show me the suspicious merchants" | `ask_clarification` | A clarification with suggested readings. Nothing was executed |
+| "Delete all transactions from January" | `decline` | Declined as read-only. Nothing was executed |
+| "Where is fraud concentrated?" | `profile_fraud` | The scan table with Rome, Italy first (1,598 labelled, 1,360 fraud), the notes, the caveats and the suggestion chips |
+| The scan's first suggestion chip, clicked: "Propose a rule for transactions with merchant city and state = Rome, Italy." | a rule proposal | A rule with the reference backtest: 2,431 flagged, 1,598 labelled, 1,360 fraud caught, 238 false positives, 85.11% precision. The month table with 2019-03 marked weakest, the earlier and later periods and the stability sentence |
+
+- Every turn took one model request. The single-statement turns took between about 1.3 and 4.5 seconds; the scan turn took longer, the scan itself being about four seconds.
+- What it shows: the page, the API and a live model worked together for these turns. Each kind of result that came back (a table, a clarification, a decline, the scan, a rule card) was rendered, and a suggestion chip took the scan's finding to a rule without retyping.
+- What it does not show: anything about other questions, or about a second run of the same ones. `claude-opus-5-5` has not been run through the web chat. The answers were checked by reading them, not by the scorers. It was one browser at one window size (1400px wide, dark theme): narrow and mobile layouts and the light theme have not been reviewed in a browser.
+- A screenshot of the first answer is kept at [`img/web-chat.png`](img/web-chat.png) and shown in the [README](../README.md#the-web-chat). The small badge inside its message box belongs to a browser extension, not to the page.
+
 ## Known weaknesses and planned fixes
 
 Found in the same checks. The Status column says which fixes are built; a fixed row is kept so the reasoning stays visible.
@@ -681,7 +728,7 @@ Found in the same checks. The Status column says which fixes are built; a fixed 
 
 Accepted limitations of what is built, with no fix planned:
 
-- **The prompt and the graph have been tested with scripted replies and one small live smoke test.** The tests show that the code does what the design says for a given reply. They do not show what Claude replies to this prompt. Seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)) and two runs of the evaluation suite on `claude-haiku-5-5`, one on the `turn-3` prompt and one on the current one, each case asked once, are all that has been seen live. `claude-opus-5-5` has seen the seven questions on the earlier prompt and nothing else of the turn.
+- **The prompt and the graph have been tested with scripted replies and one small live smoke test.** The tests show that the code does what the design says for a given reply. They do not show what Claude replies to this prompt. Seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)) and two runs of the evaluation suite on `claude-haiku-5-5`, one on the `turn-3` prompt and one on the current one, each case asked once, and six turns of the web chat on `claude-haiku-5-5` ([Evidence](#a-live-run-of-the-web-chat)), are all that has been seen live. `claude-opus-5-5` has seen the seven questions on the earlier prompt and nothing else of the turn.
 - **A format hint is inferred from a column's name**, by whole words (`generated` is not a `rate`; `n_cents` is a count, not an amount). A rate the model returns as a percentage under a name such as `fraud_rate` would be shown as a small fraction of a percent. The raw value is always shown beside the percentage, and a value over 1 gets no hint.
 - **A statement that fails while it runs gets a generic repair.** The model is told only that the statement failed at run time, not SQLite's message (an overflow, a malformed JSON path), because that message can quote a value from a row. The repair is less likely to succeed than one for a compile error. The user sees the message.
 - **Tags mark quoted text; they do not enforce anything.** A question that says "ignore the rules" is inside `<question>` and the prompt calls it data. One case asks a question with an instruction hidden in a quoted note (`adversarial-injection-in-quoted-note`); it was answered, and the note ignored, in both recorded runs on `claude-haiku-5-5`. That is one wording asked twice, not a measure of how often the model treats quoted text as data. What the model writes still passes the guard and a read-only connection.
@@ -855,4 +902,4 @@ Only what is still undecided. Everything else on this page is either built or a 
 |---|---|---|
 | 1 | The model's effort level (how much reasoning it is asked to spend). It is a setting, `medium` by default ([D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)) | Whether another level scores better is for the evaluation suite, once it has been run |
 | 2 | Whether the smaller model (`claude-haiku-5-5`) becomes the default | The evaluation suite run on both models, which has not been done yet; it becomes the default if it scores the same. So far only the tool-call check and a seven-question smoke test have been run: both models passed the check, and the smaller one took about half the time (19.0 s against 36.7 s for the eleven requests); in the smoke test both answered all seven correctly. The check does not judge the SQL and seven questions asked once are too few, so neither settles this |
-| 3 | Whether the web chat is built, and whether a rule card gets accept and reject buttons | Time. Both come after the terminal chat and the evaluation suite |
+| 3 | Whether a rule card in the web chat gets accept and reject buttons | Time, and whether there is anywhere for an accepted rule to go: nothing deploys a rule |

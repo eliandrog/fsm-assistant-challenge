@@ -1,0 +1,10 @@
+{
+  "code": "invalid_request",
+  "message": "The message is empty.",
+  "fields": [
+    {
+      "field": "message",
+      "problem": "The message is empty."
+    }
+  ]
+}

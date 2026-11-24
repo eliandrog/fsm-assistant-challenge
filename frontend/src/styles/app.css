@@ -1,0 +1,1082 @@
+/* ---------- Shell ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.column {
+  width: 100%;
+  max-width: calc(var(--column) + 2 * var(--gutter));
+  margin-inline: auto;
+  padding-inline: max(var(--gutter), env(safe-area-inset-left))
+    max(var(--gutter), env(safe-area-inset-right));
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--topbar-h);
+  padding-inline: max(10px, env(safe-area-inset-left))
+    max(var(--gutter), env(safe-area-inset-right));
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.brand-mark {
+  flex: none;
+  display: block;
+}
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  padding-block: 28px 24px;
+  /* Lets a wide result table size itself against the pane (cqi), whatever the sidebar does. */
+  container-type: inline-size;
+}
+.main[data-empty] {
+  align-items: center;
+}
+
+.dock {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: linear-gradient(to bottom, transparent, var(--bg) 22px);
+}
+.dock-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-faint);
+  text-wrap: balance;
+}
+
+/* ---------- Composer ---------- */
+
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 7px 7px 7px 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-l);
+  background: var(--surface);
+  box-shadow: var(--shadow-composer);
+  transition: border-color 140ms ease;
+}
+/* The textarea drops its own outline; the whole composer shows focus instead. */
+.composer:focus-within {
+  border-color: var(--focus);
+  outline: 2px solid color-mix(in srgb, var(--focus) 35%, transparent);
+  outline-offset: 0;
+}
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  resize: none;
+  border: 0;
+  outline: none;
+  background: transparent;
+  padding: 7px 4px 7px 12px;
+  /* 16px stops iOS from zooming the page on focus. */
+  font-size: 16px;
+  line-height: 1.4;
+}
+.composer textarea::placeholder {
+  color: var(--text-faint);
+}
+
+.send {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    opacity 140ms ease,
+    transform 140ms var(--ease-out);
+}
+.send:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.send:disabled {
+  background: var(--surface-sunk);
+  color: var(--text-faint);
+  cursor: not-allowed;
+}
+.send-stop {
+  background: var(--text);
+  color: var(--bg);
+}
+@media (hover: hover) and (pointer: fine) {
+  .send:hover:not(:disabled):not(.send-stop) {
+    background: var(--accent-hover);
+  }
+}
+@media (pointer: coarse) {
+  .send {
+    width: 44px;
+    height: 44px;
+  }
+}
+
+/* ---------- Empty state ---------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding-block: 8px 24px;
+}
+.empty h2 {
+  margin-top: 20px;
+  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.1rem);
+  font-weight: 620;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.empty-lede {
+  margin-top: 12px;
+  max-width: 36rem;
+  font-size: 16px;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.examples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  margin-top: 32px;
+}
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  height: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 140ms ease,
+    background-color 140ms ease,
+    transform 140ms var(--ease-out);
+}
+.example:active {
+  transform: scale(0.985);
+}
+.example-title {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.example-prompt {
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+@media (hover: hover) and (pointer: fine) {
+  .example:hover {
+    border-color: var(--border-strong);
+    background: var(--surface-sunk);
+  }
+}
+@media (max-width: 560px) {
+  .examples {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Thread ---------- */
+
+.thread {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  min-width: 0;
+}
+.thread-item {
+  min-width: 0;
+  scroll-margin-top: calc(var(--topbar-h) + 16px);
+  transition:
+    opacity 260ms var(--ease-out),
+    transform 260ms var(--ease-out);
+}
+@starting-style {
+  .thread-item {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.msg-user {
+  width: fit-content;
+  max-width: min(85%, 34rem);
+  margin-left: auto;
+  padding: 9px 15px;
+  border-radius: 18px 18px 5px 18px;
+  background: var(--bubble);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.msg-author {
+  font-size: 13.5px;
+  font-weight: 620;
+}
+.answer {
+  max-width: 40rem;
+  font-size: 16px;
+  line-height: 1.62;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+.answer-parts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.answer + .answer-parts {
+  margin-top: 16px;
+}
+.answer-parts > * {
+  transition:
+    opacity 240ms var(--ease-out),
+    transform 240ms var(--ease-out);
+}
+.answer-parts > :nth-child(2) {
+  transition-delay: 50ms;
+}
+.answer-parts > :nth-child(3) {
+  transition-delay: 100ms;
+}
+.answer-parts > :nth-child(n + 4) {
+  transition-delay: 150ms;
+}
+@starting-style {
+  .answer-parts > * {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* Thinking */
+.thinking .msg-meta {
+  margin-bottom: 0;
+}
+.thinking-label {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.thinking-dots {
+  display: inline-flex;
+  gap: 4px;
+}
+.thinking-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1s ease-in-out infinite;
+}
+.thinking-dots i:nth-child(2) {
+  animation-delay: 150ms;
+}
+.thinking-dots i:nth-child(3) {
+  animation-delay: 300ms;
+}
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---------- Panels (SQL, results, rule) ---------- */
+
+.panel {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  overflow: hidden;
+}
+.panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 40px;
+  padding: 4px 6px 4px 12px;
+}
+.panel-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.panel-meta,
+.panel-note {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.panel-meta {
+  padding-right: 8px;
+}
+.panel-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  padding: 6px 6px 6px 12px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.panel-foot span {
+  padding-block: 4px;
+}
+.panel-foot .btn {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin-left: -6px;
+  padding: 0 8px 0 6px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: transparent;
+  cursor: pointer;
+}
+.disclosure-chevron {
+  color: var(--text-faint);
+  transition: transform 160ms var(--ease-out);
+}
+.disclosure[aria-expanded='true'] .disclosure-chevron {
+  transform: rotate(90deg);
+}
+.panel-note::before {
+  content: '·';
+  margin-right: 6px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .disclosure:hover {
+    background: var(--surface-sunk);
+  }
+}
+
+.sql-code {
+  margin: 0;
+  max-height: 28rem;
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-sunk);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  overflow: auto;
+}
+.sql-code code {
+  font: inherit;
+}
+.sql-code:focus-visible,
+.table-scroll:focus-visible {
+  outline-offset: -2px;
+}
+.tok-keyword {
+  color: var(--tok-keyword);
+  font-weight: 600;
+}
+.tok-string {
+  color: var(--tok-string);
+}
+.tok-number {
+  color: var(--tok-number);
+}
+.tok-function {
+  color: var(--tok-function);
+}
+.tok-comment {
+  color: var(--tok-comment);
+  font-style: italic;
+}
+/* Results table */
+
+/*
+ * A result panel is as wide as the message column, and grows to the right, up
+ * to --column-wide or the pane's edge, only when its table needs the room.
+ * Prose keeps the column's line length.
+ */
+.answer-parts > .results {
+  align-self: flex-start;
+  width: max-content;
+  min-width: 100%;
+  max-width: min(
+    var(--column-wide),
+    100cqi - var(--gutter) - max(var(--gutter), (100cqi - var(--column)) / 2)
+  );
+}
+/* Only the table may ask for more width: a long footer line wraps instead. */
+.results > :is(.notice, .results-empty, .scroll-hint, .panel-foot) {
+  width: 0;
+  min-width: 100%;
+}
+.panel-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.table-wrap {
+  position: relative;
+  border-top: 1px solid var(--border);
+}
+.table-scroll {
+  max-height: 22.5rem;
+  overflow: auto;
+  overscroll-behavior-x: contain;
+}
+/* More columns to the right: the edge fades. To the left: the first column, which stays put, gets a rule. */
+.table-wrap::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 auto;
+  z-index: 3;
+  width: 36px;
+  background: linear-gradient(to right, transparent, var(--surface));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 140ms ease;
+}
+.table-wrap[data-more-right]::after {
+  opacity: 1;
+}
+.table-wrap[data-more-left] :is(th, td):first-child {
+  box-shadow: inset -1px 0 var(--border-strong);
+}
+.scroll-hint {
+  padding: 5px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: baseline;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+:is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  padding-left: 14px;
+}
+:is(th, td):last-child {
+  padding-right: 14px;
+}
+tbody tr:last-child :is(th, td) {
+  border-bottom: 0;
+}
+th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-sunk);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+thead th:first-child {
+  z-index: 2;
+}
+td:first-child {
+  z-index: 1;
+  background: var(--surface);
+}
+/* A text value: one line when short; a long one wraps, to four lines at most, before it widens the table. */
+.cell-text {
+  display: block;
+  max-width: 22rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cell-text-long {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-clamp: 4;
+  min-width: 12ch;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+td:first-child .cell-text {
+  max-width: min(22rem, 40cqi);
+}
+.num {
+  text-align: right;
+}
+td.null {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+@media (hover: hover) and (pointer: fine) {
+  tbody tr:hover td,
+  .months tbody tr:hover th {
+    background: color-mix(in srgb, var(--surface-sunk) 60%, var(--surface));
+  }
+}
+.results-empty {
+  padding: 18px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+.notice {
+  padding: 8px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.notice-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+/* Rule card */
+.rule-card {
+  border-color: var(--border-strong);
+}
+.rule-head {
+  padding: 14px 16px 12px;
+}
+.rule-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.rule-description {
+  margin-top: 4px;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.rule-clause {
+  border-top: 1px solid var(--border);
+}
+.rule-clause-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+  padding: 2px 6px 2px 14px;
+}
+.rule-subhead {
+  padding: 14px 16px 0;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 20px;
+  padding: 10px 16px 16px;
+}
+.metric {
+  min-width: 0;
+}
+.metric dt {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.metric-value {
+  font-size: 24px;
+  font-weight: 620;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.metric-sub {
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.meter {
+  height: 4px;
+  margin: 4px 0 6px;
+  border-radius: 2px;
+  background: var(--surface-sunk);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transform-origin: left;
+}
+.rule-foot {
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-sunk);
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.rule-foot strong {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 620px) {
+  .metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Callouts, caveats, suggestions ---------- */
+
+.callout {
+  display: flex;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid;
+  border-radius: var(--radius-m);
+  font-size: 14.5px;
+}
+.callout > div {
+  min-width: 0;
+}
+.callout-icon {
+  flex: none;
+  margin-top: 3px;
+}
+.callout-title {
+  font-weight: 620;
+}
+.callout .btn {
+  margin-top: 10px;
+}
+.callout-error,
+.callout-blocked {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+}
+.callout-error :is(.callout-icon, .callout-title),
+.callout-blocked :is(.callout-icon, .callout-title) {
+  color: var(--danger);
+}
+
+.stopped {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  color: var(--text-muted);
+}
+
+
+
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.suggestions li {
+  max-width: 100%;
+}
+.chip {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: 18px;
+  background: var(--surface);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 140ms ease,
+    border-color 140ms ease,
+    transform 140ms var(--ease-out);
+}
+.chip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.chip:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+}
+@media (pointer: coarse) {
+  .chip {
+    min-height: 44px;
+  }
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 480px) {
+  .main {
+    padding-block: 20px 16px;
+  }
+  .topbar .btn-ghost:not(.btn-icon) {
+    padding-inline: 8px;
+  }
+  .empty h2 {
+    margin-top: 16px;
+  }
+  .empty-lede {
+    font-size: 15px;
+  }
+  .examples {
+    margin-top: 20px;
+    gap: 8px;
+  }
+  .example {
+    padding: 11px 14px;
+  }
+}
+
+/* No hardware keyboard to hint at. */
+@media (pointer: coarse) {
+  .kbd-hint {
+    display: none;
+  }
+}
+
+/* ---------- Reduced motion: keep fades, drop movement ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  @starting-style {
+    .thread-item,
+    .answer-parts > * {
+      transform: none;
+    }
+  }
+  .btn:active:not(:disabled),
+  .send:active:not(:disabled),
+  .example:active,
+  .chip:active:not(:disabled) {
+    transform: none;
+  }
+  .disclosure-chevron {
+    transition: none;
+  }
+  .thinking-dots i {
+    animation-name: pulse-fade;
+    animation-duration: 1.6s;
+  }
+}
+@keyframes pulse-fade {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* ---------- What a turn returns besides its answer ---------- */
+
+.answer-kicker {
+  display: block;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.answer,
+.model-text p,
+.model-text li,
+.notes li,
+.caveat p,
+.callout p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.callout-neutral {
+  border-color: var(--border-strong);
+  background: var(--surface-sunk);
+}
+.callout-neutral .callout-icon {
+  color: var(--text-muted);
+}
+.callout-detail {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.callout-detail code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.caveats {
+  display: grid;
+  gap: 8px;
+}
+.caveat {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--warn-border);
+  border-radius: var(--radius-m);
+  background: var(--warn-soft);
+  font-size: 13.5px;
+  text-wrap: pretty;
+}
+.caveat .callout-icon {
+  color: var(--warn);
+}
+.caveat-code {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+.notes {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+.notes ul,
+.model-text ul {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+
+.model-text {
+  display: grid;
+  gap: 6px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--border-strong);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.model-text-label {
+  font-size: 12.5px;
+  color: var(--text-faint);
+}
+.model-text strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.suggest {
+  display: grid;
+  gap: 8px;
+}
+.suggest-label {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.turn-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 0;
+  font-size: 12px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+.turn-meta span:not(:last-child)::after {
+  content: '·';
+  margin-inline: 6px;
+}
+
+.memory-note {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-s);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* ---------- Rule card: facts and the month table ---------- */
+
+.facts {
+  display: grid;
+  gap: 6px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--border);
+  font-size: 13.5px;
+}
+.facts > div {
+  display: grid;
+  grid-template-columns: 9.5rem minmax(0, 1fr);
+  gap: 2px 12px;
+}
+.facts dt {
+  color: var(--text-muted);
+}
+.facts dd {
+  font-variant-numeric: tabular-nums;
+  text-wrap: pretty;
+}
+.facts strong {
+  font-weight: 620;
+}
+.period-span {
+  display: block;
+  font-size: 12px;
+  color: var(--text-faint);
+}
+.months {
+  margin-top: 10px;
+}
+.months .table-scroll {
+  max-height: none;
+}
+.months th[scope='row'] {
+  top: auto;
+  background: var(--surface);
+}
+.months th .badge {
+  margin-left: 8px;
+}
+.months tr.weakest :is(th, td) {
+  background: var(--warn-soft);
+}
+.months tr.weakest td:last-child {
+  font-weight: 650;
+  color: var(--warn);
+}
+@media (max-width: 560px) {
+  .facts > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Server status, empty-state note, message length ---------- */
+
+.health {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.health .badge {
+  gap: 6px;
+  cursor: help;
+}
+.health-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.empty-note {
+  max-width: 34rem;
+  padding: 10px 14px;
+  border: 1px dashed var(--warn-border);
+  border-radius: var(--radius-m);
+  background: var(--warn-soft);
+  font-size: 13.5px;
+  color: var(--warn);
+  text-wrap: pretty;
+}
+.composer-count {
+  align-self: center;
+  flex: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+}
+.composer-count[data-over] {
+  font-weight: 650;
+  color: var(--danger);
+}

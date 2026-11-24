@@ -1,0 +1,31 @@
+{
+  "outcome": "cannot_answer",
+  "status": "cannot_answer",
+  "error": null,
+  "answer": "The data ends in October 2019 and holds no forecast.",
+  "answer_source": "model",
+  "tool": "decline",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

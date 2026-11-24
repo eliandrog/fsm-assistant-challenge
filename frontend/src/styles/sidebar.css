@@ -1,0 +1,273 @@
+/* ---------- Layout: sidebar | pane ---------- */
+
+.app {
+  flex-direction: row;
+}
+.pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.sidebar {
+  --sidebar-w: 264px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-w);
+  background: var(--surface-sunk);
+  border-right: 1px solid var(--border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  height: var(--topbar-h);
+  padding: 0 10px 0 16px;
+}
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.sidebar-new {
+  flex: none;
+  justify-content: center;
+  margin: 0 10px 10px;
+}
+
+.sidebar-nav {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  padding: 2px 10px 10px;
+}
+.sidebar-nav ul {
+  display: grid;
+  /* minmax(0, …): let long titles truncate instead of widening the column. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px;
+}
+.sidebar-empty {
+  padding: 8px 6px;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* A row holds two buttons: open (fills the row) and delete (sits on top, right). */
+.conv {
+  position: relative;
+  border-radius: var(--radius-s);
+}
+.conv-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 36px 0 10px;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 140ms ease;
+}
+.conv-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.conv[data-active] .conv-open {
+  background: var(--bubble);
+  color: var(--text);
+  font-weight: 550;
+  /* Accent bar: a second cue besides the background. */
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.conv-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.conv-dot-pending {
+  animation: pulse-fade 1.2s ease-in-out infinite;
+}
+
+.conv-delete {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -14px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.conv:focus-within .conv-delete,
+.conv[data-active] .conv-delete {
+  opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .conv:hover .conv-delete {
+    opacity: 1;
+  }
+  .conv:not([data-active]) .conv-open:hover {
+    background: color-mix(in srgb, var(--bubble) 55%, transparent);
+    color: var(--text);
+  }
+  .conv-delete:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+  }
+}
+@media (pointer: coarse) {
+  .conv-open {
+    min-height: 44px;
+    padding-right: 48px;
+  }
+  .conv-delete {
+    opacity: 1;
+    width: 40px;
+    height: 40px;
+    margin-top: -20px;
+    right: 2px;
+  }
+}
+
+/* Reserved height, so offering Undo never moves the list. */
+.sidebar-foot {
+  flex: none;
+  min-height: 52px;
+  padding: 6px 10px 10px;
+}
+.undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 36px;
+  padding: 0 4px 0 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  font-size: 13.5px;
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out);
+}
+@starting-style {
+  .undo {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.undo .btn {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---------- Wide screens: a column that collapses ---------- */
+
+@media (min-width: 861px) {
+  .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+  }
+  /* Instant on purpose: a frequent toggle, and animating width would reflow the thread. */
+  .sidebar:not([data-visible]) {
+    display: none;
+  }
+}
+
+/* ---------- Narrow screens: an off-canvas drawer ---------- */
+
+@media (max-width: 860px) {
+  .sidebar {
+    --sidebar-w: min(86vw, 320px);
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 40;
+    padding-left: env(safe-area-inset-left);
+    box-shadow: 0 0 40px var(--shadow-far);
+    transform: translateX(-100%);
+    visibility: hidden;
+    /* Leaving is quicker than entering; visibility flips after the slide. */
+    transition:
+      transform 200ms var(--ease-drawer),
+      visibility 0s 200ms;
+  }
+  .sidebar[data-visible] {
+    transform: none;
+    visibility: visible;
+    transition:
+      transform 280ms var(--ease-drawer),
+      visibility 0s;
+  }
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: rgb(8 14 16 / 0.5);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 200ms ease;
+  }
+  .backdrop[data-open] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-inner {
+    gap: 8px;
+  }
+  /* Icon-only "New Chat" beside the brand and badge; the label stays for screen readers. */
+  .topbar-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar[data-visible] {
+    transition: none;
+  }
+  @starting-style {
+    .undo {
+      transform: none;
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "outcome": "clarification",
+  "status": "needs_clarification",
+  "error": null,
+  "answer": "What should count as risky?",
+  "answer_source": "model",
+  "tool": "ask_clarification",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [
+    "Transactions labelled as fraud",
+    "Transactions above $1,000"
+  ],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

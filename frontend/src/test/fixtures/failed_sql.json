@@ -1,0 +1,35 @@
+{
+  "outcome": "failed",
+  "status": "error",
+  "error": {
+    "kind": "sql_execution",
+    "message": "The query passed the checks but failed while it was running.",
+    "detail": "bad JSON path: '1 Elm Street'"
+  },
+  "answer": "The query passed the checks but failed while it was running.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 2,
+    "model_calls": 2,
+    "input_tokens": 2000,
+    "output_tokens": 200,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

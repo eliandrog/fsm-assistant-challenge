@@ -1,0 +1,50 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "The query returned no rows.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "SELECT id, amount_usd_cents FROM transactions WHERE amount_usd_cents > 99999999",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "id",
+        "format": "identifier"
+      },
+      {
+        "name": "amount_usd_cents",
+        "format": "usd_cents"
+      }
+    ],
+    "rows": [],
+    "row_count": 0,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": "What it returns.",
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [
+    {
+      "code": "zero_rows",
+      "message": "No rows matched. Check the spelling and case of the values in the SQL: text comparisons are case-sensitive ('Debit', not 'debit')."
+    }
+  ],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}
