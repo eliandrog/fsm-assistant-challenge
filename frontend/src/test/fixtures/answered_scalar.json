@@ -1,0 +1,45 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "transactions: 6",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "SELECT count(*) AS transactions FROM transactions",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "transactions",
+        "format": "plain"
+      }
+    ],
+    "rows": [
+      [
+        6
+      ]
+    ],
+    "row_count": 1,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": "Counts every transaction.",
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

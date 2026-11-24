@@ -1,0 +1,101 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "The query returned 5 rows.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "SELECT c.card_type,\n       t.merchant_id,\n       count(*) AS transactions,\n       sum(t.amount_usd_cents) AS total_amount_usd_cents,\n       avg(f.is_fraud) AS fraud_rate\nFROM transactions AS t\nJOIN cards AS c ON c.id = t.card_id\nLEFT JOIN fraud_labels AS f ON f.transaction_id = CAST(t.id AS TEXT)\nGROUP BY c.card_type, t.merchant_id\nORDER BY c.card_type, t.merchant_id",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "card_type",
+        "format": "plain"
+      },
+      {
+        "name": "merchant_id",
+        "format": "identifier"
+      },
+      {
+        "name": "transactions",
+        "format": "plain"
+      },
+      {
+        "name": "total_amount_usd_cents",
+        "format": "usd_cents"
+      },
+      {
+        "name": "fraud_rate",
+        "format": "fraction"
+      }
+    ],
+    "rows": [
+      [
+        "Credit",
+        10,
+        2,
+        6700,
+        0.0
+      ],
+      [
+        "Debit",
+        10,
+        1,
+        -5000,
+        0.0
+      ],
+      [
+        "Debit",
+        20,
+        1,
+        150000,
+        1.0
+      ],
+      [
+        "Debit (Prepaid)",
+        10,
+        1,
+        999,
+        0.0
+      ],
+      [
+        "Debit (Prepaid)",
+        20,
+        1,
+        120000,
+        null
+      ]
+    ],
+    "row_count": 5,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": "One row per card type and merchant, with the total amount and the fraud rate.",
+  "assumptions": [
+    "A transaction without a fraud label does not count towards the fraud rate.",
+    "Amounts include refunds."
+  ],
+  "suggestions": [],
+  "caveats": [
+    {
+      "code": "label_coverage",
+      "message": "This result uses fraud labels, which only about two thirds of transactions have. An unlabelled transaction is unknown, not legitimate."
+    }
+  ],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

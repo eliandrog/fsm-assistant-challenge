@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "mode": "offline_demo",
+  "database": {
+    "present": true,
+    "readable": true,
+    "schema_context": true
+  },
+  "key_configured": false,
+  "model_id": "offline-demo",
+  "prompt_version": "turn-4",
+  "tracing": {
+    "enabled": false,
+    "destination": null
+  },
+  "limits": {
+    "max_message_characters": 2000,
+    "row_cap": 1000
+  },
+  "evidence_note": "The rule is scored here on the same history it was written from, so this is a stability check, not a test on unseen data. Only new data or a shadow run can show that the rule holds.",
+  "demo_questions": [
+    "How many transactions are there?",
+    "What is the fraud rate by card type?",
+    "Which ten merchants took the most money?",
+    "Where is fraud concentrated?",
+    "Propose a rule for transactions at merchant locations in Rome, Italy.",
+    "Show me the suspicious transactions.",
+    "What will the fraud rate be next year?",
+    "Delete the fraud labels."
+  ]
+}

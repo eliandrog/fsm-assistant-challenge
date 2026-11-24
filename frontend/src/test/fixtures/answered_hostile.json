@@ -1,0 +1,57 @@
+{
+  "outcome": "answered",
+  "status": "ok",
+  "error": null,
+  "answer": "The query returned 1 row.",
+  "answer_source": "code",
+  "tool": "run_sql",
+  "refused": [],
+  "write_attempts": 0,
+  "sql": "SELECT '<img src=x onerror=alert(1)>' AS html, 'first' || char(10) || 'second' || char(27) || '[31m' || char(0) || 'end' AS control, '<b>bold</b>' AS \"<i>name</i>\"",
+  "where_clause": null,
+  "table": {
+    "columns": [
+      {
+        "name": "html",
+        "format": "plain"
+      },
+      {
+        "name": "control",
+        "format": "plain"
+      },
+      {
+        "name": "<i>name</i>",
+        "format": "plain"
+      }
+    ],
+    "rows": [
+      [
+        "<img src=x onerror=alert(1)>",
+        "first\nsecond\u001b[31m\u0000end",
+        "<b>bold</b>"
+      ]
+    ],
+    "row_count": 1,
+    "truncated": false
+  },
+  "rule": null,
+  "explanation": "<img src=x onerror=alert('explanation')> with a\ttab and an \u001b[31mescape.",
+  "assumptions": [
+    "<script>alert('assumption')</script>"
+  ],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "scripted",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 1,
+    "model_calls": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

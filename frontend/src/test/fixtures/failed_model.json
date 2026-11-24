@@ -1,0 +1,35 @@
+{
+  "outcome": "failed",
+  "status": "error",
+  "error": {
+    "kind": "model_unavailable",
+    "message": "No reply from the model (timeout): The model did not reply in time.",
+    "detail": null
+  },
+  "answer": "No reply from the model (timeout): The model did not reply in time.",
+  "answer_source": "code",
+  "tool": null,
+  "refused": [],
+  "write_attempts": 0,
+  "sql": null,
+  "where_clause": null,
+  "table": null,
+  "rule": null,
+  "explanation": null,
+  "assumptions": [],
+  "suggestions": [],
+  "caveats": [],
+  "meta": {
+    "conversation_id": "fixture-conversation",
+    "turn": 1,
+    "model_id": "claude-opus-5-5",
+    "prompt_version": "turn-4",
+    "tool_mode": "tools",
+    "attempts": 0,
+    "model_calls": 1,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "elapsed_ms": 1234
+  },
+  "notes": []
+}

@@ -1,0 +1,71 @@
+/*
+ * Design tokens. Every colour is a light-dark() pair, so one declaration serves
+ * both themes: the system preference applies by default and [data-theme]
+ * (set by the toggle) overrides it by switching color-scheme.
+ */
+:root {
+  color-scheme: light dark;
+
+  /* Surfaces: cool neutrals */
+  --bg: light-dark(#f5f7f8, #0f1416);
+  --surface: light-dark(#ffffff, #171d20);
+  --surface-sunk: light-dark(#eef2f3, #131a1c);
+  --bubble: light-dark(#e4ecee, #222c30);
+  --border: light-dark(#dbe2e5, #273136);
+  --border-strong: light-dark(#c3cdd1, #36434a);
+
+  /* Text */
+  --text: light-dark(#131a1d, #e7edef);
+  --text-muted: light-dark(#55626a, #98a6ad);
+  --text-faint: light-dark(#6f7c83, #7d8b92);
+
+  /* Accent: petrol */
+  --accent: light-dark(#0f6674, #4fbccd);
+  --accent-hover: light-dark(#0b5562, #6bcbda);
+  --on-accent: light-dark(#ffffff, #05262c);
+  --accent-soft: light-dark(#e0eff1, #15343a);
+  --focus: light-dark(#0f6674, #7fd6e3);
+
+  /* Status */
+  --danger: light-dark(#b42318, #ff8f85);
+  --danger-soft: light-dark(#fdeceb, #331a19);
+  --danger-border: light-dark(#f3c2be, #5c2a27);
+  --warn: light-dark(#8a5300, #e8b84a);
+  --warn-soft: light-dark(#fbf1dc, #2e2612);
+  --warn-border: light-dark(#ecd39b, #54441b);
+
+  /* SQL syntax */
+  --tok-keyword: light-dark(#0f6674, #62c8d8);
+  --tok-string: light-dark(#9a4a10, #efb07a);
+  --tok-number: light-dark(#6b3fb4, #c2a7ff);
+  --tok-function: light-dark(#1d5bb8, #8db5ff);
+  --tok-comment: light-dark(#6f7c83, #7d8b92);
+
+  --shadow-near: light-dark(rgb(16 32 38 / 0.05), rgb(0 0 0 / 0.4));
+  --shadow-far: light-dark(rgb(16 32 38 / 0.14), rgb(0 0 0 / 0.5));
+  --shadow-composer: 0 1px 2px var(--shadow-near), 0 8px 24px -8px var(--shadow-far);
+
+  /* Type */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Shape and layout */
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 22px;
+  --column: 46rem;
+  --column-wide: 56rem;
+  --gutter: 16px;
+  --topbar-h: 56px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}

@@ -13,11 +13,17 @@ whose logic is in `model_check.py`, sends nothing unless `--yes-spend` is
 given; its `--replay` re-prints a recorded run with no key and no request.
 `eval`, whose logic is in `evals/command.py`, runs the evaluation suite under
 the same rule: nothing is sent without `--yes-spend`, and `--replay` re-runs
-a recorded run offline.
+a recorded run offline. `serve` runs the HTTP API of `api.py` and the built
+web interface on the loopback address; its turns call Claude, unless
+`--offline-demo` puts the canned replies of `demo.py` in the model's place,
+which also ignores `.env`, so no key is read and nothing is sent or traced.
+
+What `ask`, `chat` and `serve` share before their first turn (settings,
+logging, the assistant with its label and its tracer) is in `runtime.py`.
 
 A command that reads the settings also sets up logging (`applog.py`): a file
 in the log directory and, with `--verbose`, the terminal's error stream.
-`ask`, `chat` and a live `eval` send a filtered trace of each turn to
+`ask`, `chat`, a live `serve` and a live `eval` send a filtered trace of each turn to
 LangSmith when the settings switch that on (`tracing.py`), and say in one
 line whether they do.
 
@@ -27,7 +33,8 @@ command could not start (a bad argument or setting, no key, an unusable
 recordings folder). 3: `ask` could not answer (the model declined). 4: `ask`
 was rejected by the guard. 130: `ask` was interrupted with Ctrl-C. `chat`
 exits 0 whatever its turns ended in. `scan`: 0, 1 when the scan failed, 2
-when it could not start. For
+when it could not start. `serve`: 0 when the server was stopped, 2 when it
+could not start. For
 `eval`: 0 when a live run's cases all passed (skipped ones aside), when a
 replay replayed every selected case and scored each exactly as recorded,
 recorded failures included, and for `--list`, `--rescore`, or when nothing
@@ -42,17 +49,18 @@ import logging
 import os
 import sys
 import uuid
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import date
 from pathlib import Path
 from typing import Literal
 
-from fsm_assistant import applog, config, db, explore, model_check, tracing
+import uvicorn
+
+from fsm_assistant import api, config, db, demo, explore, model_check, runtime, tracing
 from fsm_assistant.config import ConfigError, Settings, load_settings
 from fsm_assistant.evals import command as eval_command
 from fsm_assistant.evals.cases import TIERS
 from fsm_assistant.evals.runner import Selection
-from fsm_assistant.events import Label
 from fsm_assistant.graph import Assistant, TraceStep
 from fsm_assistant.llm import (
     ClaudeModel,
@@ -198,7 +206,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     split.add_argument("--held-out", action="store_true", help="only held-out cases")
     split.add_argument("--tuned", action="store_true", help="only tuned cases")
     evaluate.add_argument("--limit", type=int, metavar="N", help="at most the first N cases")
-    for command in (ask, chat, check, evaluate):
+    serve = commands.add_parser(
+        "serve",
+        help="run the web chat on this machine (calls Claude: billed, unless --offline-demo)",
+    )
+    serve.add_argument(
+        "--host",
+        default=api.DEFAULT_HOST,
+        help=f"address to listen on (default: {api.DEFAULT_HOST}, this machine only)",
+    )
+    serve.add_argument(
+        "--port", type=int, default=api.DEFAULT_PORT, help=f"default: {api.DEFAULT_PORT}"
+    )
+    serve.add_argument(
+        "--offline-demo",
+        action="store_true",
+        help="answer a fixed list of questions with canned model replies; ignores .env, "
+        "needs no key and sends nothing",
+    )
+    for command in (ask, chat, check, evaluate, serve):
         command.add_argument(
             "--verbose", action="store_true", help="also print the log lines to stderr"
         )
@@ -259,6 +285,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             case=arguments.case,
             verbose=arguments.verbose,
         )
+    if arguments.command == "serve":
+        return _serve(
+            host=arguments.host,
+            port=arguments.port,
+            offline_demo=arguments.offline_demo,
+            verbose=arguments.verbose,
+        )
     if arguments.command == "scan":
         if arguments.top < 1:
             scan.error("--top must be at least 1")
@@ -302,18 +335,10 @@ def _converse(
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
     live = replay_dir is None
-    tracer = _tracer(settings, verbose) if live else None
-    print(tracing.describe(tracer, settings, live=live))
-    logger.info(
-        "%s started: model=%s prompt=%s tool_mode=%s replies=%s tracing=%s",
-        command,
-        spec.model,
-        spec.prompt_version,
-        spec.tool_mode,
-        "live" if live else "recorded",
-        "off" if tracer is None else tracer.target.describe(),
+    assistant, tracer = runtime.open_assistant(
+        command, settings, model, replies="live" if live else "recorded", warn=_warn(verbose)
     )
-    assistant = Assistant(settings, model, label=Label(command=command), tracer=tracer)
+    print(tracing.describe(tracer, settings, live=live))
     try:
         return _turns(assistant, question, trace)
     finally:
@@ -382,25 +407,73 @@ def _scan(period: Sequence[str] | None, top: int, *, show_sql: bool) -> int:
     return 0
 
 
+def _serve(*, host: str, port: int, offline_demo: bool, verbose: bool) -> int:
+    try:
+        model: IntentModel
+        if offline_demo:
+            # Defaults only: `.env` and the environment are not read, so no key and no tracing.
+            settings = runtime.start(
+                "serve", verbose=verbose, load=lambda: config.load_settings({}, env_file=None)
+            )
+            model = demo.DemoModel(model_spec(settings))
+            print(
+                "Model: none. OFFLINE DEMO: canned replies to a fixed list of questions, run "
+                "through the real guard, database and presentation. Nothing is sent or billed."
+            )
+        else:
+            settings = _start("serve", verbose)
+            model = _live_model(model_spec(settings), settings)
+            print(
+                f"Model: {settings.anthropic_model}, live. Each question asked in the "
+                "browser is billed to ANTHROPIC_API_KEY."
+            )
+    except (ModelUnavailable, ValueError) as error:  # ValueError: a bad setting
+        if isinstance(error, ModelUnavailable):
+            logger.error("serve cannot start: no model client (%s)", error.kind)
+        print(f"Cannot start: {error}")
+        return EXIT_CANNOT_START
+    assistant, tracer = runtime.open_assistant(
+        "web", settings, model, replies="demo" if offline_demo else "live", warn=_warn(verbose)
+    )
+    print(
+        "Hosted tracing: off (the offline demo is never traced)."
+        if offline_demo
+        else tracing.describe(tracer, settings)
+    )
+    local = host in api.LOOPBACK_HOSTS
+    if not local:
+        print(
+            f"Warning: listening on {host}. There is no authentication: anyone who can reach "
+            "this address can ask questions, read the data and spend the key."
+        )
+    print(api.describe_page())
+    app = api.create_app(
+        settings,
+        assistant,
+        mode="offline_demo" if offline_demo else "live",
+        model_id=demo.MODEL_ID if offline_demo else None,
+        demo_questions=demo.QUESTIONS if offline_demo else (),
+        tracer=tracer,
+        allowed_hosts=api.LOOPBACK_HOSTS if local else (*api.LOOPBACK_HOSTS, host),
+    )
+    # Flushed: the server then runs until it is stopped, and the lines above are wanted now.
+    print(f"Open http://{host}:{port}/ in a browser. Ctrl-C stops the server.", flush=True)
+    uvicorn.run(app, host=host, port=port, log_level="warning")
+    return 0
+
+
 def _start(command: str, verbose: bool) -> Settings:
     """Load the settings and set up logging. A bad setting is logged, then raised."""
-    try:
-        settings = load_settings()
-    except ConfigError as error:
-        applog.configure(directory=config.DEFAULT_LOG_DIR, to_terminal=verbose)
-        logger.error("%s cannot start: invalid setting: %s", command, error)
-        raise
-    applog.configure(
-        directory=settings.log_dir if settings.log_file else None,
-        level=settings.log_level,
-        to_terminal=verbose,
-    )
-    return settings
+    return runtime.start(command, verbose=verbose, load=load_settings)
+
+
+def _warn(verbose: bool) -> Callable[[str], None] | None:
+    # With --verbose the log already shows a tracing warning on the terminal.
+    return None if verbose else _to_stderr
 
 
 def _tracer(settings: Settings, verbose: bool) -> tracing.Tracer | None:
-    # With --verbose the log already shows a tracing warning on the terminal.
-    return tracing.start(settings, None if verbose else _to_stderr)
+    return tracing.start(settings, _warn(verbose))
 
 
 def _to_stderr(message: str) -> None:
@@ -442,8 +515,9 @@ def _evaluate(options: eval_command.Options, *, verbose: bool) -> int:
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
     logger.info(
-        "eval started: model=%s replay=%s spend=%s",
-        options.model or settings.anthropic_model, options.replay, options.spend,
+        "eval started: model=%s replay=%s rescore=%s repeat=%s spend=%s",
+        options.model or settings.anthropic_model, options.replay, options.rescore,
+        options.repeat, options.spend,
     )  # fmt: skip
     finish = eval_command.execute(
         options,

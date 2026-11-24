@@ -1,0 +1,22 @@
+{
+  "status": "degraded",
+  "mode": "live",
+  "database": {
+    "present": false,
+    "readable": false,
+    "schema_context": false
+  },
+  "key_configured": true,
+  "model_id": "claude-opus-5-5",
+  "prompt_version": "turn-4",
+  "tracing": {
+    "enabled": false,
+    "destination": null
+  },
+  "limits": {
+    "max_message_characters": 2000,
+    "row_cap": 1000
+  },
+  "evidence_note": "The rule is scored here on the same history it was written from, so this is a stability check, not a test on unseen data. Only new data or a shadow run can show that the rule holds.",
+  "demo_questions": []
+}
