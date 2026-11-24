@@ -1,12 +1,17 @@
 """presentation: format hints, coded caveats, safe cells and the terminal text."""
 
 import pytest
+from test_proposal import evidence, month
 
 from fsm_assistant.db import Cell, QueryResult
 from fsm_assistant.presentation import (
+    EVIDENCE_NOTE,
     HIGH_FLAG_RATE,
+    MIN_EXPECTED_FRAUD,
     SMALL_SAMPLE_LABELLED,
+    WEAK_PRECISION_RATIO,
     column_format,
+    evidence_caveats,
     format_cell,
     outcome_of,
     present_table,
@@ -22,6 +27,7 @@ from fsm_assistant.result import (
     ColumnFormat,
     ErrorKind,
     Outcome,
+    RuleCard,
     Status,
     TableResult,
     TurnError,
@@ -29,6 +35,7 @@ from fsm_assistant.result import (
     TurnResult,
 )
 from fsm_assistant.rules.backtest import BacktestResult
+from fsm_assistant.rules.proposal import build_evidence
 
 META = TurnMeta(
     conversation_id="c1",
@@ -63,6 +70,11 @@ def measured(flagged: int, labelled: int, fraud: int, total: int = 1000) -> Back
         false_positive_amount_cents=-500,
         elapsed_seconds=0.1,
     )
+
+
+def card(backtest: BacktestResult) -> RuleCard:
+    """The card of a backtest with no monthly rows."""
+    return rule_card(build_evidence(backtest, ()))
 
 
 def shown(
@@ -323,12 +335,138 @@ def test_high_flag_rate_caveat_over_five_percent() -> None:
 
 
 def test_the_rule_card_carries_the_ratios_as_fields() -> None:
-    card = rule_card(measured(40, 30, 10))
-    assert (card.flagged, card.flagged_labelled, card.flagged_unlabelled) == (40, 30, 10)
-    assert (card.true_positives, card.false_positives, card.false_negatives) == (10, 20, 30)
-    assert (card.precision, card.recall, card.flag_rate) == (10 / 30, 10 / 40, 40 / 1000)
-    assert rule_card(measured(5, 0, 0)).precision is None
-    assert '"precision":null' in rule_card(measured(5, 0, 0)).model_dump_json()
+    plain = card(measured(40, 30, 10))
+    assert (plain.flagged, plain.flagged_labelled, plain.flagged_unlabelled) == (40, 30, 10)
+    assert (plain.true_positives, plain.false_positives, plain.false_negatives) == (10, 20, 30)
+    assert (plain.precision, plain.recall, plain.flag_rate) == (10 / 30, 10 / 40, 40 / 1000)
+    assert card(measured(5, 0, 0)).precision is None
+    assert '"precision":null' in card(measured(5, 0, 0)).model_dump_json()
+
+
+# --- The month-by-month evidence ----------------------------------------------------------
+#
+# `month(name, labelled, caught)` is a month in which `caught` of `labelled`
+# flagged transactions are fraud; `evidence(*months)` is the evidence of the
+# rule those months add up to.
+
+
+def test_weak_month_fires_below_half_the_overall_precision() -> None:
+    assert (WEAK_PRECISION_RATIO, MIN_EXPECTED_FRAUD) == (0.5, 5)
+    # Overall 100 of 200, so half of it is 25%: 10 of 40 is at the line, 9 of 40 below it.
+    at_the_line = evidence(month("2019-01", 160, 90), month("2019-02", 40, 10))
+    assert at_the_line.overall.precision == 0.5
+    assert codes(evidence_caveats(at_the_line)) == []
+    below = evidence(month("2019-01", 160, 91), month("2019-02", 40, 9))
+    assert below.overall.precision == 0.5
+    caveats = evidence_caveats(below)
+    assert codes(caveats) == ["weak_month"]
+    assert caveats[0].message == (
+        "Precision is below half the rule's overall 50.00% in 1 month: 2019-02 (9 of 40 "
+        "labelled flagged were fraud). The overall figure does not describe those months."
+    )
+
+
+def test_weak_month_names_every_weak_month() -> None:
+    found = evidence(month("2019-01", 100, 90), month("2019-02", 50, 5), month("2019-03", 50, 5))
+    message = evidence_caveats(found)[0].message
+    assert "in 2 months: 2019-02 (5 of 50 labelled flagged were fraud); 2019-03 (5 of 50" in message
+
+
+def test_weak_month_needs_thirty_labelled_rows_in_the_month() -> None:
+    # 0 of 29 is far below the overall figure and too few rows to say so.
+    too_few = evidence(month("2019-01", 171, 100), month("2019-02", 29, 0))
+    assert codes(evidence_caveats(too_few)) == []
+    enough = evidence(month("2019-01", 170, 100), month("2019-02", 30, 0))
+    assert codes(evidence_caveats(enough)) == ["weak_month"]
+
+
+def test_weak_month_needs_five_expected_fraud_in_the_month() -> None:
+    # Overall 10%. A month of 49 labelled rows would hold 4.9 fraud at that rate: none is chance.
+    by_chance = evidence(month("2019-01", 151, 20), month("2019-02", 49, 0))
+    assert by_chance.overall.precision == 0.1
+    assert codes(evidence_caveats(by_chance)) == []
+    expected_five = evidence(month("2019-01", 150, 20), month("2019-02", 50, 0))
+    assert expected_five.overall.precision == 0.1
+    assert codes(evidence_caveats(expected_five)) == ["weak_month"]
+
+
+def test_no_weak_month_when_precision_is_undefined_or_zero() -> None:
+    assert evidence_caveats(evidence(month("2019-01", 0, 0, flagged=7))) == ()
+    assert evidence_caveats(evidence(month("2019-01", 200, 0), month("2019-02", 200, 0))) == ()
+    assert evidence_caveats(evidence()) == ()
+
+
+def test_period_drop_fires_when_the_later_period_is_below_half_the_earlier() -> None:
+    # Earlier 50 of 100. Later 10 of 40 is exactly half that precision; 9 of 40 is below.
+    # The later month is not weak by itself in the first case only.
+    at_the_line = evidence(month("2019-07", 100, 50), month("2019-08", 40, 10))
+    assert "period_drop" not in codes(evidence_caveats(at_the_line))
+    below = evidence(month("2019-07", 100, 50), month("2019-08", 40, 9))
+    caveats = {caveat.code: caveat.message for caveat in evidence_caveats(below)}
+    assert caveats["period_drop"] == (
+        "Precision in the later period (2019-08: 9 of 40 labelled flagged were fraud) is below "
+        "half that of the earlier period (2019-07: 50 of 100). The rule did worse in the most "
+        "recent months."
+    )
+
+
+def test_period_drop_is_about_the_periods_not_any_one_month() -> None:
+    # Three later months of 20 labelled rows each: none qualifies alone, the period does.
+    found = evidence(
+        month("2019-06", 100, 50), month("2019-08", 20, 2), month("2019-09", 20, 2), month("2019-10", 20, 2)
+    )
+    caveats = evidence_caveats(found)
+    assert codes(caveats) == ["period_drop"]
+    assert "2019-08 to 2019-10: 6 of 60" in caveats[0].message
+
+
+def test_period_drop_needs_enough_rows_in_both_periods() -> None:
+    assert SMALL_SAMPLE_LABELLED == 30
+    thin_later = evidence(month("2019-07", 100, 50), month("2019-08", 29, 0))
+    assert evidence_caveats(thin_later) == ()
+    thin_earlier = evidence(month("2019-07", 29, 29), month("2019-08", 100, 10))
+    assert "period_drop" not in codes(evidence_caveats(thin_earlier))
+    # Earlier 10%: 49 later rows would hold 4.9 fraud at that rate, 50 would hold 5.
+    by_chance = evidence(month("2019-07", 100, 10), month("2019-08", 49, 0))
+    assert "period_drop" not in codes(evidence_caveats(by_chance))
+    expected_five = evidence(month("2019-07", 100, 10), month("2019-08", 50, 0))
+    assert "period_drop" in codes(evidence_caveats(expected_five))
+    # A later period that did better, or no later period at all, is no drop.
+    assert evidence_caveats(evidence(month("2019-07", 100, 40), month("2019-08", 100, 50))) == ()
+    assert evidence_caveats(evidence(month("2019-07", 100, 50))) == ()
+
+
+def test_the_rule_card_carries_the_evidence_as_fields() -> None:
+    found = evidence(
+        month("2019-07", 100, 50, flagged=150, fraud=60),
+        month("2019-08", 40, 9),
+        month("2019-09", 0, 0, flagged=3),
+    )
+    shown_card = rule_card(found)
+    assert shown_card.base_fraud_rate == 80 / 2100
+    assert shown_card.lift == (59 / 140) / (80 / 2100)
+    assert [row.month for row in shown_card.months] == ["2019-07", "2019-08", "2019-09"]
+    july, august, september = shown_card.months
+    assert (july.flagged, july.flagged_labelled, july.true_positives, july.false_positives) == (150, 100, 50, 50)
+    assert (july.total_transactions, july.total_labelled, july.total_fraud) == (1000, 700, 60)
+    assert (july.precision, july.recall, july.flag_rate) == (0.5, 50 / 60, 0.15)
+    assert (september.precision, september.flag_rate) == (None, 0.003)
+    assert shown_card.weakest_month == "2019-08"
+    assert (shown_card.earlier.first_month, shown_card.earlier.last_month, shown_card.earlier.months) == (
+        "2019-07", "2019-07", 1,
+    )  # fmt: skip
+    assert (shown_card.later.first_month, shown_card.later.last_month) == ("2019-08", "2019-09")
+    assert (shown_card.later.true_positives, shown_card.later.flagged_labelled) == (9, 40)
+    assert shown_card.later.precision == 9 / 40
+    assert shown_card.later.lift == (9 / 40) / (20 / 1400)
+    stability = shown_card.stability
+    assert (stability.min_month_labelled, stability.months, stability.months_flagged) == (30, 3, 3)
+    assert (stability.months_with_labelled_flags, stability.qualifying_months) == (2, 2)
+    assert (stability.min_precision, stability.max_precision) == (9 / 40, 0.5)
+    # Undefined values are null in JSON, and a card without months says so with empty fields.
+    empty = card(measured(5, 0, 0))
+    assert (empty.months, empty.weakest_month, empty.lift) == ((), None, None)
+    assert empty.later.first_month is None and '"lift":null' in empty.model_dump_json()
 
 
 # --- Terminal text ------------------------------------------------------------------------
@@ -392,7 +530,7 @@ def test_the_rule_card_in_the_terminal() -> None:
             "rule_proposed",
             answer="The rule flags 40 of 1,000 transactions.",
             where_clause="amount_usd_cents > 100000",
-            rule=rule_card(backtest),
+            rule=card(backtest),
             caveats=rule_caveats(backtest),
         )
     )
@@ -408,12 +546,60 @@ def test_the_rule_card_in_the_terminal() -> None:
         "  False positive amount -$5.00",
     ):
         assert line in text
-    undefined = render_text(shown(where_clause="id < 0", rule=rule_card(measured(5, 0, 0))))
+    undefined = render_text(shown(where_clause="id < 0", rule=card(measured(5, 0, 0))))
     assert "Precision             undefined (nothing flagged is labelled)" in undefined
-    one = render_text(shown(where_clause="id = 1", rule=rule_card(measured(2, 1, 1))))
+    one = render_text(shown(where_clause="id = 1", rule=card(measured(2, 1, 1))))
     assert "  Labelled              1 (1 flagged has no label)" in one
-    none = render_text(shown(where_clause="id = 1", rule=rule_card(measured(1, 1, 1))))
+    none = render_text(shown(where_clause="id = 1", rule=card(measured(1, 1, 1))))
     assert "  Labelled              1 (0 flagged have no label)" in none
+    # Lift: 10 of 30 against a base rate of 40 in 700. No monthly rows, so no month section.
+    assert "  Lift                  5.8 times the base fraud rate (5.714% of labelled transactions are fraud)" in text
+    assert "  Lift                  undefined (no precision or no base fraud rate to compare)" in undefined
+    assert "Month by month" not in text and EVIDENCE_NOTE[:40] not in text
+
+
+def test_the_month_table_in_the_terminal() -> None:
+    found = evidence(
+        month("2019-06", 1200, 900, flagged=1500, transactions=5000, total_labelled=3500, fraud=1000),
+        month("2019-07", 100, 50, flagged=150, fraud=60),
+        month("2019-08", 40, 9),
+        month("2019-09", 0, 0, flagged=3),
+        month("2019-10"),
+    )
+    text = render_text(shown("rule_proposed", where_clause="id > 0", rule=rule_card(found)))
+    lines = text.splitlines()
+    start = lines.index("Month by month, on the same history:")
+    assert lines[start - 1] == "" and lines[start - 2].startswith("  False positive amount")
+    assert lines[start + 1 : start + 13] == [
+        "  Month    Flagged  Labelled  Fraud caught  False positives  Precision",
+        "  2019-06    1,500     1,200           900              300     75.00%",
+        "  2019-07      150       100            50               50     50.00%",
+        "  2019-08       40        40             9               31     22.50%",
+        "  2019-09        3         0             0                0          -",
+        "  2019-10        0         0             0                0          -",
+        "  Weakest month         2019-08: 9 of 40 labelled flagged were fraud (22.50%)",
+        "  Monthly precision     22.50% to 75.00% over the 3 months with 30 or more labelled flagged, of 5",
+        "  Earlier period        2019-06 to 2019-07: 950 of 1,300 labelled flagged were fraud (73.08%); "
+        "recall 950 of 1,060; lift 2.9",
+        "  Later period          2019-08 to 2019-10: 9 of 40 labelled flagged were fraud (22.50%); "
+        "recall 9 of 30; lift 15.8",
+        "  The rule is scored here on the same history it was written from, so this is a stability check, not",
+        "  a test on unseen data. Only new data or a shadow run can show that the rule holds.",
+    ]
+    assert " ".join(line.strip() for line in lines[start + 11 : start + 13]) == EVIDENCE_NOTE
+    assert "not a test on unseen data" in EVIDENCE_NOTE and "held" not in EVIDENCE_NOTE.replace("holds", "")
+
+
+def test_the_month_section_says_when_nothing_can_be_compared() -> None:
+    thin = evidence(month("2019-07", 29, 20), month("2019-08", 0, 0, flagged=2))
+    text = render_text(shown("rule_proposed", where_clause="id > 0", rule=rule_card(thin)))
+    assert "  Weakest month         none: no month has 30 or more labelled flagged transactions" in text
+    assert "Monthly precision" not in text
+    assert "  Later period          2019-08: nothing flagged is labelled" in text
+    one = evidence(month("2019-07", 30, 20))
+    alone = render_text(shown("rule_proposed", where_clause="id > 0", rule=rule_card(one)))
+    assert "over the 1 month with 30 or more labelled flagged, of 1" in alone
+    assert "  Later period          no month of the data: nothing flagged is labelled" in alone
 
 
 def test_the_footer_names_the_tool_and_what_was_refused() -> None:

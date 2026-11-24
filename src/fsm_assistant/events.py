@@ -6,8 +6,8 @@ Responsibility: the one description of a turn that the terminal trace
 the finished turn. They stay in the process: nothing here writes a file.
 
 An event is built from a node's update and holds nothing read from the
-database: rows appear as a count and column names, a backtest as the time it
-took, and a failure as its kind, its code and the sentence code wrote for
+database: rows appear as a count and column names, a backtest and its
+evidence by month as the time the two statements took, and a failure as its kind, its code and the sentence code wrote for
 it. SQLite's own words for a statement that failed while it ran
 (`failure_detail`, `TurnError.detail`) are never read here. No event carries
 a wall-clock time; durations come from a monotonic clock.
@@ -32,6 +32,7 @@ from fsm_assistant.nl2sql import (
 from fsm_assistant.presentation import safe_text
 from fsm_assistant.result import CaveatCode, ErrorKind, Outcome, Status, TurnResult
 from fsm_assistant.rules.backtest import BacktestResult
+from fsm_assistant.rules.proposal import RuleEvidence
 from fsm_assistant.state import Failure
 
 Command = Literal["ask", "chat", "eval", "other"]
@@ -202,7 +203,10 @@ def step_event(
             query_ms=round(result.elapsed_seconds * 1000),
         )
     elif isinstance(result, BacktestResult):
-        values["query_ms"] = round(result.elapsed_seconds * 1000)
+        # Of a rule's evidence only the time is read: no count, month or rate.
+        evidence = fields.get("evidence")
+        timed = evidence if isinstance(evidence, RuleEvidence) else result
+        values["query_ms"] = round(timed.elapsed_seconds * 1000)
     failure = fields.get("failure")
     if isinstance(failure, Failure):
         values.update(

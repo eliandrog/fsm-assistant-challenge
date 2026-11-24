@@ -31,6 +31,12 @@ sql = "SELECT count(*) FROM transactions"
 """
 
 
+RULE = (
+    'outcome = "rule_proposed"\nclause = "id > 1"\nflagged = 5\nflagged_labelled = 4\n'
+    "true_positives = 1\nfalse_positives = 3\n"
+)
+
+
 def write(directory: Path, text: str, name: str = "cases.toml") -> Path:
     directory.mkdir(exist_ok=True)
     (directory / name).write_text(text, encoding="utf-8")
@@ -113,6 +119,15 @@ def test_a_duplicate_id_is_rejected_across_files(tmp_path: Path) -> None:
         (turn('outcome = "refused"\nor_rule = { min_flag_rate = 0.1, max_flag_rate = 1.5 }'), "max_flag_rate"),
         (case('known_limitation = ""\n[[case.turn]]\nquestion = "q"\noutcome = "clarification"'), "known_limitation"),
         (case('known_limitation = "a\\nb"\n[[case.turn]]\nquestion = "q"\noutcome = "clarification"'), "known_limitation is one line"),
+        (turn('outcome = "clarification"\nweakest_month = "2019-03"'), "need a reference clause"),
+        (turn('outcome = "clarification"\nmonths = [["2019-03", 1, 1, 1, 0]]'), "need a reference clause"),
+        (turn(RULE + 'weakest_month = "March"'), "weakest_month"),
+        (turn(RULE + "months = []"), "months"),
+        (turn(RULE + 'months = [["2019-3", 5, 4, 1, 3]]'), "months"),
+        (turn(RULE + 'months = [["2019-03", 5, 4, 1]]'), "months"),
+        (turn(RULE + 'months = [["2019-03", 5, 4, 1, 3], ["2019-03", 0, 0, 0, 0]]'), "once each, in order"),
+        (turn(RULE + 'months = [["2019-04", 3, 2, 1, 1], ["2019-03", 2, 2, 0, 2]]'), "once each, in order"),
+        (turn(RULE + 'months = [["2019-03", 3, 2, 1, 1], ["2019-04", 2, 2, 0, 1]]'), "do not add up"),
         (turn('outcome = "clarification"\nrequire = ["executed"]'), "both required and forbidden"),
         (turn('outcome = "clarification"\nforbid = ["danced"]'), "forbid"),
         (turn('outcome = "clarification"\nscan_top = ["Rome"]'), "scan_top goes with"),
@@ -144,6 +159,30 @@ def test_the_options_added_for_shape_alternatives_and_known_limitations_load(tmp
     assert (first.or_rule.min_flag_rate, first.or_rule.max_flag_rate) == (0.005, 0.02)
     assert "executed" in first.forbidden  # lifted by the scorer only when a rule was proposed
     assert second.comparison.exact_columns and not second.comparison.allow_extra_columns
+
+
+def test_a_rule_turn_can_carry_its_month_table_and_weakest_month(tmp_path: Path) -> None:
+    months = 'months = [["2019-03", 3, 2, 1, 1], ["2019-04", 2, 2, 0, 2]]\n'
+    text = turn(RULE + months + 'weakest_month = "none"\nrequire = ["caveat_weak_month"]\nforbid = ["caveat_period_drop"]')
+    (loaded,) = load_cases(write(tmp_path, text))
+    only = loaded.turns[0]
+    assert only.weakest_month == "none"
+    assert only.expected_months is not None
+    assert [row.model_dump() for row in only.expected_months] == [
+        {"month": "2019-03", "flagged": 3, "flagged_labelled": 2, "true_positives": 1, "false_positives": 1},
+        {"month": "2019-04", "flagged": 2, "flagged_labelled": 2, "true_positives": 0, "false_positives": 2},
+    ]
+    assert '"weakest_month":"none"' in loaded.model_dump_json()
+
+
+def test_a_turn_without_the_month_fields_serialises_as_it_did_before_they_existed(tmp_path: Path) -> None:
+    # A recorded run keeps a digest of each case's JSON: a case that sets neither
+    # field must keep the digest it was recorded with.
+    (loaded,) = load_cases(write(tmp_path, turn(RULE)))
+    dumped = loaded.model_dump_json()
+    assert loaded.turns[0].months is None and loaded.turns[0].expected_months is None
+    assert '"months"' not in dumped and '"weakest_month"' not in dumped
+    assert '"false_positives":3,"or_rule":null' in dumped
 
 
 def test_an_empty_directory_is_rejected(tmp_path: Path) -> None:
@@ -229,7 +268,7 @@ def test_the_suite_digest_follows_the_files(tmp_path: Path) -> None:
 
 def test_the_shipped_suite_loads() -> None:
     suite = load_suite()
-    assert len(suite.cases) == 119
+    assert len(suite.cases) == 124
     assert set(Counter(case.tier for case in suite.cases)) == set(TIERS)
     assert all(
         (suite.pin(case, number) is not None) == (turn.sql is not None)
@@ -250,7 +289,7 @@ def test_tiers_have_the_documented_sizes() -> None:
         "ambiguous": 7,
         "unanswerable": 7,
         "adversarial": 13,
-        "rules": 10,
+        "rules": 15,
         "rule_policy": 7,
         "scan": 2,
         "paraphrases": 8,
@@ -268,7 +307,8 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
     # rule request), "last month", the velocity example, the brief's debit
     # rule as a count, Rome in Georgia, and the wording of the scan's tool.
     # Then the two cases that failed in the first recorded run and had a
-    # prompt line written for them afterwards.
+    # prompt line written for them afterwards, and the case that asks for the
+    # brief's debit rule a second time, for its month table.
     suite = load_suite()
     fixed_after_the_first_run = {
         "unanswerable-outside-date-range",
@@ -285,10 +325,15 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
         "trap-city-needs-state",
         "scan-where-is-fraud",
     }
+    repeats_a_tuned_rule = {"evidence-brief-rule-by-month"}
     tuned = {case.id for case in suite.cases if case.tuned}
     check = {case.id for case in suite.cases if case.turns[0].question in CHECK_QUESTIONS}
-    assert len(check) == 11 and tuned == check | from_the_prompt | fixed_after_the_first_run
-    assert len(tuned) == 22
+    assert len(check) == 11
+    assert tuned == check | from_the_prompt | fixed_after_the_first_run | repeats_a_tuned_rule
+    assert len(tuned) == 23
+    assert suite.case("evidence-brief-rule-by-month").turns[0].clause == (
+        suite.case("rule-brief-example").turns[0].clause
+    )
     text = system_text("").lower()
     for word in (
         "risky", "suspicious", "high value", "last month", "within 5 minutes", "'ga'",
@@ -311,6 +356,27 @@ def test_the_cases_with_options_of_their_own() -> None:
     assert (band.min_flag_rate, band.max_flag_rate) == (0.005, 0.02)
     # No shipped case asks for the exact width; the option is there for one that needs it.
     assert not [case.id for case in suite.cases for turn in case.turns if turn.exact_columns]
+    # The five cases about the month-by-month evidence, and what each expects.
+    by_month = {
+        case.id: (turn.weakest_month, len(turn.months or ()), set(turn.require), set(turn.forbid))
+        for case in suite.cases
+        for turn in case.turns
+        if turn.weakest_month is not None or turn.months is not None
+    }
+    quiet: tuple[set[str], set[str]] = (set(), {"caveat_weak_month", "caveat_period_drop"})
+    assert by_month == {
+        "evidence-location-by-month": ("2019-03", 10, *quiet),
+        "evidence-brief-rule-by-month": ("2019-09", 10, *quiet),
+        "evidence-some-months-only": ("2019-07", 10, *quiet),
+        "evidence-unlabelled-month": ("2019-06", 10, *quiet),
+        "evidence-fading-rule": (
+            "2019-08", 10, {"caveat_weak_month", "caveat_period_drop", "caveat_high_flag_rate"}, set(),
+        ),
+    }  # fmt: skip
+    assert all(suite.case(case_id).tier == "rules" for case_id in by_month)
+    repeats = {case.id for case in suite.cases if "repeats-a-rule" in case.tags}
+    assert repeats == {"evidence-location-by-month", "evidence-brief-rule-by-month"}
+    assert suite.case("evidence-location-by-month").turns[0].clause == suite.case("rule-location").turns[0].clause
 
 
 def test_no_question_is_asked_twice_except_as_a_marked_repeat() -> None:

@@ -16,11 +16,18 @@ from typing import get_args
 
 import langsmith
 import pytest
-from conftest import RecordingSink, _refuse_connection, rule_reply, sql_reply
+from conftest import (
+    RecordingSink,
+    _refuse_connection,
+    marked_evidence,
+    never_outside_the_answer,
+    rule_reply,
+    sql_reply,
+)
 from langsmith import utils as langsmith_utils
 from pydantic import ValidationError
 
-from fsm_assistant import cli, tracing
+from fsm_assistant import cli, nodes, tracing
 from fsm_assistant.config import Settings, load_settings
 from fsm_assistant.events import Label, NodeName, StepEvent, TurnEvent, step_event
 from fsm_assistant.graph import NODE_NAMES, Assistant, TraceStep
@@ -32,6 +39,8 @@ from fsm_assistant.llm import (
     ScriptedModel,
 )
 from fsm_assistant.nl2sql import model_spec
+from fsm_assistant.presentation import render_text
+from fsm_assistant.result import RuleCard, RuleMonth
 from fsm_assistant.tracing import (
     ALLOWED,
     ALLOWED_METADATA,
@@ -343,6 +352,54 @@ def test_a_run_cannot_be_built_with_a_key_off_the_allow_list(settings: Settings)
     assert not {"rows", "result", "response", "failure_detail", "detail", "answer", "rule"} & (
         ALLOWED["turn"][1] | ALLOWED["step"][1] | ALLOWED["model"][1]
     )
+
+
+def test_a_rule_turn_sends_the_clause_and_caveat_codes_and_no_figure_of_its_evidence(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(nodes, "rule_evidence", marked_evidence)
+    sink = RecordingSink()
+    shown: list[TraceStep] = []
+    assistant = Assistant(settings, ScriptedModel([rule_reply(RULE)]), label=ASK, tracer=traced(sink))
+    result = assistant.run_turn("A rule for big debit payments", "c1", on_step=shown.append)
+
+    card = result.rule
+    assert card is not None and card.weakest_month == "2019-09" and len(card.months) == 3
+    figures = never_outside_the_answer(card)
+    answer = result.model_dump_json() + render_text(result)
+    assert len(figures) > 60
+    for figure in ("5,831,329", "5831329", "2019-09", "3.80%", "0.03800", "weakest_month"):
+        assert figure in figures and figure in answer, "shown to the user, so the search means something"
+
+    # Ids and clock times aside (digits code made), all that would leave the process.
+    runs = sink.runs
+    sent = json.dumps(
+        [(run.name, run.inputs, run.outputs, run.error, run.tags, run.metadata) for run in runs]
+    )
+    lines = "\n".join(step.summary for step in shown)
+    for figure in figures:
+        assert figure not in sent, f"{figure!r} would have been sent"
+        assert figure not in lines, f"{figure!r} would have been printed by --trace"
+    evidence_names = set(RuleCard.model_fields) | set(RuleMonth.model_fields) | {"evidence"}
+    for run in runs:
+        assert not (run.inputs.keys() | run.outputs.keys()) & (evidence_names - {"where_clause"})
+    assert not (evidence_names - {"where_clause"}) & (
+        ALLOWED["turn"][1] | ALLOWED["step"][1] | ALLOWED["model"][1]
+    )
+
+    root = runs[0]
+    measured = next(run for run in runs if run.name == "backtest_rule")
+    assert measured.inputs.keys() == {"seq", "attempt", "model_calls"}
+    assert measured.outputs.keys() == {"duration_ms", "query_ms"}
+    assert measured.outputs["query_ms"] == 1750, "the two statements together, and only their time"
+    assert "backtest ran in 1.75 s" in lines
+    assert root.outputs["outcome"] == "rule_proposed" and root.outputs["where_clause"] == RULE
+    assert root.outputs["reads_labels"] is True and "row_count" not in root.outputs
+    codes = [caveat.code for caveat in result.caveats]
+    assert {"weak_month", "period_drop"} <= set(codes), "the two caveats of the evidence by month"
+    assert root.outputs["caveats"] == codes
+    assert next(run for run in runs if run.name == "present").outputs["caveats"] == codes
+    assert "caveats: " + ", ".join(codes) in lines
 
 
 def test_a_failure_sentence_code_did_not_write_is_not_sent(

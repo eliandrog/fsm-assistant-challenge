@@ -7,6 +7,7 @@ every scorer. It is skipped when data/data.db is missing.
 """
 
 import time
+from functools import cache
 from pathlib import Path
 
 import pytest
@@ -34,8 +35,15 @@ from fsm_assistant.evals.evidence import (
     verify_rule_reference,
     write_pins,
 )
-from fsm_assistant.evals.scorers import FailureReason, Observation, RuleMetrics, Score
-from fsm_assistant.rules.backtest import BacktestResult, backtest
+from fsm_assistant.evals.scorers import (
+    FailureReason,
+    MonthMetrics,
+    Observation,
+    RuleMetrics,
+    Score,
+)
+from fsm_assistant.rules import backtest as backtest_module
+from fsm_assistant.rules.proposal import RuleEvidence, rule_evidence
 
 TIMEOUT = 30.0
 SUITE = load_suite()
@@ -43,12 +51,21 @@ SUITE = load_suite()
 SLOW_SECONDS = 3.0
 
 
-def reported(result: BacktestResult) -> RuleMetrics:
+@cache
+def backtest(clause: str, *, db_path: Path, timeout_seconds: float) -> RuleEvidence:
+    """A rule's evidence, measured once for each clause and database of a test session."""
+    return rule_evidence(clause, db_path=db_path, timeout_seconds=timeout_seconds)
+
+
+def reported(evidence: RuleEvidence) -> RuleMetrics:
+    """What a turn reports for a rule: the overall backtest and its monthly rows."""
+    result = evidence.overall
     return RuleMetrics(
         **result.model_dump(exclude={"clause", "elapsed_seconds"}),
         precision=result.precision,
         recall=result.recall,
         flag_rate=result.flag_rate,
+        months=tuple(MonthMetrics(**row.model_dump()) for row in evidence.months),
     )
 
 
@@ -178,6 +195,69 @@ def test_a_rule_reference_is_checked_against_its_counts(fixture_db: Path) -> Non
     ]
 
 
+# The fixture's six transactions fall in six months; 1002 (February, fraud) and
+# 1006 (October, unlabelled) are over $1,000.
+FIXTURE_MONTHS = [
+    ["2019-01", 0, 0, 0, 0],
+    ["2019-02", 1, 1, 1, 0],
+    ["2019-03", 0, 0, 0, 0],
+    ["2019-04", 0, 0, 0, 0],
+    ["2019-05", 0, 0, 0, 0],
+    ["2019-10", 1, 0, 0, 0],
+]
+
+
+def test_a_rule_reference_is_checked_against_its_month_table_and_weakest_month(fixture_db: Path) -> None:
+    def differences(**fields: object) -> list[str]:
+        turn = answered("", clause="amount_usd_cents > 100000", **fields)
+        return verify_rule_reference(turn, db_path=fixture_db, timeout_seconds=TIMEOUT)
+
+    assert differences(months=FIXTURE_MONTHS, weakest_month="none") == []
+    # The catch moved to October, a month left out, and a weakest month no month can be.
+    moved = [["2019-01", 0, 0, 0, 0], ["2019-02", 1, 0, 0, 0], *FIXTURE_MONTHS[2:5], ["2019-10", 1, 1, 1, 0]]
+    assert differences(months=moved) == [
+        "2019-02: the case says {'flagged': 1, 'flagged_labelled': 0, 'true_positives': 0, "
+        "'false_positives': 0}, the backtest gives {'flagged': 1, 'flagged_labelled': 1, "
+        "'true_positives': 1, 'false_positives': 0}",
+        "2019-10: the case says {'flagged': 1, 'flagged_labelled': 1, 'true_positives': 1, "
+        "'false_positives': 0}, the backtest gives {'flagged': 1, 'flagged_labelled': 0, "
+        "'true_positives': 0, 'false_positives': 0}",
+    ]
+    assert differences(months=FIXTURE_MONTHS[1:]) == [
+        "2019-01: the case says nothing, the backtest gives {'flagged': 0, 'flagged_labelled': 0, "
+        "'true_positives': 0, 'false_positives': 0}"
+    ]
+    assert differences(weakest_month="2019-02") == [
+        "weakest_month: the case says 2019-02, the evidence gives none"
+    ]
+
+
+def test_the_recomputation_by_month_by_hand(fixture_db: Path) -> None:
+    again = recompute("amount_usd_cents > 100000", db_path=fixture_db, timeout_seconds=TIMEOUT)
+    assert [
+        [row.month, row.flagged, row.flagged_labelled, row.true_positives, row.false_positives]
+        for row in again.months
+    ] == FIXTURE_MONTHS
+    february, october = again.months[1], again.months[5]
+    assert (february.total_transactions, february.total_labelled, february.total_fraud) == (1, 1, 1)
+    assert (october.total_transactions, october.total_labelled, october.total_fraud) == (1, 0, 0)
+    assert (february.flagged_amount_cents, february.fraud_amount_caught_cents) == (150_000, 150_000)
+    assert (october.flagged_amount_cents, october.fraud_amount_caught_cents) == (120_000, 0)
+    nothing = recompute("1 = 0", db_path=fixture_db, timeout_seconds=TIMEOUT)
+    assert len(nothing.months) == 6 and all(row.flagged == 0 for row in nothing.months)
+
+
+def test_the_recomputation_shares_no_statement_with_the_backtest() -> None:
+    ours = (
+        evidence._FLAGGED_BY_MONTH, evidence._FLAGGED_BY_MONTH_AND_LABEL,
+        evidence._TRANSACTIONS_BY_MONTH, evidence._LABELS_BY_MONTH,
+    )  # fmt: skip
+    for statement in ours:
+        assert "strftime('%Y-%m', transactions.date)" in statement
+        assert "WITH" not in statement and "LEFT JOIN" not in statement and "substr" not in statement
+    assert "substr(t.date, 1, 7)" in backtest_module._MONTHLY_TEMPLATE
+
+
 def test_score_turn_for_a_query(fixture_db: Path) -> None:
     turn = answered("SELECT count(*) FROM transactions WHERE amount_usd_cents < 0")
     pin = pin_for(turn, ((1,),))
@@ -252,6 +332,14 @@ def test_score_turn_for_a_rule(fixture_db: Path) -> None:
     assert inflated.backtest is not None
     lying = inflated.model_copy(update={"backtest": inflated.backtest.model_copy(update={"true_positives": 2})})
     assert scored(lying) == {"rule_arithmetic": FailureReason.METRIC_MISMATCH}
+    # A month's figure that is not what the data gives, and a backtest reported without months.
+    months = inflated.backtest.months
+    shifted = (months[0].model_copy(update={"flagged": 1}), months[1].model_copy(update={"flagged": 0}), *months[2:])
+    for wrong_months in (shifted, ()):
+        reported_so = inflated.backtest.model_copy(update={"months": wrong_months})
+        assert scored(inflated.model_copy(update={"backtest": reported_so})) == {
+            "rule_arithmetic": FailureReason.METRIC_MISMATCH
+        }
     assert scored(Observation(outcome="cannot_answer", caveats=("small_sample",))) == {
         "outcome": FailureReason.NOT_ANSWERED,
         "rule_arithmetic": FailureReason.NO_BACKTEST,
@@ -268,6 +356,29 @@ def test_score_turn_for_a_rule(fixture_db: Path) -> None:
         "guardrail": FailureReason.REJECTED_EXECUTED,
         "rule_arithmetic": FailureReason.NO_BACKTEST,
         "rule_match": FailureReason.NO_BACKTEST,
+    }
+
+
+def test_score_turn_checks_the_weakest_month_when_the_case_names_one(fixture_db: Path) -> None:
+    clause = "amount_usd_cents > 100000"
+    turn = answered("", clause=clause, weakest_month="none")
+    measured = reported(backtest(clause, db_path=fixture_db, timeout_seconds=TIMEOUT))
+
+    def scores(observation: Observation) -> tuple[Score, ...]:
+        return score_turn(turn, observation, None, db_path=fixture_db, timeout_seconds=TIMEOUT)
+
+    proposed = Observation(outcome="rule_proposed", where_clause=clause, backtest=measured)
+    assert [score.scorer for score in scores(proposed)] == [
+        "outcome", "behaviour", "guardrail", "rule_arithmetic", "rule_match", "weakest_month",
+    ]  # fmt: skip
+    assert failures(scores(proposed)) == {}
+    named = proposed.model_copy(update={"weakest_month": "2019-02"})
+    assert failures(scores(named)) == {"weakest_month": FailureReason.WRONG_WEAKEST_MONTH}
+    assert failures(scores(Observation(outcome="cannot_answer"))) == {
+        "outcome": FailureReason.NOT_ANSWERED,
+        "rule_arithmetic": FailureReason.NO_BACKTEST,
+        "rule_match": FailureReason.NO_BACKTEST,
+        "weakest_month": FailureReason.NO_BACKTEST,
     }
 
 
@@ -382,9 +493,11 @@ def ideal_observation(turn: Turn, pin: PinnedResult | None, path: Path) -> Obser
         )
     if turn.clause is not None:
         measured = backtest(turn.clause, db_path=path, timeout_seconds=DEFAULT_QUERY_TIMEOUT_SECONDS)
+        weakest = measured.weakest_month
         return Observation(
             outcome="rule_proposed", action="propose_rule", where_clause=turn.clause,
             backtest=reported(measured), caveats=caveats,
+            weakest_month=None if weakest is None else weakest.month,
         )
     if turn.action == "profile_fraud":
         return Observation(outcome="answered", action="profile_fraud", rows=((*turn.scan_top, 1360),))

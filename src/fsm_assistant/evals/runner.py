@@ -26,7 +26,7 @@ from fsm_assistant.config import Settings
 from fsm_assistant.evals.cases import Case, Feature, Suite, Tier
 from fsm_assistant.evals.evidence import score_turn
 from fsm_assistant.evals.report import CaseResult, TurnScore, case_result, skip_reason
-from fsm_assistant.evals.scorers import Observation, RuleMetrics, Score
+from fsm_assistant.evals.scorers import MonthMetrics, Observation, RuleMetrics, Score
 from fsm_assistant.events import Label
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import IntentModel, ModelReply, ScriptedModel, TokenUsage, ToolCall
@@ -153,6 +153,7 @@ def observe(result: TurnResult) -> Observation:
         rows=None if table is None else table.rows,
         truncated=table is not None and table.truncated,
         backtest=None if result.rule is None else _metrics(result.rule),
+        weakest_month=None if result.rule is None else result.rule.weakest_month,
         caveats=tuple(caveat.code for caveat in result.caveats),
         rejections=tuple(str(code) for code in result.refused),
         model_calls=result.meta.model_calls,
@@ -241,4 +242,6 @@ _SCORE = set(Score.model_fields)
 
 
 def _metrics(rule: RuleCard) -> RuleMetrics:
-    return RuleMetrics.model_validate(rule.model_dump(include=set(RuleMetrics.model_fields)))
+    overall = rule.model_dump(include=set(RuleMetrics.model_fields) - {"months"})
+    months = [row.model_dump(include=set(MonthMetrics.model_fields)) for row in rule.months]
+    return RuleMetrics.model_validate({**overall, "months": months})

@@ -10,7 +10,13 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from conftest import RecordingSink, rule_reply, sql_reply
+from conftest import (
+    RecordingSink,
+    marked_evidence,
+    never_outside_the_answer,
+    rule_reply,
+    sql_reply,
+)
 
 from fsm_assistant import applog, cli, nodes
 from fsm_assistant.applog import LOG_FILE
@@ -143,6 +149,35 @@ def test_no_question_no_sql_no_data_no_exception_text_and_no_key_reaches_the_log
     assert re.search(r"raised at test_applog\.py:\d+ in fault\n", text), "the place, not the message"
     assert text.count("a trace could not be sent to LangSmith: RuntimeError") == 4
     for value in (*NEVER_LOGGED, "Question", "SELECT", "amount_usd_cents", "json_extract"):
+        assert value not in text, f"{value!r} was written to the log"
+
+
+def test_no_figure_of_a_rules_evidence_by_month_reaches_the_log(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = configured(settings.model_copy(update={"log_level": "DEBUG"}))
+    monkeypatch.setattr(nodes, "rule_evidence", marked_evidence)
+    sink = RecordingSink()
+    assistant = Assistant(
+        settings, ScriptedModel([rule_reply(RULE)]), tracer=Tracer(sink, Destination(project="p"))
+    )
+    result = assistant.run_turn("A rule for big debit payments", "c1")
+
+    card = result.rule
+    assert card is not None and len(sink.batches) == 1
+    assert {"weak_month", "period_drop"} <= {caveat.code for caveat in result.caveats}
+    shown = result.model_dump_json()
+    text = path.read_text()
+    assert "turn finished: conversation=c1 turn=1 outcome=rule_proposed error=-" in text
+    assert "trace queued: conversation=c1 turn=1" in text
+    # The trace id on that line is made by code from the clock; the rest is searched.
+    searched = re.sub(r"trace_id=\S+", "", text)
+    figures = never_outside_the_answer(card)
+    for figure in ("5831329", "2019-09", "0.03800", "weakest_month"):
+        assert figure in figures and figure in shown, "shown to the user, so the search means something"
+    for figure in figures:
+        assert figure not in searched, f"{figure!r} was written to the log"
+    for value in ("weak_month", "period_drop", "amount_usd_cents", "A rule for"):
         assert value not in text, f"{value!r} was written to the log"
 
 

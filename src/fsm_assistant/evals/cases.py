@@ -17,6 +17,8 @@ more `[[case.turn]]` tables. What a turn expects depends on its `outcome`:
 - `rule_proposed`: a reference `clause`, the four counts its backtest gives,
   and how far the proposed rule's flagged set may differ from the
   reference's (`min_jaccard`, `min_overlap_precision`, `min_overlap_recall`).
+  Optionally the reference's month table (`months`) and the month the rule
+  card must name as its weakest (`weakest_month`, or `"none"`).
 - `clarification`, `cannot_answer`, `refused` (declined, or refused twice by
   the guard): no reference. Nothing may be executed in such a turn, unless
   it has an `or_rule` table: then a proposed rule is accepted too, when it is
@@ -77,6 +79,8 @@ Fact = Literal[
     "caveat_zero_rows",
     "caveat_small_sample",
     "caveat_high_flag_rate",
+    "caveat_weak_month",
+    "caveat_period_drop",
 ]
 # A part of the system a case needs; the runner skips the case without it.
 Feature = Literal["scan"]
@@ -92,6 +96,13 @@ _ID = r"^[a-z0-9]+(-[a-z0-9]+)*$"
 _TAG = r"^[a-z0-9]+([:_-][a-z0-9]+)*$"
 _Fraction = Annotated[float, Field(ge=0.0, le=1.0)]
 _Count = Annotated[int, Field(ge=0)]
+_MONTH = r"\d{4}-\d{2}"
+# One month of a reference rule: month, flagged, flagged labelled, fraud caught, false positives.
+type MonthRow = tuple[Annotated[str, Field(pattern=f"^{_MONTH}$")], _Count, _Count, _Count, _Count]
+
+
+def _unset(value: object) -> bool:
+    return value is None
 
 
 class CaseFileError(Exception):
@@ -156,6 +167,18 @@ class ExpectedBacktest(BaseModel):
     false_positives: int
 
 
+class ExpectedMonth(BaseModel):
+    """The counts the reference clause gives in one calendar month."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    month: str
+    flagged: int
+    flagged_labelled: int
+    true_positives: int
+    false_positives: int
+
+
 class Turn(BaseModel):
     """One message of a case and what the reply to it must be."""
 
@@ -180,6 +203,12 @@ class Turn(BaseModel):
     flagged_labelled: _Count | None = None
     true_positives: _Count | None = None
     false_positives: _Count | None = None
+    # Left out of the serialised case while unset, so the digest of a case
+    # recorded before these fields existed is still the digest it has now.
+    months: tuple[MonthRow, ...] | None = Field(default=None, min_length=1, exclude_if=_unset)
+    weakest_month: str | None = Field(
+        default=None, pattern=f"^({_MONTH}|none)$", exclude_if=_unset
+    )
 
     or_rule: AcceptedRule | None = None
 
@@ -202,6 +231,16 @@ class Turn(BaseModel):
                 "flagged, flagged_labelled, true_positives and false_positives are all given "
                 "with a clause, and only then"
             )
+        if self.clause is None and (self.months is not None or self.weakest_month is not None):
+            raise ValueError("months and weakest_month need a reference clause")
+        if self.months is not None:
+            names = [row[0] for row in self.months]
+            if names != sorted(set(names)):
+                raise ValueError("months are listed once each, in order")
+            _, *columns = zip(*self.months, strict=True)
+            totals = (self.flagged, self.flagged_labelled, self.true_positives, self.false_positives)
+            if tuple(sum(column) for column in columns) != totals:
+                raise ValueError("the months do not add up to the four counts of the clause")
         if self.sql is None and _COMPARISON_OPTIONS & self.model_fields_set:
             raise ValueError("comparison options need a reference sql")
         if self.exact_columns and self.allow_extra_columns:
@@ -257,6 +296,21 @@ class Turn(BaseModel):
             flagged_labelled=self.flagged_labelled,
             true_positives=self.true_positives,
             false_positives=self.false_positives,
+        )
+
+    @property
+    def expected_months(self) -> tuple[ExpectedMonth, ...] | None:
+        if self.months is None:
+            return None
+        return tuple(
+            ExpectedMonth(
+                month=month,
+                flagged=flagged,
+                flagged_labelled=labelled,
+                true_positives=caught,
+                false_positives=wrong,
+            )
+            for month, flagged, labelled, caught, wrong in self.months
         )
 
     @property

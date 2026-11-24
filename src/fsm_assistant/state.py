@@ -6,8 +6,8 @@ Responsibility: the one object the graph's nodes read and update
 - kept across the turns of a conversation: `turn`, `history`, `scan_seen`;
 - belonging to one turn, and reset by its first node: everything from
   `attempt` to `outcome`;
-- never saved: `result` and `response`, which hold rows, and
-  `failure_detail`, SQLite's message for a statement that failed while it
+- never saved: `result`, `evidence` and `response`, which hold rows or
+  figures computed from them, and `failure_detail`, SQLite's message for a statement that failed while it
   ran, which can quote a value. They are marked `UntrackedValue`, so the
   checkpointer never receives them.
 
@@ -33,6 +33,7 @@ from fsm_assistant.nl2sql import (
 from fsm_assistant.prompt import PreviousTurn, Repair
 from fsm_assistant.result import ErrorKind, Outcome, RefusalCode, TurnResult
 from fsm_assistant.rules.backtest import BacktestResult
+from fsm_assistant.rules.proposal import RuleEvidence
 from fsm_assistant.sql_guard import ReasonCode
 
 # One attempt and one repair.
@@ -87,6 +88,8 @@ class TurnState(BaseModel):
     outcome: Outcome | None = None
 
     result: Annotated[QueryResult | BacktestResult | None, UntrackedValue] = None
+    # A rule's backtest with its monthly rows; `result` is then its overall part.
+    evidence: Annotated[RuleEvidence | None, UntrackedValue] = None
     failure_detail: Annotated[str | None, UntrackedValue] = None
     response: Annotated[TurnResult | None, UntrackedValue] = None
 
@@ -120,6 +123,7 @@ PER_TURN_RESET: dict[str, object] = {
     "refused": (),
     "outcome": None,
     "result": None,
+    "evidence": None,
     "failure_detail": None,
     "response": None,
 }
