@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from fsm_assistant import config
+from fsm_assistant import config, db
 from fsm_assistant.config import ConfigError, load_settings, parse_env_file
 
 
@@ -22,6 +22,7 @@ def test_defaults():
     assert settings.ollama_model is None
     assert settings.row_cap == config.DEFAULT_ROW_CAP
     assert settings.query_timeout_seconds == config.DEFAULT_QUERY_TIMEOUT_SECONDS
+    assert settings.max_result_bytes == db.DEFAULT_MAX_RESULT_BYTES == 5_000_000
 
 
 def test_project_root_is_the_repository():
@@ -36,6 +37,7 @@ def test_environment_overrides():
             "OLLAMA_MODEL": "qwen3:14b",
             "FSM_ROW_CAP": "50",
             "FSM_QUERY_TIMEOUT_SECONDS": "2.5",
+            "FSM_MAX_RESULT_BYTES": "20000",
         }
     )
     assert settings.db_path == Path("/tmp/other.db")
@@ -43,6 +45,7 @@ def test_environment_overrides():
     assert settings.ollama_model == "qwen3:14b"
     assert settings.row_cap == 50
     assert settings.query_timeout_seconds == 2.5
+    assert settings.max_result_bytes == 20_000
 
 
 def test_relative_db_path_is_resolved_against_the_project_not_the_cwd(tmp_path, monkeypatch):
@@ -85,6 +88,8 @@ def test_missing_db_file_is_not_an_error_at_load_time():
         ("FSM_QUERY_TIMEOUT_SECONDS", "0", "greater than zero"),
         ("FSM_QUERY_TIMEOUT_SECONDS", "inf", "greater than zero"),
         ("FSM_QUERY_TIMEOUT_SECONDS", "nan", "greater than zero"),
+        ("FSM_MAX_RESULT_BYTES", "5MB", "must be a number"),
+        ("FSM_MAX_RESULT_BYTES", "0", "greater than zero"),
         ("OLLAMA_HOST", "localhost:11434", "http://"),
     ],
 )
@@ -139,5 +144,21 @@ def test_os_environ_is_the_default_source(monkeypatch):
 def test_env_example_is_a_valid_env_file():
     values = parse_env_file((config.PROJECT_ROOT / ".env.example").read_text())
     assert {"FSM_DB_PATH", "OLLAMA_HOST", "OLLAMA_MODEL", "FSM_ROW_CAP",
-            "FSM_QUERY_TIMEOUT_SECONDS"} <= values.keys()
+            "FSM_QUERY_TIMEOUT_SECONDS", "FSM_MAX_RESULT_BYTES"} <= values.keys()
     load_settings({}, config.PROJECT_ROOT / ".env.example")
+
+
+def test_an_empty_environment_variable_does_not_hide_the_env_file(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("FSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
+    settings = load({"FSM_ROW_CAP": "", "OLLAMA_MODEL": "   "}, env_file)
+    assert settings.row_cap == 25
+    assert settings.ollama_model == "from-file"
+
+
+def test_env_file_with_a_byte_order_mark(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_bytes(b"\xef\xbb\xbfFSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
+    settings = load(env_file=env_file)
+    assert settings.row_cap == 25
+    assert settings.ollama_model == "from-file"

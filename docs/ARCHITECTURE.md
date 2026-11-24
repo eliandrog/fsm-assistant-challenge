@@ -1,6 +1,6 @@
 # Architecture
 
-**Status: partly built.** Four modules are **Built** and tested: `config.py`, `db.py`, `schema_context.py` and `rules/backtest.py` ([details](#built-components)). Everything else on this page is **Proposed**: it is the target design, and those modules under `src/fsm_assistant/` are docstring-only placeholders. Nothing calls a model yet. Each section and table row says which is which. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
+**Status: partly built.** Six modules are **Built** and tested: `config.py`, `db.py`, `schema_context.py`, `sql_scan.py`, `sql_guard.py` and `rules/backtest.py` ([details](#built-components)). Everything else on this page is **Proposed**: it is the target design, and those modules under `src/fsm_assistant/` are docstring-only placeholders. Nothing calls a model yet. Each section and table row says which is which. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
 
 ## Contents
 
@@ -94,8 +94,8 @@ flowchart TD
 
     classDef built fill:#d4edda,stroke:#2e7d32,color:#000
     classDef proposed fill:#ffffff,stroke:#888888,stroke-dasharray: 5 5,color:#000
-    class SCHEMA,EXEC,BT,DB,L1 built
-    class CLI,WEB,GRAPH,PROMPT,MODEL,GUARD,PROP,SCAN,PRES,CASES,REC,CLAUDE,L2 proposed
+    class SCHEMA,EXEC,BT,GUARD,DB,L1 built
+    class CLI,WEB,GRAPH,PROMPT,MODEL,PROP,SCAN,PRES,CASES,REC,CLAUDE,L2 proposed
 ```
 
 Notes on the diagram:
@@ -147,10 +147,10 @@ All proposed. "Calls" names existing functions where they are built and planned 
 | `begin_turn` | Empty and length check; reset every per-turn field | none | per-turn fields, `turn` |
 | `call_model` | Build the messages; the only node that calls the model | `nl2sql.build_messages`, the model client in `llm.py` | `raw_reply`, `attempt`, `model_calls` |
 | `check_intent` | Trim, drop one trailing `;`, check the reply is exactly one valid tool call, build a typed action | `nl2sql.check_shape` | `action` or `failure` |
-| `guard_sql` | Compile-only policy check of a query | `sql_guard`, `db.inspect_query` | `approved_sql` or `failure` |
+| `guard_sql` | Text limits, then a compile-only policy check of a query | `sql_guard.check_query` (built), which uses `sql_scan` and `db.inspect_query` (built) | `approved_sql` or `failure` |
 | `execute_sql` | Run the approved string, and only that | `db.run_query` (built) | `result` or `failure` |
-| `guard_rule` | Containment and rule policy for a clause | `backtest.check_clause` (built), `sql_guard` | `approved_clause` or `failure` |
-| `backtest_rule` | Backtest, then month-by-month evidence | `rules/backtest` (built), `rules/proposal` | `result` or `failure` |
+| `guard_rule` | Text limits, containment and rule policy for a clause | `sql_guard.check_rule_clause` (built) | `approved_clause` or `failure` |
+| `backtest_rule` | Backtest, then month-by-month evidence | `rules/backtest` (built; it applies the rule policy itself), `rules/proposal` | `result` or `failure` |
 | `run_scan` | Code-written fraud-concentration scan | `explore.scan` | `result`, `scan_seen` |
 | `present` | Format hints, coded caveats, the outcome | `presentation` | `result`, `outcome` |
 | `remember` | The only writer of conversation memory | none | `history` |
@@ -186,19 +186,19 @@ Each step lists what will happen, why the step is there and what it protects aga
    - Why: every later node needs to know which of five things was asked for.
    - Protects against: acting on free text; a reply that asks for two things at once.
 4. **`guard_sql`** (for `run_sql`)
-   - What: compiles the query without running it and reads what SQLite reports about it: it must be a single read-only `SELECT` over the seven known tables, with no denied function.
+   - What: calls the built guard, which first checks the text (length, no Markdown fence, a bound on what it would cost to compile), then compiles the query without running it and reads what SQLite reports about it: it must be a single read-only `SELECT` over the seven known tables, with no denied function and no filter relative to today's date.
    - Why: a prompt instruction cannot be enforced; a check in code can.
-   - Protects against: writes, reads of internal tables, extension loading, several statements in one string.
+   - Protects against: writes, reads of internal tables, extension loading, several statements in one string, a statement that would take seconds to compile.
 5. **`execute_sql`**
-   - What: runs the string the guard approved, through `db.run_query` (built): read-only connection, timeout, row cap.
+   - What: runs the string the guard approved, through `db.run_query` (built): read-only connection, timeout, row cap, result-size budget.
    - Why: the answer has to come from the data.
    - Protects against: running anything the guard did not see (the node reads `approved_sql`, which only `guard_sql` writes); runaway queries; oversized results.
 6. **`guard_rule`** (for `propose_rule`)
-   - What: applies the built containment check to the clause, then the rule policy: the clause must not read `fraud_labels` and must not use non-deterministic functions.
+   - What: calls the built guard, which applies the text checks and the containment check to the clause, then the query policy to the clause alone, then the rule policy: the clause must not read `fraud_labels` and must not use non-deterministic functions.
    - Why: a rule is text placed inside our backtest statement, so it must stay one expression and must not see the answers.
    - Protects against: a clause that changes what is measured; a clause that "predicts" fraud by reading the labels.
 7. **`backtest_rule`**
-   - What: runs the built backtest for the approved clause, then the month-by-month evidence.
+   - What: runs the built backtest for the approved clause, then the month-by-month evidence. The backtest applies the rule policy again itself, so it cannot measure a clause the guard would refuse.
    - Why: a rule without numbers is an opinion.
    - Protects against: a plausible rule that performs badly; a rule that only looks good in aggregate.
 8. **`run_scan`** (for `profile_fraud`)
@@ -237,7 +237,7 @@ Proposed. Each one will become a test.
 | Capability | Form | Why |
 |---|---|---|
 | Choosing the action | Five tools the model can call: `run_sql`, `propose_rule`, `profile_fraud`, `ask_clarification`, `decline` | The model proposes an action by calling a tool; a node validates and executes it. The framework never runs a tool body on the model's behalf |
-| SQL guard, rule policy, `check_clause` | Plain functions inside the guard nodes | Safety must not be skippable or callable by the model |
+| SQL guard and rule policy | Plain functions inside the guard nodes | Safety must not be skippable or callable by the model |
 | `db.run_query` | Plain function called by `execute_sql` | Reachable only through `approved_sql` |
 | Backtest and month-by-month evidence | Plain functions called by `backtest_rule` | Reachable only through `approved_clause` |
 | Fraud scan | Plain function; a node and a terminal command | Code writes the SQL |
@@ -257,9 +257,9 @@ The first four points describe the proposed design; the last two already hold in
 | Layer | What it does | Status |
 |---|---|---|
 | Prompt and the `decline` tool | Tells the model what is in scope and gives it a way to say no | Proposed |
-| SQL guard | Compiles the SQL without running it and accepts a single read-only `SELECT` over known tables | Proposed |
+| SQL guard | Bounds the text, then compiles the SQL without running it and accepts a single read-only `SELECT` over known tables | Built ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); not yet called by a graph |
 | Read-only connection with its authorizer | SQLite itself refuses every action that is not a read | Built ([D-06](DECISIONS.md#d-06-read-only-is-enforced-in-three-engine-level-layers)) |
-| Timeout and limits | A query is interrupted after a deadline; at most a fixed number of rows is fetched | Built ([D-07](DECISIONS.md#d-07-query-timeout-through-a-progress-handler), [D-08](DECISIONS.md#d-08-db-owns-the-row-cap)); a size limit on values is proposed |
+| Timeout and limits | A query is interrupted after a deadline; at most a fixed number of rows is fetched; no single value may exceed 100,000 bytes, and a result may have at most 100 columns and 5,000,000 bytes | Built ([D-07](DECISIONS.md#d-07-query-timeout-through-a-progress-handler), [D-08](DECISIONS.md#d-08-db-owns-the-row-cap), [D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)) |
 
 **A rule is never shown without a backtest.** The only route from `propose_rule` to the FSM passes through `backtest_rule`.
 
@@ -272,14 +272,15 @@ The first four points describe the proposed design; the last two already hold in
 | Module | Responsibility | Status |
 |---|---|---|
 | `config.py` | Typed, validated settings from the environment and `.env` | Built |
-| `db.py` | The only module that opens the database: read-only connection, timeout, row cap. Planned addition: `inspect_query` (compile only) | Built (addition Proposed) |
+| `db.py` | The only module that opens the database: read-only connection, timeout, row cap, value-size cap, result-size budget; `run_query` (execute) and `inspect_query` (compile only) | Built |
 | `schema_context.py` | Describes the real schema to the model: tables, columns, allowed values, join keys, data notes | Built |
-| `rules/backtest.py` | Measures a rule clause against the fraud labels. Planned addition: a by-month template | Built (addition Proposed) |
+| `rules/backtest.py` | Measures a rule clause against the fraud labels, after the guard's rule policy has accepted it. Planned addition: a by-month template | Built (addition Proposed) |
 | `graph.py` | State, graph wiring, `run_turn`, export of the graph as a Mermaid diagram | Proposed |
 | `nodes.py` | The node functions listed [above](#the-nodes) | Proposed |
 | `llm.py` | The only module that talks to a model provider. One small interface with four implementations: live (Claude), recording, replay, scripted (for tests) | Proposed |
 | `nl2sql.py` | Prompt assembly, glossary, the five tool schemas and typed actions, shape checks | Proposed |
-| `sql_guard.py` | Query policy and rule policy, decided in code | Proposed |
+| `sql_scan.py` | Splits SQL text into tokens, pairing quotes and comments as SQLite does | Built |
+| `sql_guard.py` | Text limits, query policy and rule policy, decided in code | Built |
 | `explore.py` | Fraud-concentration scan | Proposed |
 | `rules/proposal.py` | Rule policy, backtest, month-by-month evidence, lift (how many times the base fraud rate) | Proposed |
 | `presentation.py` | Format hints (cents as dollars), coded caveats | Proposed |
@@ -290,15 +291,21 @@ The first four points describe the proposed design; the last two already hold in
 
 ## Built components
 
-**`config.py`.** `load_settings()` returns an immutable `Settings` (database path, row cap, query timeout, and two model settings) from environment variables, with defaults. A `.env` file in the project root is read by a small built-in parser; real environment variables win ([D-09](DECISIONS.md#d-09-env-is-read-by-a-small-built-in-parser)). Invalid values raise `ConfigError` naming the variable. Loading does not touch the database or a model. The module still carries the earlier provider's settings (`OLLAMA_HOST`, `OLLAMA_MODEL` and `Settings.require_model()`), to be replaced by the Claude settings when the model layer is built ([D-14](DECISIONS.md#d-14-model-provider-anthropic-claude-through-its-api)); nothing uses them.
+Imports between the built modules go one way: `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project.
 
-**`db.py`.** `run_query(sql, params, *, db_path, row_cap, timeout_seconds)` runs one statement on a fresh connection and returns a `QueryResult` (`columns`, `rows`, `row_count`, `truncated`, `elapsed_seconds`). It treats the SQL as untrusted and enforces everything in the engine, without parsing or rewriting the text:
+**`config.py`.** `load_settings()` returns an immutable `Settings` (database path, row cap, query timeout, result-size budget, and two model settings) from environment variables, with defaults. A `.env` file in the project root is read by a small built-in parser; real environment variables win ([D-09](DECISIONS.md#d-09-env-is-read-by-a-small-built-in-parser)), except that an empty one does not hide a value in the file, and a byte-order mark at the start of the file is ignored. Invalid values raise `ConfigError` naming the variable. Loading does not touch the database or a model. The module still carries the earlier provider's settings (`OLLAMA_HOST`, `OLLAMA_MODEL` and `Settings.require_model()`), to be replaced by the Claude settings when the model layer is built ([D-14](DECISIONS.md#d-14-model-provider-anthropic-claude-through-its-api)); nothing uses them.
+
+**`db.py`.** `run_query(sql, params, *, db_path, row_cap, timeout_seconds, max_result_bytes)` runs one statement on a fresh connection and returns a `QueryResult` (`columns`, `rows`, `row_count`, `truncated`, `elapsed_seconds`). It treats the SQL as untrusted and enforces everything in the engine, without parsing or rewriting the text:
 
 - Read-only in three layers ([D-06](DECISIONS.md#d-06-read-only-is-enforced-in-three-engine-level-layers)): URI `mode=ro`, `PRAGMA query_only`, and an authorizer (a callback SQLite consults while it compiles a statement) that denies every action except reads (`SELECT`, column reads, functions, recursive CTEs, and the two schema pragmas `table_info` and `foreign_key_list`). The authorizer is the layer that stops `ATTACH`, `VACUUM INTO` and temp tables.
 - Timeout ([D-07](DECISIONS.md#d-07-query-timeout-through-a-progress-handler)): a progress handler interrupts the statement after the deadline.
 - Row cap ([D-08](DECISIONS.md#d-08-db-owns-the-row-cap)): at most `row_cap` rows are fetched, plus one to set `truncated`.
-- One statement per call (`execute`, never `executescript`).
-- Typed errors, all subclasses of `DbError`: `ReadOnlyViolation`, `QueryTimeout`, `QueryError` (keeps SQLite's message in `sqlite_message` for the repair attempt), `DatabaseNotFoundError`.
+- Result size ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)): the row cap alone does not bound memory, because a row can be wide and its values long (300 rows of 1,000,000-byte values took about 340 MB). Rows are fetched one at a time and the bytes of their values added up; over `max_result_bytes` (5,000,000 by default, `FSM_MAX_RESULT_BYTES`) the fetch stops with `ResultTooLarge`. A result has at most 100 columns.
+- Value size and quoted names ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)): no string or blob may exceed 100,000 bytes (the longest value in the data is 51 characters), so `zeroblob(1000000000)` fails at once; and SQLite's fallback that reads an unknown double-quoted name as a string is switched off, so `"amount" > 1000` is an error.
+- One statement per call (`execute`, never `executescript`). An empty or comment-only string is a `QueryError` ("empty statement"), not an empty result, and so is text that is not valid Unicode.
+- Typed errors, all subclasses of `DbError`: `ReadOnlyViolation`, `QueryTimeout`, `QueryError` (keeps SQLite's message in `sqlite_message` for the repair attempt) with its subclass `ResultTooLarge` (the statement is what has to change, so a repair step treats it like any other `QueryError`), `DatabaseNotFoundError`, and `DatabaseAccessError` for a file that exists but cannot be read where it is (a WAL-mode database in a directory that is not writable, see [`DATA.md`](DATA.md#access)). The last two are faults of the environment and are never blamed on the SQL.
+
+`inspect_query(sql, *, db_path)` compiles one statement on the same kind of connection and does not run it: it prepares `EXPLAIN QUERY PLAN <sql>`, which reads no table rows, with the authorizer recording every action as well as denying the ones that are not reads. It returns an immutable `QueryInspection`: the action codes in order, the tables read with the columns named for each, and the functions called (lowercased). Unknown tables and columns, syntax errors and more than one statement raise `QueryError` with SQLite's message; a denied action raises `ReadOnlyViolation`. A statement the authorizer is never asked about (`VACUUM`) comes back with no actions, which callers must treat as a rejection. Its cost does not depend on the data, but it does depend on the statement: the timeout does not cover compiling, and a statement that refers to its CTEs many times over can take seconds and gigabytes to compile. `inspect_query` does not bound that; the guard does, from the text, before it calls.
 
 **`schema_context.py`.** `build_schema_context(db_path)` returns the text that will be given to the model, about 3,300 characters for the real database. Tables, columns, types, primary and foreign keys, row counts, NULL counts, the distinct values of low-cardinality `TEXT`/`BOOLEAN` columns (listed when there are at most 12) and the figures in the notes are read from the database through `db`. The notes cover cents, negative amounts, date format and range, case-sensitive values, the label join ([D-10](DECISIONS.md#d-10-the-schema-context-prescribes-one-form-of-the-label-join)), partial label coverage, the path to MCC, and how locations are encoded. Output is sorted and has nothing time-dependent, so two builds are byte-identical; it is cached per path for the life of the process.
 
@@ -321,10 +328,22 @@ LEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)
 
 - Scope ([D-12](DECISIONS.md#d-12-one-backtest-template-the-clause-sees-only-transactions)): inside the CTE the only table is `transactions`, unaliased, so a clause uses bare column names or `transactions.<column>`, and subqueries on other tables work as in the brief's example. The labels are joined afterwards, so `id` in a clause can only be `transactions.id`, and `is_fraud` is not a column a clause can use directly.
 - Metrics ([D-11](DECISIONS.md#d-11-backtest-metrics-use-labelled-transactions-only-undefined-ratios-are-none)): defined [below](#backtest-metrics).
-- Containment ([D-13](DECISIONS.md#d-13-a-rule-clause-is-contained-by-parentheses-and-a-lexical-scan)): `check_clause` scans the clause, following SQLite's quoting rules, and rejects `;`, comments, bind parameters, NUL and any parenthesis that is unbalanced or would close the template's own. The clause is then compiled once as it would be written after a bare `WHERE` (`EXPLAIN`, not executed) and run inside the template's parentheses, so it has to be a single expression in both positions.
-- Errors: `RuleClauseError` with a `reason`, and SQLite's message verbatim in `sqlite_message` when SQLite rejected the clause (for the repair attempt). `db.QueryTimeout` and the other `db` errors propagate unchanged.
+- Policy ([D-13](DECISIONS.md#d-13-a-rule-clause-is-contained-by-parentheses-and-a-lexical-scan), [D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)): `backtest` calls `sql_guard.check_rule_clause` and measures only a clause it accepted, so the rule policy cannot be skipped by calling `backtest` directly. That covers containment (no `;`, comment, bind parameter, NUL, or parenthesis that is unbalanced or would close the template's own), the clause compiling as a single expression both after a bare `WHERE` and inside the template's parentheses, and what the clause may read (not `fraud_labels`). The clause is trimmed and one trailing `;` dropped, as the guard does. The template without the policy is a private function used by `backtest` and by the tests that show what an unguarded clause would score.
+- Errors: `RuleClauseError` with a `reason`, the guard's `reason_code`, and SQLite's message verbatim in `sqlite_message` when SQLite rejected the clause (for the repair attempt). A clause the read-only authorizer denies is a `RuleClauseError` too. `db.QueryTimeout` and the other `db` errors propagate unchanged.
 - Cost on the real database: one scan of `transactions` for the clause, an index lookup per flagged row, and the three totals; 0.04 to 0.2 s for selective rules and about 0.9 s for a rule that flags every transaction.
-- Not checked here: which tables and columns a clause reads. That is `sql_guard`'s job (proposed). Until it exists, a clause can read `fraud_labels` in a subquery and so "predict" from the labels themselves, and a non-deterministic clause (`random()`) is measured as if it were a rule. See [Known weaknesses](#known-weaknesses-and-planned-fixes).
+
+**`sql_scan.py`.** `scan(text)` splits SQL text into tokens (string, quoted name, word, comment, symbol), pairing the four kinds of quote and both kinds of comment as SQLite's tokenizer does, and raises `UnterminatedQuote` for a quote that never closes. It is the only code that knows those rules; the guard's text checks are built on it. It does not parse SQL and imports nothing from the project.
+
+**`sql_guard.py`.** Decides whether one model-written string may run, without running it ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)). `check_query(sql, *, db_path)` judges a full statement and `check_rule_clause(clause, *, db_path)` a rule clause. Both return an immutable `GuardDecision`: `accepted`, the text that was judged (`sql`: trimmed, one trailing `;` removed, nothing else changed), a machine-readable `reason_code`, a `reason` in words for the repair attempt, SQLite's own message when it refused to compile the text, and `reads` (the `QueryInspection`). Plain Python with no LangChain dependency. `backtest` calls it; no graph does yet.
+
+- Text checks, before anything is compiled, cheapest first: at most 10,000 characters (`too_long`); no Markdown code fence, which is refused with a request for the bare statement and never unwrapped (`code_fence`); valid Unicode (`invalid_text`); quotes closed; and a bound on compile cost (`too_complex`). SQLite copies a CTE at every reference to it, so a statement whose CTEs each join the one before to itself doubles per level: 799 characters with 20 levels took 45 s and 1.7 GB to compile, and nothing in the engine interrupts a compile. The guard counts the `name AS (…)` definitions (at most 20) and estimates, on the high side, how many tokens the statement holds once every CTE reference is replaced by its body (at most 50,000).
+- Method: the statement is compiled by `db.inspect_query` and the policy reads what SQLite reported. A table is known because SQLite resolved it, through any alias, join, subquery or CTE, not because a name matched in the text.
+- Query policy: one statement; the first reported action is `SELECT` (so `PRAGMA`, an empty record such as `VACUUM`, and a model-written `EXPLAIN` are refused); every table read is in the allow-list, which is the database's own table list read from its catalogue, so `sqlite_master`, `pragma_*`, `json_each`, `json_tree` and `dbstat` are refused; no call to `load_extension`, `current_date`, `current_time`, `current_timestamp` or the `sqlite_*` functions that describe the engine (`sqlite_version` and three others).
+- Today's date: the authorizer reports function names, not arguments, so when a statement uses a date function its tokens are read (respecting quotes and comments). Refused: `'now'` inside the parentheses of a date function; `'subsec'` or `'subsecond'` as a date function's time value, which SQLite reads as now (`datetime('subsec')`); and a date function called with no time value (`date()`, `strftime('%Y')`). The string `'now'` anywhere else is ordinary text and is accepted (`WHERE errors = 'now'`), as is a CTE or alias named `date`, `time` or `now`.
+- Rule policy: the text checks and containment first; then the clause is compiled alone, as `SELECT 1 FROM transactions WHERE <clause>` and again inside parentheses, and the query policy applied to it; then no read of `fraud_labels` in any form (subquery, alias, CTE, quoted or `main.`-qualified name, `count(*)`, `EXISTS`, a set operation, a join that names no column), and no function whose value does not come from the data (`random`, `randomblob`, `changes`, `total_changes`, `last_insert_rowid`). `random()` is allowed in a query ("a random sample"). A rule refused for reading a table that is not allowed is told the tables a rule may read, which leaves out `fraud_labels`.
+- A missing or unreadable database is not a decision: it propagates as a `db` error.
+- Cost on the real database: a median of about 0.3 ms for an ordinary query and 0.45 ms for a rule clause (it is compiled twice), independent of how long the statement would run. The worst input found that passes the text checks is judged in under 0.1 s; the 20-level statement above is refused in under 1 ms.
+- One thing SQLite reports that the policy has to allow for: when a statement reads from a CTE without naming any of its columns (`SELECT count(*) FROM per_card`), the authorizer can report the CTE's name as if it were a table. Such a name is accepted only when it reads no column and nothing real in the database answers to it, so a CTE called `sqlite_master` cannot hide a read of the real one.
 
 ## Backtest metrics
 
@@ -386,9 +405,9 @@ Hallucination means the model producing something that looks right and is not: a
 | Risk | Mitigation | Where | Status |
 |---|---|---|---|
 | Invented tables, columns or values (`amount`, `'debit'`) | Schema context built from the real database, including allowed values | `schema_context` | Built |
-| | Tables checked against the seven real ones before execution; SQLite rejects unknown columns at compile time, and the message feeds the single repair | `sql_guard` | Proposed |
+| | Tables checked against the seven real ones before execution; SQLite rejects unknown columns at compile time, also when the name is double-quoted. The message is kept for the single repair (the repair itself is proposed) | `sql_guard`, `db` | Built |
 | Destructive or runaway SQL | Read-only connection, timeout and row cap | `db` | Built |
-| | Single read-only `SELECT` accepted by a compile-only check | `sql_guard` | Proposed |
+| | Single read-only `SELECT` accepted by a compile-only check, after limits on the text that bound what compiling costs; values, columns and result size capped | `sql_guard`, `db` | Built |
 | SQL that runs but answers a different question | SQL always shown with the result; the model's assumptions (for example the date range it resolved) listed | `presentation` | Proposed |
 | | Execution accuracy measured on reference cases | `evals/` | Proposed |
 | Made-up numbers in prose | Backtest figures come from one fixed statement | `rules/backtest` | Built |
@@ -396,7 +415,8 @@ Hallucination means the model producing something that looks right and is not: a
 | A plausible rule that performs badly | The backtest that measures a clause against the labels | `rules/backtest` | Built |
 | | No route shows a rule without its backtest | `graph` | Proposed |
 | Misleading fraud rates from partial labels | Metrics on labelled rows only, coverage reported; the join pattern fixed in code; the schema context states the coverage and the join to use | `rules/backtest`, `schema_context` | Built |
-| A rule that reads the labels it is scored against | Rule policy rejects any read of `fraud_labels` in a clause | `sql_guard` | Proposed |
+| A rule that reads the labels it is scored against | Rule policy rejects any read of `fraud_labels` in a clause, and `backtest` applies that policy itself | `sql_guard`, `rules/backtest` | Built |
+| A filter relative to today on data that ends in 2019 | `'now'` or `'subsec'` given to a date function, argument-less date functions and `current_*` rejected with a reason | `sql_guard` | Built |
 | Questions the data cannot answer, or vague wording | `decline` and `ask_clarification` tools; such cases in the evaluation set | `nl2sql`, `evals/` | Proposed |
 | Overfitting a rule to history | Month-by-month evidence; scoring on months the rule was not derived from | `rules/proposal` | Proposed |
 
@@ -406,7 +426,7 @@ The FSM stays in the loop throughout: the tool proposes rules, it does not deplo
 
 Exploratory checks were run before this design was chosen. **They are not the evaluation suite**, which does not exist yet, and the samples are small. They show that the approach is workable and where it breaks; they do not measure how well the finished system performs. Claude has not been run yet.
 
-**Compile-only inspection.** Compiling a statement with `EXPLAIN` under SQLite's authorizer, without running it, took under 1 ms per statement. It reported the real tables and the functions used, through joins, CTEs, subqueries, aliases, views and `SELECT *`. Multi-statement input, statements that change data or structure, `ATTACH`, `PRAGMA`, reads of `sqlite_master` and `load_extension` were all rejected or made visible by it. Its blind spots are in the [next section](#known-weaknesses-and-planned-fixes).
+**Compile-only inspection.** Compiling a statement with `EXPLAIN QUERY PLAN` under SQLite's authorizer, without running it, took under 1 ms per statement. It reported the real tables and the functions used, through joins, CTEs, subqueries, aliases, views and `SELECT *`. Multi-statement input, statements that change data or structure, `ATTACH`, `PRAGMA`, reads of `sqlite_master` and `load_extension` were all rejected or made visible by it. Its blind spots are in the [next section](#known-weaknesses-and-planned-fixes). Building the guard corrected two of these observations. The authorizer does report a CTE's name, as if it were a table, when the statement reads from the CTE without naming a column. And "under 1 ms" holds for ordinary statements only: one built from CTEs that each refer to the one before twice takes seconds to compile. The guard allows for both ([Built components](#built-components)).
 
 **Speed on the real database.** Typical analyst queries ran in 0.5 to 1.5 s and backtests in 0.07 to 1 s. The brief's example rule, written with the real column and value names, flags 350 transactions: 238 labelled, 2 fraud caught, 236 false positives.
 
@@ -421,19 +441,31 @@ These failures shaped the planned prompt and glossary: a fixed fraud-rate formul
 
 ## Known weaknesses and planned fixes
 
-Found in the same checks. Every fix in this table is **Proposed**; the weaknesses are real today in the built code or would be real in a guard built naively.
+Found in the same checks. The Status column says which fixes are built; a fixed row is kept so the reasoning stays visible.
 
-| Problem | Why it matters | Planned fix |
-|---|---|---|
-| The authorizer does not see function arguments, so `date('now')` passes. On data that ends in 2019, a filter relative to today silently returns nothing | The FSM would read "no rows" as an answer | A text check that rejects a `'now'` literal and date functions called without arguments; the glossary resolves relative dates against 2019-10-31 and the range is listed as an assumption |
-| A clause can read `fraud_labels` in a subquery. Checked: a clause that selects the labelled-fraud ids scores precision 1.0 and recall 1.0. The backtest template itself joins `fraud_labels`, so inspecting the whole statement cannot tell a leaking clause from a clean one | A rule that reads the answers looks perfect and is useless | Inspect the clause alone, in the bare form the backtest already compiles, and reject any read of `fraud_labels` |
-| SQLite turns a double-quoted name it does not recognise into a string literal: `"amount" > 1000` compares text with a number and matches every row (1,159,966) | A wrong column name gives a confident wrong answer instead of an error | Switch that fallback off on the connection, so an unknown name is an error the repair can use |
-| The timeout is checked between SQLite's internal steps, so one very heavy single operation can outrun it | The deadline is not a hard bound | Cap the size of any one value on the connection (1,000,000 bytes) |
-| `VACUUM` leaves an empty authorizer record, and a model-written `EXPLAIN` returns a query plan instead of an answer | An empty record could be mistaken for "nothing dangerous"; a plan is not what was asked | The guard requires the first recorded action to be `SELECT`, and rejects an empty record and a model-written `EXPLAIN` |
-| Date-range trap: `date` holds timestamps, so `BETWEEN '2019-01-01' AND '2019-01-31'` drops the whole of the 31st: 114,138 rows instead of 118,116 | A monthly figure that is about 3% low with no sign of error | Glossary rule: ranges end with `<` the next day, never `BETWEEN` on a day; a trap case in the evaluation set |
-| Join fan-out: joining `merchant_locations` on `merchant_id` instead of the location key pairs each transaction with every location of its merchant, about 440 million rows | Inflated counts, or a timeout | The glossary gives the join key (`transactions.merchant_location_id = merchant_locations.id`); a trap case in the evaluation set; the timeout bounds the damage |
-| Velocity questions (how many transactions a card makes in a short time) time out when written as a self-join, and take about 1 s with a window function | A common fraud question would fail | The glossary prescribes a window function (`lag() OVER`), with one example; a trap case in the evaluation set |
-| Rule overfitting. A data fact: all 1,360 fraud labels sit at merchant locations in Rome, Italy. The rule "location is in Rome, Italy" flags 2,431 transactions: 1,598 labelled, 1,360 caught, 238 false positives (precision 0.851, recall 1.0). March is its weakest month, at 50% precision | With all fraud in one segment, strong backtest numbers here do not prove that a rule generalises to other data or other periods | Show the evidence month by month and name the worst month; score a rule on months it was not derived from |
+| Problem | Why it matters | Fix | Status |
+|---|---|---|---|
+| The authorizer does not see function arguments, so `date('now')` passes. On data that ends in 2019, a filter relative to today silently returns nothing | The FSM would read "no rows" as an answer | A text check that rejects `'now'` (and `'subsec'` as a time value) given to a date function, and date functions called without arguments; the glossary resolves relative dates against 2019-10-31 and the range is listed as an assumption | Text check **Fixed** in `sql_guard` ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); glossary Proposed |
+| A clause can read `fraud_labels` in a subquery. Checked: a clause that selects the labelled-fraud ids scores precision 1.0 and recall 1.0. The backtest template itself joins `fraud_labels`, so inspecting the whole statement cannot tell a leaking clause from a clean one | A rule that reads the answers looks perfect and is useless | Inspect the clause alone and reject any read of `fraud_labels`; `backtest` applies that policy itself, so it cannot be skipped | **Fixed** in `sql_guard` and `rules/backtest` (D-17) |
+| SQLite turns a double-quoted name it does not recognise into a string literal: `"amount" > 1000` compares text with a number and matches every row (1,159,966) | A wrong column name gives a confident wrong answer instead of an error | Switch that fallback off on the connection, so an unknown name is an error the repair can use | **Fixed** in `db` ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)) |
+| The timeout is checked between SQLite's internal steps, so one very heavy single operation can outrun it | The deadline is not a hard bound | Cap the size of any one value on the connection (100,000 bytes) | **Fixed** in `db` (D-18). The cap bounds what one operation can build; the deadline is still checked between steps |
+| The row cap does not bound a result's memory: 300 rows of 1,000,000-byte values took about 340 MB, and 3 rows of 100 such columns 540 MB | A result of a few rows could exhaust memory | Fetch row by row against a byte budget (5,000,000 by default), cap values at 100,000 bytes and results at 100 columns | **Fixed** in `db` (D-18). A result is at most the budget plus one row, about 15 MB of values |
+| Compiling is not free and has no timeout: SQLite copies a CTE at every reference, so 799 characters of CTEs that each join the one before to itself took 45 s and 1.7 GB in the guard's own compile step | The check meant to protect execution could itself be made to hang | Bound the text before compiling: 10,000 characters, 20 `name AS (…)` definitions, and 50,000 tokens once CTE references are expanded | **Fixed** in `sql_guard` (D-17). That statement is refused in under 1 ms; the worst accepted input found is judged in under 0.1 s |
+| `VACUUM` leaves an empty authorizer record, and a model-written `EXPLAIN` returns a query plan instead of an answer | An empty record could be mistaken for "nothing dangerous"; a plan is not what was asked | The guard requires the first recorded action to be `SELECT`, and rejects an empty record and a model-written `EXPLAIN` | **Fixed** in `sql_guard` (D-17) |
+| Date-range trap: `date` holds timestamps, so `BETWEEN '2019-01-01' AND '2019-01-31'` drops the whole of the 31st: 114,138 rows instead of 118,116 | A monthly figure that is about 3% low with no sign of error | Glossary rule: ranges end with `<` the next day, never `BETWEEN` on a day; a trap case in the evaluation set | Proposed |
+| Join fan-out: joining `merchant_locations` on `merchant_id` instead of the location key pairs each transaction with every location of its merchant, about 440 million rows | Inflated counts, or a timeout | The glossary gives the join key (`transactions.merchant_location_id = merchant_locations.id`); a trap case in the evaluation set; the timeout bounds the damage | Proposed (the timeout is built) |
+| Velocity questions (how many transactions a card makes in a short time) time out when written as a self-join, and take about 1 s with a window function | A common fraud question would fail | The glossary prescribes a window function (`lag() OVER`), with one example; a trap case in the evaluation set | Proposed |
+| Rule overfitting. A data fact: all 1,360 fraud labels sit at merchant locations in Rome, Italy. The rule "location is in Rome, Italy" flags 2,431 transactions: 1,598 labelled, 1,360 caught, 238 false positives (precision 0.851, recall 1.0). March is its weakest month, at 50% precision | With all fraud in one segment, strong backtest numbers here do not prove that a rule generalises to other data or other periods | Show the evidence month by month and name the worst month; score a rule on months it was not derived from | Proposed |
+
+Accepted limitations of what is built, with no fix planned:
+
+- **A rule that lists fraud transaction ids as literals** (`id IN (1002, 1077, …)`) reads no label, so the guard cannot tell it from an honest rule. It would score perfectly and mean nothing. Month-by-month evidence does not catch it either; the FSM reading the clause does.
+- **Today's date reached without a literal `'now'` in a date call** is not seen by the text check: `'now'` assembled at run time (`'no' || 'w'`), carried in a column, or written as a blob (`date(x'6e6f77')`). The check is there to catch an honest mistake, not an adversary; such a query is still read-only and returns no rows.
+- **The compile-cost limit is an estimate from the text.** It errs on the high side, so a legitimate statement that refers to its CTEs unusually often is refused with a reason (a 100-token CTE can be referred to about 500 times before that happens). And it was set by measuring shapes, not proved: a shape that costs more per token than those measured would take longer than 0.1 s to judge.
+- **Memory inside a running statement is not budgeted.** A sort or a `DISTINCT` over long values is limited only by the timeout and the 100,000-byte value cap. The result budget covers what is returned.
+- **A statement in a Markdown fence costs the repair attempt.** The guard refuses it with a specific reason and does not unwrap it, because nothing is repaired silently.
+- **The tool assumes this one schema.** The schema notes, the backtest template and the rule policy name `transactions` and `fraud_labels` directly. The guard's table allow-list is read from the database, but pointing the tool at a different schema would need those names changed.
+- **Views are not in the allow-list.** The database has none; one added later would be refused until the list included it.
 
 ## Evaluation
 

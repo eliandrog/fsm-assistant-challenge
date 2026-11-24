@@ -2,7 +2,7 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** **Built** and tested: configuration, read-only query execution (row cap, timeout, write protection), the schema context that will ground the model, and the rule backtest (a `WHERE` clause measured against the fraud labels), which is a Python function with no interface yet. **Proposed**, with the design written down but no code: everything that involves a model. Nothing calls a model yet, so there is no natural-language → SQL, no rule proposal and no evaluation suite. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: configuration, read-only query execution (row cap, timeout, write protection), the schema context that will ground the model, the rule backtest (a `WHERE` clause measured against the fraud labels) and the SQL guard (code that decides whether a query or a rule may run, without running it). These are Python functions with no interface yet. **Proposed**, with the design written down but no code: everything that involves a model. Nothing calls a model yet, so there is no natural-language → SQL, no rule proposal and no evaluation suite. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
@@ -42,9 +42,9 @@ cd fsm-assistant-challenge-python
 uv sync
 ```
 
-`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode and installs the dev tools (pytest). There are no runtime dependencies yet.
+`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its one runtime dependency (`pydantic`, for typed data models) and installs the dev tools (pytest).
 
-**Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only.
+**Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only. The `data/` directory itself must be writable: the database is in WAL mode, and SQLite creates two git-ignored sidecar files next to it on the first read ([`docs/DATA.md`](docs/DATA.md#access)).
 
 **Model.** Not needed yet: nothing calls a model, and the tests run offline. The assistant will use Claude through the Anthropic API ([D-14](docs/DECISIONS.md#d-14-model-provider-anthropic-claude-through-its-api)), which needs an API key. _The key setup (`ANTHROPIC_API_KEY` in `.env`) and the model settings arrive with the model layer: to be completed._ The evaluation suite is designed to be replayed offline from recorded model replies, so checking the reported results will not need a key.
 
@@ -55,6 +55,7 @@ uv sync
 | `FSM_DB_PATH` | `data/data.db` | SQLite database. A relative path is resolved against the project root, not the current directory |
 | `FSM_ROW_CAP` | `1000` | Maximum rows a query returns; a longer result is cut and flagged as truncated |
 | `FSM_QUERY_TIMEOUT_SECONDS` | `15` | A query still running after this long is interrupted |
+| `FSM_MAX_RESULT_BYTES` | `5000000` | Largest result a query may return, counted in bytes of its values; a larger one is an error, not a cut result |
 
 To keep them in a file, copy `.env.example` to `.env` (git-ignored) in the project root:
 
@@ -85,7 +86,7 @@ uv sync          # install
 uv run pytest    # a few seconds, offline (no model, no key)
 ```
 
-The tests cover configuration, read-only execution, the schema context and the rule backtest. Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
+The tests cover configuration, read-only execution, the schema context, the rule backtest and the SQL guard (each accepted query shape, and each rejection with its reason). Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
 
 To see the schema description that will be given to the model:
 
@@ -108,6 +109,19 @@ print('precision', r.precision, 'recall', r.recall, 'unlabelled', r.flagged_unla
 
 On the shipped data this rule flags 350 transactions, of which 238 are labelled: 2 fraud and 236 legitimate (precision 0.8%, recall 2 of 1,360), and 112 unlabelled.
 
+To ask the guard about a query and about two rules (nothing is run; the third is rejected because it reads the labels):
+
+```bash
+uv run python -c "
+from fsm_assistant.config import load_settings
+from fsm_assistant.sql_guard import check_query, check_rule_clause
+p = load_settings().db_path
+print(check_query(\"SELECT count(*) FROM transactions WHERE date >= date('now', '-30 day')\", db_path=p).reason)
+print(check_rule_clause(\"amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')\", db_path=p).accepted)
+print(check_rule_clause('id IN (SELECT CAST(transaction_id AS INTEGER) FROM fraud_labels WHERE is_fraud = 1)', db_path=p).reason)
+"
+```
+
 _To be completed: the single command that replays the evaluation suite offline, where it writes results, the model and settings used for the reported numbers, and the run time and cost of a live run._
 
 ## Solution overview
@@ -125,22 +139,23 @@ question ─► Claude picks one of five actions ─► SQL guard ─► read-on
 
 What exists today:
 
-- **Read-only execution** (`db.py`): every query runs through one function, on a connection that cannot write. Three layers enforced by SQLite itself, not by inspecting the SQL text: the file is opened read-only, `PRAGMA query_only` is on, and an authorizer callback denies everything except reads (including `ATTACH`, temp tables and `PRAGMA` changes, which a read-only file alone does not stop). A query is interrupted after a timeout, and at most a fixed number of rows is fetched, with a flag when the result was cut. The SQL is never rewritten.
+- **Read-only execution** (`db.py`): every query runs through one function, on a connection that cannot write. Three layers enforced by SQLite itself, not by inspecting the SQL text: the file is opened read-only, `PRAGMA query_only` is on, and an authorizer callback denies everything except reads (including `ATTACH`, temp tables and `PRAGMA` changes, which a read-only file alone does not stop). A query is interrupted after a timeout, at most a fixed number of rows is fetched, with a flag when the result was cut. Size is bounded too, because a few rows of very large values could otherwise take hundreds of megabytes: no single value may exceed 100,000 bytes, a result has at most 100 columns, and a result over a byte budget (5 MB by default) is an error. A double-quoted name that does not exist is an error, not a string. The SQL is never rewritten. A second function, `inspect_query`, compiles a statement without running it and reports the tables, columns and functions it would use.
+- **SQL guard** (`sql_guard.py`): `check_query` and `check_rule_clause` decide whether a model-written query or rule may run, from what SQLite reports when it compiles the statement, and return a decision with a reason that can be sent back to the model. A query must be one read-only `SELECT` over the database's own seven tables (not `sqlite_master`, `PRAGMA`, `EXPLAIN` or table-valued functions), and must not filter relative to today's date, because the data ends in 2019 and such a filter silently returns nothing. A rule must also not read `fraud_labels` or call `random()`. Before anything is compiled the text itself is checked, because compiling is not free: at most 10,000 characters, no Markdown code fence (refused with a request for the bare statement, never unwrapped), and a limit on how often common table expressions refer to each other, since a short statement built that way can take SQLite many seconds to compile. An ordinary check takes under a millisecond, and the worst input found that passes the text checks under 0.1 s. The rule backtest calls the guard; no model-driven turn does yet: it becomes a step of the turn when the graph is built.
 - **Schema context** (`schema_context.py`): the description of the database that will go into every prompt, read from the database itself (tables, columns, types, keys, row counts, the actual values of categorical columns) plus short notes on what a model would otherwise get wrong (amounts in cents, case-sensitive values, how to join the fraud labels, partial label coverage). It is deterministic, about 3,300 characters.
-- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It is not yet called by anything. It does not check which tables a clause reads; that belongs to the SQL guard, which is not built (so, for example, a clause that reads `fraud_labels` in a subquery is not refused).
+- **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It applies the guard's rule policy itself before measuring, so a clause that reads the labels is refused with the guard's reason and cannot be scored by calling the backtest directly. It is not yet called by anything.
 - **Configuration** (`config.py`): see [Setup](#setup).
 
 _A walk through one real exploration question and one real rule proposal, with output: to be completed once implemented._
 
 ## Design choices and trade-offs
 
-Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first twelve rows are about built code (except the SQL validator in the third row, which is proposed); the last three are decided and not built yet.
+Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first fourteen rows are about built code; the last three are decided and not built yet.
 
 | Choice | Why | Cost |
 |---|---|---|
 | Python 3.13 + uv, `src/` layout | One-command, locked, reproducible setup | Reviewers need uv |
 | Core functionality before interface | The brief asks to focus on features and their evaluation | A plain first interface |
-| Model-written SQL validated in code and run on a read-only connection | A prompt instruction cannot be enforced; two independent layers can | Needs a validator |
+| Model-written SQL validated in code and run on a read-only connection | A prompt instruction cannot be enforced; two independent layers can | Two layers to keep consistent |
 | Real schema as source of truth | The data differs from the brief (see below) | Rules will not match the brief's example literally |
 | Read-only enforced by the engine in three layers (read-only file, `query_only`, authorizer) | Does not depend on parsing SQL; a read-only file alone still allows `ATTACH` and temp tables | SQLite creates two git-ignored sidecar files next to the WAL-mode database |
 | Query timeout through SQLite's progress handler | SQLite has no statement timeout, and a mistaken join on this data runs for a very long time | Checked between VM instructions, not continuously |
@@ -150,6 +165,8 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | Rule metrics on labelled transactions only; undefined ratios are "undefined" | An unlabelled transaction is unknown, not legitimate; "0% precision" for a rule that flagged nothing labelled would mislead | Every figure needs its coverage caveat shown with it |
 | One backtest template; the rule is evaluated in a subquery that sees only `transactions` | Rules are written with bare column names, as in the brief; `id` cannot be confused with a label column | The dataset totals are recomputed on every backtest (well under a second) |
 | Rule text contained by parentheses plus a lexical scan (no `;`, comments, bind parameters, unbalanced parentheses) | A rule must not be able to change what is measured; needs no SQL parser | `--` is refused even where it would be valid arithmetic; table and column allow-listing is left to the SQL guard |
+| The SQL guard compiles a statement without running it and judges what SQLite reports (tables, columns, functions), not the text | SQLite resolves aliases, CTEs and `SELECT *` itself, so the guard cannot disagree with what will run; no SQL parser dependency | Depends on the engine's reporting, pinned by tests; date arguments still need a small text check; compiling has no timeout, so the text is bounded first (length, and how often CTEs refer to each other), which can refuse an unusually CTE-heavy statement |
+| Unknown double-quoted names are errors; values capped at 100,000 bytes, results at 100 columns and 5 MB | `"amount" > 1000` used to match every row; one huge value could outrun the timeout; the row cap alone let 300 rows take 340 MB | A string written in double quotes is refused; a very long `group_concat` or a very large result is an error |
 | Model: Claude through the Anthropic API (decided, not built) | Stronger SQL than the small local models tried first, and no multi-gigabyte download for a reviewer; offline replay of the evaluation means checking results needs no model | An API key and a cost per call for live use; the question and schema are sent to a hosted service |
 | One turn is a fixed state graph in LangGraph, not an agent (decided, not built) | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
 | The model picks one of five tools; code executes it (decided, not built) | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |
@@ -168,12 +185,13 @@ Mitigations by risk, and whether each is built. Where each sits in the design: [
 
 | Risk | Built | Proposed |
 |---|---|---|
-| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns | Tables checked against the real ones before execution; SQLite's error on an unknown column feeds one repair |
-| Destructive or runaway SQL | Read-only connection, timeout, row cap | A guard that compiles the SQL without running it and accepts a single read-only `SELECT` |
+| Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns; the guard checks tables against the real ones and keeps SQLite's error on an unknown column | That error fed back to the model for one repair |
+| Destructive or runaway SQL | Read-only connection, timeout, row cap, value-size cap, result-size budget; a guard that bounds the text, compiles the SQL without running it and accepts a single read-only `SELECT` | The guard wired into the turn, so nothing runs without passing it |
 | SQL that runs but answers the wrong question | none yet | SQL always shown with the result, with the model's assumptions listed; execution accuracy measured in the evaluation suite |
 | Made-up numbers | Backtest figures come from one fixed query | Every figure from executed SQL; the model is never shown result rows, and its text is labelled as model text |
 | Plausible but poor rules | The backtest that measures a rule against the fraud labels | No rule shown without one; evidence month by month; the FSM decides, the tool does not deploy |
-| A rule that reads the labels it is scored on | none yet (a clause can read `fraud_labels` today) | The guard rejects any clause that reads `fraud_labels` |
+| A rule that reads the labels it is scored on | The guard rejects any clause that reads `fraud_labels`, and the backtest applies the guard itself. Not detectable: a clause that lists fraud transaction ids as literals | The guard wired into the turn |
+| An empty result that looks like an answer (a filter relative to today, on data that ends in 2019) | The guard rejects `'now'` given to a date function and date functions that default to the current time | Relative dates resolved against the last date in the data |
 | Misleading fraud rates from partial labels | The schema context tells the model the coverage and to use labelled rows only; rule metrics on labelled transactions only, with the unlabelled share reported | Coverage caveat shown with every such result |
 | Vague or unanswerable questions answered anyway | none yet | The model can ask what was meant or decline; such cases are in the evaluation set |
 | A rule that fits history and nothing else | none yet | Scoring on months the rule was not derived from |
@@ -221,16 +239,15 @@ So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards
 
 ## What is not built yet
 
-Built: configuration, read-only execution, the schema context and the rule backtest. Not built, in planned order:
+Built: configuration, read-only execution, the schema context, the rule backtest and the SQL guard. Not built, in planned order:
 
-1. The SQL guard (compile-only check of queries and rule clauses) and two hardening settings on the connection.
-2. The model layer: the Claude client, the five tools, recording and replay of model replies.
-3. The graph for one turn and the terminal chat: natural language → SQL, and a rule shown with its backtest.
-4. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
-5. The evaluation suite with offline replay.
-6. Rule evidence month by month, and scoring on months a rule was not derived from.
-7. The fraud-concentration scan.
-8. The web chat and its HTTP API. First to be cut if time runs out.
+1. The model layer: the Claude client, the five tools, recording and replay of model replies.
+2. The graph for one turn and the terminal chat: natural language → SQL, and a rule shown with its backtest.
+3. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
+4. The evaluation suite with offline replay.
+5. Rule evidence month by month, and scoring on months a rule was not derived from.
+6. The fraud-concentration scan.
+7. The web chat and its HTTP API. First to be cut if time runs out.
 
 Not planned for this prototype: authentication, conversation memory that survives a restart, streaming of replies, charts, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
 
@@ -249,7 +266,8 @@ docs/
   AGENTS.md            Working rules for coding agents
 data/                  data.db (SQLite) and schema.sql; read-only
 src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
-                       rules/backtest.py; the other modules are docstring-only placeholders
+                       sql_scan.py, sql_guard.py, rules/backtest.py; the others are
+                       docstring-only placeholders
 tests/                 pytest tests (fixture databases built from data/schema.sql)
 evals/                 Evaluation suite (empty; see its README)
 ```

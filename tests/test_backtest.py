@@ -7,7 +7,10 @@ import pytest
 
 from conftest import DATA_DIR
 from fsm_assistant import db
-from fsm_assistant.rules.backtest import BacktestResult, RuleClauseError, backtest, check_clause
+from fsm_assistant.rules import backtest as backtest_module
+from fsm_assistant.rules.backtest import BacktestResult, RuleClauseError, backtest
+from fsm_assistant.schema_context import LABEL_JOIN, label_join
+from fsm_assistant.sql_guard import ReasonCode, check_rule_clause
 
 # Ten transactions: seven labelled (three fraud), three unlabelled.
 #
@@ -152,13 +155,14 @@ def test_invalid_sql_keeps_sqlites_message(rules_db, clause, message):
         run(rules_db, clause)
     assert raised.value.sqlite_message == message
     assert message in raised.value.reason
+    assert raised.value.reason_code is ReasonCode.SQLITE_ERROR
 
 
 @pytest.mark.parametrize(
     "clause, reason",
     [
         ("1=1; DROP TABLE transactions", "';'"),
-        ("1=1;", "';'"),
+        ("1=1;;", "';'"),
         ("1=1 -- the rest", "comment"),
         ("amount_usd_cents > 1--1", "comment"),
         ("1=1 /* the rest", "comment"),
@@ -186,6 +190,10 @@ def test_break_out_attempts_are_rejected_before_any_query(clause, reason, tmp_pa
     assert raised.value.sqlite_message is None
 
 
+def test_one_trailing_semicolon_is_dropped_as_the_guard_does(rules_db: Path) -> None:
+    assert run(rules_db, " id = 2 ; ").clause == "id = 2"
+
+
 @pytest.mark.parametrize(
     "clause",
     [
@@ -206,7 +214,7 @@ def test_text_that_is_not_one_where_expression_is_rejected_by_sqlite(rules_db, c
 
 def test_punctuation_inside_quotes_is_data(rules_db):
     # ';', ')', '--' and '?' inside a literal or a quoted name are not structure.
-    assert check_clause("errors = 'a;b) -- c ''?'") == "errors = 'a;b) -- c ''?'"
+    assert run(rules_db, "errors = 'a;b) -- c ''?'").clause == "errors = 'a;b) -- c ''?'"
     result = run(rules_db, """errors = 'Bad PIN' OR errors = ';) -- /* ?' OR "id" = 2 OR [id] = 7 OR `id` = 9""")
     assert (result.flagged, result.true_positives, result.false_positives) == (4, 2, 2)
 
@@ -239,3 +247,62 @@ def test_timeout_propagates_as_the_db_error(rules_db):
 def test_missing_database_propagates(tmp_path):
     with pytest.raises(db.DatabaseNotFoundError):
         run(tmp_path / "missing.db", "1=1")
+
+
+LABEL_LEAK = "id IN (SELECT CAST(transaction_id AS INTEGER) FROM fraud_labels WHERE is_fraud = 1)"
+
+
+@pytest.mark.parametrize(
+    ("clause", "code"),
+    [
+        (LABEL_LEAK, ReasonCode.LABEL_READ),
+        ("EXISTS (SELECT 1 FROM fraud_labels)", ReasonCode.LABEL_READ),
+        ("abs(random()) % 2 = 0", ReasonCode.NOT_DETERMINISTIC),
+        ("id IN (SELECT rootpage FROM sqlite_master)", ReasonCode.TABLE_NOT_ALLOWED),
+        ("date >= date('now', '-7 day')", ReasonCode.RELATIVE_TO_TODAY),
+        ("1=1 LIMIT 1", ReasonCode.SQLITE_ERROR),
+        ("1=1 -- x", ReasonCode.CLAUSE_NOT_CONTAINED),
+        ("```sql\nid = 2\n```", ReasonCode.CODE_FENCE),
+    ],
+)
+def test_backtest_enforces_the_rule_policy_itself(rules_db: Path, clause: str, code: ReasonCode) -> None:
+    decision = check_rule_clause(clause, db_path=rules_db)
+    with pytest.raises(RuleClauseError) as raised:
+        run(rules_db, clause)
+    assert raised.value.reason_code is code
+    assert raised.value.reason == decision.reason
+
+
+def test_what_the_policy_prevents(rules_db: Path) -> None:
+    # The template alone, with no policy: a clause that selects the labelled fraud scores perfectly.
+    leaked = backtest_module._backtest_unchecked(LABEL_LEAK, db_path=rules_db, timeout_seconds=10.0)
+    assert (leaked.flagged, leaked.precision, leaked.recall) == (3, 1.0, 1.0)
+
+
+def test_the_guarded_and_the_unchecked_path_give_the_same_numbers(rules_db: Path) -> None:
+    unchecked = backtest_module._backtest_unchecked(BRIEF_RULE, db_path=rules_db, timeout_seconds=10.0)
+    guarded = run(rules_db, BRIEF_RULE)
+    fields = [name for name in BacktestResult.__dataclass_fields__ if name != "elapsed_seconds"]
+    assert [getattr(guarded, name) for name in fields] == [getattr(unchecked, name) for name in fields]
+
+
+def test_a_denial_while_the_template_runs_is_a_clause_error(rules_db: Path) -> None:
+    # Compiles as a read; the pragma behind the table is denied when it runs.
+    # The guard refuses the table first, so only the unchecked path gets this far.
+    clause = "id IN (SELECT user_version FROM pragma_user_version)"
+    with pytest.raises(RuleClauseError) as guarded:
+        run(rules_db, clause)
+    assert guarded.value.reason_code is ReasonCode.TABLE_NOT_ALLOWED
+    with pytest.raises(RuleClauseError) as raised:
+        backtest_module._backtest_unchecked(clause, db_path=rules_db, timeout_seconds=10.0)
+    assert "denied: PRAGMA user_version" in raised.value.reason
+    assert raised.value.reason_code is ReasonCode.NOT_READ_ONLY
+    assert raised.value.sqlite_message is None
+    assert isinstance(raised.value.__cause__, db.ReadOnlyViolation)
+
+
+def test_the_template_uses_the_shared_label_join() -> None:
+    assert LABEL_JOIN == label_join("fraud_labels", "transactions")
+    assert backtest_module._TEMPLATE.endswith(
+        "LEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)\n"
+    )

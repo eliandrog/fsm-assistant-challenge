@@ -6,19 +6,22 @@ an immutable `Settings` value.
 
 A `.env` file in the project root is also read, by a deliberately small
 parser (`parse_env_file`), so the project needs no dotenv dependency. Real
-environment variables win over `.env`, and an empty value counts as unset, so
+environment variables win over `.env`, and an empty value counts as unset
+(an empty environment variable does not hide a value in `.env`), so
 `.env.example` can be copied as it is.
 
 Loading never touches the database or the model server: a missing database
 file is reported by `db` when a query runs, and a missing model name by
 `Settings.require_model()` when a real model is asked for. That keeps the
-offline parts (tests, schema context) usable without Ollama.
+offline parts (tests, schema context) usable without a model.
 """
 
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
+
+from fsm_assistant.db import DEFAULT_MAX_RESULT_BYTES
 
 # src/fsm_assistant/config.py -> project root. Valid for a source checkout,
 # which is how `uv sync` installs the package (editable).
@@ -47,6 +50,7 @@ class Settings:
     ollama_model: str | None
     row_cap: int
     query_timeout_seconds: float
+    max_result_bytes: int
 
     def require_model(self) -> str:
         """Return the model tag, or fail if it is not configured.
@@ -91,13 +95,16 @@ def load_settings(
 ) -> Settings:
     """Build `Settings` from `environ` (default: `os.environ`) and `env_file`.
 
-    `environ` takes precedence over the file. A missing file is fine; pass
-    `env_file=None` to skip it. Raises `ConfigError` on an invalid value.
+    A non-empty value in `environ` takes precedence over the file. A missing
+    file is fine; pass `env_file=None` to skip it. Raises `ConfigError` on an
+    invalid value.
     """
     values: dict[str, str] = {}
     if env_file is not None and env_file.is_file():
-        values.update(parse_env_file(env_file.read_text(encoding="utf-8")))
-    values.update(os.environ if environ is None else environ)
+        # utf-8-sig: a byte-order mark would otherwise become part of the first key.
+        values.update(parse_env_file(env_file.read_text(encoding="utf-8-sig")))
+    environment = os.environ if environ is None else environ
+    values.update({name: value for name, value in environment.items() if value.strip()})
 
     def get(name: str) -> str | None:
         return values.get(name, "").strip() or None
@@ -124,6 +131,9 @@ def load_settings(
             "FSM_QUERY_TIMEOUT_SECONDS",
             get("FSM_QUERY_TIMEOUT_SECONDS"),
             DEFAULT_QUERY_TIMEOUT_SECONDS,
+        ),
+        max_result_bytes=_positive(
+            int, "FSM_MAX_RESULT_BYTES", get("FSM_MAX_RESULT_BYTES"), DEFAULT_MAX_RESULT_BYTES
         ),
     )
 

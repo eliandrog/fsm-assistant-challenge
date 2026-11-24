@@ -5,11 +5,14 @@ the facts stated in the schema context and docs/DATA.md hold for the data.
 """
 
 import time
+from pathlib import Path
 
 import pytest
 
 from fsm_assistant import db
-from fsm_assistant.rules.backtest import backtest
+from fsm_assistant.rules import backtest as backtest_module
+from fsm_assistant.rules.backtest import RuleClauseError, backtest
+from fsm_assistant.sql_guard import ReasonCode, check_query, check_rule_clause
 from fsm_assistant.schema_context import LABEL_JOIN, build_schema_context
 
 
@@ -189,3 +192,98 @@ def test_backtest_of_a_rule_that_flags_everything(real_db):
     assert result.precision == 1360 / 777_339  # the base fraud rate
     assert result.flag_rate == 1.0
     assert result.elapsed_seconds < 5
+
+
+BRIEF_RULE = "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')"
+ROME_RULE = "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')"
+LABEL_LEAK = "id IN (SELECT CAST(transaction_id AS INTEGER) FROM fraud_labels WHERE is_fraud = 1)"
+MONTHLY_FRAUD_RATE = (
+    "SELECT strftime('%Y-%m', transactions.date) AS month, count(*) AS labelled, "
+    "sum(fraud_labels.is_fraud) AS fraud, 1.0 * sum(fraud_labels.is_fraud) / count(*) AS fraud_rate "
+    f"FROM transactions JOIN fraud_labels ON {LABEL_JOIN} GROUP BY month ORDER BY month;"
+)
+
+
+def test_guard_accepts_the_reference_rules(real_db: Path) -> None:
+    brief = check_rule_clause(BRIEF_RULE, db_path=real_db)
+    assert brief.accepted, brief.reason
+    assert brief.reads.tables == {"transactions", "cards"}
+    rome = check_rule_clause(ROME_RULE, db_path=real_db)
+    assert rome.accepted, rome.reason
+    result = backtest(rome.sql, db_path=real_db, timeout_seconds=30.0)
+    assert (result.flagged, result.flagged_labelled, result.true_positives, result.false_positives) == (
+        2431,
+        1598,
+        1360,
+        238,
+    )
+
+
+def test_guard_rejects_a_rule_that_reads_the_labels(real_db: Path) -> None:
+    decision = check_rule_clause(LABEL_LEAK, db_path=real_db)
+    assert not decision.accepted
+    assert decision.reason_code is ReasonCode.LABEL_READ
+    # What it would have scored: every labelled fraud and nothing else.
+    leaked = backtest_module._backtest_unchecked(LABEL_LEAK, db_path=real_db, timeout_seconds=30.0)
+    assert (leaked.flagged, leaked.true_positives, leaked.precision, leaked.recall) == (1360, 1360, 1.0, 1.0)
+
+
+def test_backtest_refuses_a_rule_that_reads_the_labels(real_db: Path) -> None:
+    with pytest.raises(RuleClauseError) as raised:
+        backtest(LABEL_LEAK, db_path=real_db, timeout_seconds=30.0)
+    assert raised.value.reason_code is ReasonCode.LABEL_READ
+
+
+def test_guard_rejects_a_statement_that_would_hang_the_compiler(real_db: Path) -> None:
+    # Each CTE joins the one before to itself: 799 characters that took 45 s and 1.7 GB to compile.
+    parts = ["a0 AS (SELECT 1 x)"] + [f"a{n} AS (SELECT a.x FROM a{n - 1} a, a{n - 1} b)" for n in range(1, 21)]
+    sql = "WITH " + ", ".join(parts) + " SELECT count(*) FROM a20"
+    assert len(sql) == 799
+    check_query("SELECT 1", db_path=real_db)
+    for check, text in ((check_query, sql), (check_rule_clause, f"id IN ({sql})")):
+        started = time.monotonic()
+        decision = check(text, db_path=real_db)
+        assert time.monotonic() - started < 0.25
+        assert decision.reason_code is ReasonCode.TOO_COMPLEX
+
+
+def test_a_result_of_large_values_is_stopped_by_the_byte_budget(real_db: Path) -> None:
+    decision = check_query("SELECT zeroblob(100000) FROM transactions", db_path=real_db)
+    assert decision.accepted  # the guard decides scope; the size of a result is db's to bound
+    with pytest.raises(db.ResultTooLarge, match="over 5,000,000 bytes by row 51"):
+        run(real_db, decision.sql, row_cap=1000)
+    with pytest.raises(db.QueryError, match="too big"):
+        run(real_db, "SELECT zeroblob(1000000) FROM transactions")
+    # An ordinary full page is far below the budget.
+    page = run(real_db, "SELECT * FROM transactions", row_cap=1000)
+    assert page.row_count == 1000 and page.truncated
+
+
+def test_the_briefs_column_name_in_double_quotes_is_an_error(real_db: Path) -> None:
+    decision = check_rule_clause('"amount" > 1000', db_path=real_db)
+    assert not decision.accepted
+    assert decision.reason_code is ReasonCode.SQLITE_ERROR
+    assert 'no such column: "amount"' in decision.reason
+    with pytest.raises(db.QueryError):
+        run(real_db, 'SELECT count(*) FROM transactions WHERE "amount" > 1000')
+
+
+def test_guard_accepts_the_monthly_fraud_rate_query_quickly(real_db: Path) -> None:
+    check_query("SELECT 1", db_path=real_db)  # reads the table list once
+    started = time.monotonic()
+    decision = check_query(MONTHLY_FRAUD_RATE, db_path=real_db)
+    assert time.monotonic() - started < 0.1  # compiled, not run: the query itself takes about a second
+    assert decision.accepted, decision.reason
+    assert decision.reads.tables == {"transactions", "fraud_labels"}
+    result = run(real_db, decision.sql)
+    assert result.row_count == 10
+    assert sum(row[1] for row in result.rows) == 777_339
+    assert sum(row[2] for row in result.rows) == 1360
+
+
+def test_guard_allows_exactly_the_seven_tables(real_db: Path) -> None:
+    decision = check_query("SELECT * FROM sqlite_master", db_path=real_db)
+    assert decision.reason_code is ReasonCode.TABLE_NOT_ALLOWED
+    assert decision.reason.endswith(
+        "The tables are: cards, fraud_labels, mcc_codes, merchant_locations, merchants, transactions, users."
+    )
