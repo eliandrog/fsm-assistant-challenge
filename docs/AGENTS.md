@@ -9,10 +9,12 @@ Instructions for any AI agent working in this repo. Read this file before doing 
 - **Model-written SQL only ever runs on a read-only connection**, after validation in code (`sql_guard`). Never execute it on a writable connection, in tests or evals either.
 - **Never commit or print secrets.** API keys go in `.env` (git-ignored); `.env.example` lists names only.
 - **Scope priority: core functionality first.** In order: reliable natural language → SQL, rule proposal with backtesting, the evaluation suite. The interface stays deliberately minimal until those work.
-- **Be honest in docs.** The README must describe only what exists. Mark anything unbuilt as "to be completed" or "proposed".
+- **Be honest in docs.** The README must describe only what exists. Mark anything unbuilt as "to be completed" or "proposed", and do not describe it in the present tense.
+- **One task, one branch, one pull request.** Each task ships as its own branch and pull request, and its docs are updated in the same pull request: the decision entries it settles, the status it flips from Proposed to Built in `docs/ARCHITECTURE.md`, the current-state paragraph below and the README sections it affects. Only the user merges.
 - **No dates about our work in docs** (no "as of", "last updated", dated decision entries). Dates that are facts about the data are fine.
-- **Record decisions** in `docs/DECISIONS.md` (next D-number; never rewrite old entries), then update `docs/ARCHITECTURE.md` to match. Do not settle an item listed under "Open decisions" without the user.
-- **No new dependencies without asking.** The provider is decided (local Ollama with a Qwen model, D-05), but how the client talks to it is not, so no LLM SDK yet.
+- **Record decisions** in `docs/DECISIONS.md` (next D-number; never rewrite old entries), then update `docs/ARCHITECTURE.md` to match. Do not settle an item listed under "Open points" without the user.
+- **No new dependencies without asking.** The model provider is decided: Anthropic (Claude), through `langchain-anthropic`, with `langgraph` for the turn graph (D-14, D-15). Those two packages are approved and are added by the task that builds the model layer, not before. Nothing else is added without asking: no `langchain` meta-package, no direct `anthropic` SDK, no second provider.
+- **No paid model call without the user's go-ahead for that run.** Tests never call a model.
 
 ## What this project is
 
@@ -22,7 +24,7 @@ A take-home submission for Checkout.com's "Fraud Success Manager Assistant Chall
 2. Help turn an insight into a **rule**: a valid SQL `WHERE` clause over the `transactions` table, backtested against `fraud_labels`.
 3. Ship with an initial evaluation suite, and a README that justifies the design, covers GenAI limitations, and describes offline and online metrics.
 
-Current state: early. `config.py`, `db.py`, `schema_context.py` and `rules/backtest.py` are implemented and tested; the other modules are docstring-only, and there is no model call, pipeline, rule proposal or evaluation suite yet.
+Current state: the data layer is built and the target design is written down. `config.py`, `db.py`, `schema_context.py` and `rules/backtest.py` are implemented and tested. Everything else is proposed: the other modules are docstring-only, there are no runtime dependencies, and there is no model call, SQL guard, turn graph, rule proposal or evaluation suite yet. The design they will follow is in `docs/ARCHITECTURE.md`; decisions D-14 to D-16 (Claude, a fixed LangGraph graph, five tools) are made but not built. `config.py`, `.env.example` and some placeholder docstrings still mention the earlier local provider (Ollama); they are replaced when the model layer is built.
 
 ## Where to find things
 
@@ -30,7 +32,7 @@ Current state: early. `config.py`, `db.py`, `schema_context.py` and `rules/backt
 |---|---|
 | `README.md` | Submission README (the brief requires setup, solution explanation, architecture, design choices, reproduction steps) |
 | `docs/CHALLENGE.md` | The original brief, verbatim. Do not edit |
-| `docs/ARCHITECTURE.md` | Architecture (which parts are implemented, which proposed), data flow, open decisions |
+| `docs/ARCHITECTURE.md` | Target design: system diagram, how one turn works, which parts are built and which proposed, evidence, known weaknesses, open points |
 | `docs/DATA.md` | The real schema, row counts, and where the data differs from the brief |
 | `docs/DECISIONS.md` | Decision log (D-01, D-02, …) |
 | `data/` | `data.db` (SQLite, about 100 MB, WAL mode) and `schema.sql`. Read-only |
@@ -66,6 +68,9 @@ Full detail in `docs/DATA.md`. The ones that cause wrong SQL:
 - The brief's example rule uses `amount` and `'debit'`. The real column is `amount_usd_cents` (integer cents) and `card_type` is one of `'Credit'`, `'Debit'`, `'Debit (Prepaid)'` (case-sensitive).
 - Two tables are not in the brief: `merchants` and `merchant_locations`. MCC is reached through `transactions.merchant_id → merchants.mcc`.
 - `fraud_labels.transaction_id` is TEXT; `transactions.id` is INTEGER. Join with `f.transaction_id = CAST(t.id AS TEXT)`: the uncast form is correct but runs away (every transaction against every label) as a `LEFT JOIN` or `EXISTS` from `transactions`.
+- `transactions.date` holds timestamps. End a day range with `< 'next day'`; `BETWEEN '2019-01-01' AND '2019-01-31'` drops the 31st.
+- Join locations on `transactions.merchant_location_id = merchant_locations.id`, never on `merchant_id` (about 440 million rows).
+- All 1,360 fraud labels are at merchant locations in Rome, Italy. Towns named Rome also exist in GA and NY, so read `city` with `state`.
 - Only about 67% of transactions have a fraud label (777,339 of 1,159,966). An unlabelled transaction is unknown, not legitimate: compute fraud metrics with an inner join.
 - Fraud is rare: 1,360 of the labelled transactions (about 0.17%).
 - `amount_usd_cents` can be negative (56,900 rows).

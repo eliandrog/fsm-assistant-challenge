@@ -22,6 +22,8 @@ users 1─* cards 1─* transactions *─1 merchants *─1 mcc_codes
                      transactions 1─0..1 fraud_labels   (transactions.id = fraud_labels.transaction_id)
 ```
 
+The location of a transaction is `transactions.merchant_location_id = merchant_locations.id`. Every transaction has one, every one matches a location row, and that location's `merchant_id` always equals the transaction's `merchant_id`.
+
 ## Where the data differs from the brief
 
 | Brief | Actual |
@@ -39,6 +41,12 @@ The brief's example rule, run as written, fails on the column name; with the nam
 - **Partial labels.** A transaction without a label is unknown, not legitimate. Fraud rates and rule metrics must use labelled transactions only (inner join) and say so. A `LEFT JOIN` with `is_fraud` treated as 0 when missing understates fraud.
 - **Class imbalance.** 1,360 of the 777,339 labels are fraud (about 0.17%); 775,979 are not. Accuracy is meaningless here; use precision, recall and counts.
 - **Type mismatch on the label join.** `f.transaction_id = t.id` gives the right rows because SQLite converts the text side for the comparison, and every label matches exactly one transaction (777,339 joined rows). But the integer cannot be looked up in the text index on `fraud_labels`, so the uncast form is only fast as an inner join (0.65 s; the planner scans the labels and finds each transaction by primary key). As a `LEFT JOIN` from `transactions`, or inside `EXISTS`, it compares every transaction with every label: both were interrupted after 8 seconds without finishing. Use `f.transaction_id = CAST(t.id AS TEXT)`: it uses the index in every shape (inner join 0.65 s, `LEFT JOIN` 0.19 s) and matches the same rows, because every label id is the canonical text of an integer. See [D-10](DECISIONS.md#d-10-the-schema-context-prescribes-one-form-of-the-label-join).
+- **Label coverage is even across months.** Between 66.8% and 67.2% of each month's transactions have a label, so no month is better covered than another. Labelled fraud per month ranges from 90 (September) to 177 (October).
+- **All labelled fraud is in one place.** Every one of the 1,360 fraud labels belongs to a transaction at a merchant location with `city = 'Rome'` and `state = 'Italy'` (65 location rows). Those locations have 2,431 transactions: 1,598 labelled, of which 1,360 are fraud and 238 are not. So any signal that is more common in Rome, Italy will look like a fraud signal, and strong backtest numbers on this data do not show that a rule would work elsewhere.
+- **City names are not unique.** There are also towns named Rome in two US states: `state = 'GA'` (8 locations, 24 transactions) and `state = 'NY'` (9 locations, 66 transactions), with no labelled fraud. Always read `city` together with `state`.
+- **The location join key.** Join locations with `transactions.merchant_location_id = merchant_locations.id`. Joining `merchant_locations` on `merchant_id` instead pairs each transaction with every location of its merchant: 440,543,445 rows instead of 1,159,966.
+- **`date` holds timestamps, which makes day ranges a trap.** `date BETWEEN '2019-01-01' AND '2019-01-31'` compares text, and `'2019-01-31 00:00:00'` sorts after `'2019-01-31'`, so the whole of the 31st is dropped: 114,138 rows instead of January's 118,116 (the 31st has 3,978). Write a range as `date >= '2019-01-01' AND date < '2019-02-01'`.
+- **The data ends on 2019-10-31.** A filter relative to today, such as `date('now', '-30 day')`, runs without error and matches nothing.
 - **Money is in cents** everywhere (`amount_usd_cents`, `credit_limit_usd_cents`, `yearly_income_usd_cents`, …). Divide by 100 for display only.
 - **Negative amounts.** 56,900 transactions have a negative `amount_usd_cents` (minimum −50,000). Their meaning (likely refunds) is not documented.
 - **`errors` is usually NULL.** 1,141,312 transactions have no error; otherwise one of seven fixed values (see `schema.sql`).
