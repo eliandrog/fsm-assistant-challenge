@@ -10,10 +10,13 @@ environment variables win over `.env`, and an empty value counts as unset
 (an empty environment variable does not hide a value in `.env`), so
 `.env.example` can be copied as it is.
 
-Loading never touches the database or the model server: a missing database
-file is reported by `db` when a query runs, and a missing model name by
-`Settings.require_model()` when a real model is asked for. That keeps the
-offline parts (tests, schema context) usable without a model.
+Loading never touches the database or the model provider: a missing database
+file is reported by `db` when a query runs, and a missing API key by `llm`
+when a live model is asked for. That keeps the offline parts (tests, schema
+context, replayed model replies) usable without a key.
+
+The API key is a `SecretStr`: its value does not appear in `repr`, `str` or
+`model_dump` of the settings, and is read only by `llm`.
 
 `Settings` holds the rules for each value; `load_settings` reports a broken
 one as a `ConfigError` that names the environment variable it came from.
@@ -22,8 +25,9 @@ one as a `ConfigError` that names the environment variable it came from.
 import os
 from collections.abc import Mapping
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
 
 from fsm_assistant.db import DEFAULT_MAX_RESULT_BYTES
 
@@ -33,12 +37,23 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_ENV_FILE = PROJECT_ROOT / ".env"
 DEFAULT_DB_PATH = PROJECT_ROOT / "data" / "data.db"
-DEFAULT_OLLAMA_HOST = "http://localhost:11434"
+DEFAULT_ANTHROPIC_MODEL = "claude-opus-5-5"
+DEFAULT_MAX_TOKENS = 8000
+DEFAULT_MODEL_TIMEOUT_SECONDS = 120.0
+DEFAULT_MAX_MESSAGE_CHARACTERS = 2000
 # Enough rows to read a result table; the cap bounds memory and output size.
 DEFAULT_ROW_CAP = 1000
 # The slowest sensible query measured on the real data (a six-table join with
 # GROUP BY) takes about 1.3 s; a mistaken join can run for minutes.
 DEFAULT_QUERY_TIMEOUT_SECONDS = 15.0
+
+Effort = Literal["low", "medium", "high", "xhigh", "max"]
+DEFAULT_EFFORT: Effort = "medium"
+
+# How the model states its action: by calling one of five tools, or as one
+# schema-constrained object (docs/DECISIONS.md, D-16).
+ToolMode = Literal["tools", "structured"]
+DEFAULT_TOOL_MODE: ToolMode = "tools"
 
 
 class ConfigError(ValueError):
@@ -55,58 +70,57 @@ class Settings(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     db_path: Path
-    ollama_host: str  # without a trailing slash
-    ollama_model: str | None
     row_cap: int
     query_timeout_seconds: float
     max_result_bytes: int
+    anthropic_api_key: SecretStr | None
+    anthropic_model: str
+    effort: Effort
+    max_tokens: int
+    model_timeout_seconds: float
+    max_message_characters: int
+    tool_mode: ToolMode
 
-    @field_validator("ollama_host")
-    @classmethod
-    def _host_is_an_http_url(cls, value: str) -> str:
-        if not value.startswith(("http://", "https://")):
-            raise ValueError("must start with http:// or https://")
-        return value.rstrip("/")
-
-    @field_validator("row_cap", "max_result_bytes", mode="before")
+    @field_validator(
+        "row_cap", "max_result_bytes", "max_tokens", "max_message_characters", mode="before"
+    )
     @classmethod
     def _whole_number(cls, value: object) -> object:
         return _number(int, value)
 
-    @field_validator("query_timeout_seconds", mode="before")
+    @field_validator("query_timeout_seconds", "model_timeout_seconds", mode="before")
     @classmethod
     def _decimal_number(cls, value: object) -> object:
         return _number(float, value)
 
-    @field_validator("row_cap", "query_timeout_seconds", "max_result_bytes")
+    @field_validator(
+        "row_cap",
+        "query_timeout_seconds",
+        "max_result_bytes",
+        "max_tokens",
+        "model_timeout_seconds",
+        "max_message_characters",
+    )
     @classmethod
     def _positive_and_finite[N: (int, float)](cls, value: N) -> N:
         if not 0 < value < float("inf"):
             raise ValueError("must be greater than zero")
         return value
 
-    def require_model(self) -> str:
-        """Return the model tag, or fail if it is not configured.
-
-        Called only when a real model is about to be used, so everything
-        that runs without a model does not need OLLAMA_MODEL.
-        """
-        if not self.ollama_model:
-            raise ConfigError(
-                "OLLAMA_MODEL is not set. Set it to an installed Ollama model "
-                "tag (for example qwen3:14b) in the environment or in .env."
-            )
-        return self.ollama_model
-
 
 # Settings field -> the environment variable it is read from.
 _VARIABLES = {
     "db_path": "FSM_DB_PATH",
-    "ollama_host": "OLLAMA_HOST",
-    "ollama_model": "OLLAMA_MODEL",
     "row_cap": "FSM_ROW_CAP",
     "query_timeout_seconds": "FSM_QUERY_TIMEOUT_SECONDS",
     "max_result_bytes": "FSM_MAX_RESULT_BYTES",
+    "anthropic_api_key": "ANTHROPIC_API_KEY",
+    "anthropic_model": "ANTHROPIC_MODEL",
+    "effort": "FSM_EFFORT",
+    "max_tokens": "FSM_MAX_TOKENS",
+    "model_timeout_seconds": "FSM_MODEL_TIMEOUT_SECONDS",
+    "max_message_characters": "FSM_MAX_MESSAGE_CHARACTERS",
+    "tool_mode": "FSM_TOOL_MODE",
 }
 
 
@@ -161,12 +175,19 @@ def load_settings(
 
     fields: dict[str, object] = {
         "db_path": db_path,
-        "ollama_host": get("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST,
-        "ollama_model": get("OLLAMA_MODEL"),
         "row_cap": get("FSM_ROW_CAP") or DEFAULT_ROW_CAP,
         "query_timeout_seconds": get("FSM_QUERY_TIMEOUT_SECONDS")
         or DEFAULT_QUERY_TIMEOUT_SECONDS,
         "max_result_bytes": get("FSM_MAX_RESULT_BYTES") or DEFAULT_MAX_RESULT_BYTES,
+        "anthropic_api_key": get("ANTHROPIC_API_KEY"),
+        "anthropic_model": get("ANTHROPIC_MODEL") or DEFAULT_ANTHROPIC_MODEL,
+        "effort": get("FSM_EFFORT") or DEFAULT_EFFORT,
+        "max_tokens": get("FSM_MAX_TOKENS") or DEFAULT_MAX_TOKENS,
+        "model_timeout_seconds": get("FSM_MODEL_TIMEOUT_SECONDS")
+        or DEFAULT_MODEL_TIMEOUT_SECONDS,
+        "max_message_characters": get("FSM_MAX_MESSAGE_CHARACTERS")
+        or DEFAULT_MAX_MESSAGE_CHARACTERS,
+        "tool_mode": get("FSM_TOOL_MODE") or DEFAULT_TOOL_MODE,
     }
     try:
         return Settings.model_validate(fields)
@@ -174,8 +195,13 @@ def load_settings(
         # The first error, in field order, with the variable's name in place of the field's.
         first = error.errors()[0]
         field = str(first["loc"][0])
-        reason = first.get("ctx", {}).get("error", first["msg"])
-        raise ConfigError(f"{_VARIABLES[field]} {reason}, got {fields[field]!r}") from None
+        context = first.get("ctx", {})
+        reason = context.get("error") or (
+            f"must be one of {context['expected']}" if "expected" in context else first["msg"]
+        )
+        # A secret is never echoed, whatever is wrong with it.
+        shown = "a hidden value" if field == "anthropic_api_key" else repr(fields[field])
+        raise ConfigError(f"{_VARIABLES[field]} {reason}, got {shown}") from None
 
 
 def _number(kind: type[int] | type[float], value: object) -> object:

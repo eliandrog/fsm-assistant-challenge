@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "q10",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "A rule cannot read the fraud labels, because it is scored against them, so I can't write one that flags transactions by their is_fraud label. I can instead propose a rule built from transaction features, such as amount, transaction type, errors, or merchant category, and show how well it separates fraud. Tell me which pattern you want to test, or I can run the built-in fraud profile to see where fraud concentrates."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3288,
+      "output_tokens": 242
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChM7WHuPFdHRiqv6wsVjR",
+    "request_hash": "b251e948585dca7aefa5e0dd0ea0d2f0fb078622f4245a1541f3a19c96abe7b8"
+  }
+}

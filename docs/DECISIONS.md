@@ -23,12 +23,14 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-11 | Backtest metrics use labelled transactions only; undefined ratios are `None` | Accepted |
 | D-12 | One backtest template; the clause sees only `transactions` | Accepted; refined by D-17 |
 | D-13 | A rule clause is contained by parentheses and a lexical scan | Accepted; refined by D-17 |
-| D-14 | Model provider: Anthropic (Claude) through its API | Accepted; not built yet |
-| D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; not built yet |
-| D-16 | The model chooses one of five tools; code executes it | Accepted; not built yet; default mode to be set by a measurement |
+| D-14 | Model provider: Anthropic (Claude) through its API | Accepted; built (D-20) |
+| D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; the packages are installed (D-20), the graph is not built yet |
+| D-16 | The model chooses one of five tools; code executes it | Accepted; refined by D-21: both modes built, and tools confirmed as the default by a small live check. The graph that routes on them is not built |
 | D-17 | The SQL guard reads SQLite's own account of a compiled statement | Accepted; refined by D-19 |
 | D-18 | Connection hardening: unknown quoted names are errors, and values are capped in size | Accepted |
 | D-19 | Pydantic models at every structured boundary, and strict type checking | Accepted |
+| D-20 | Model settings, key handling, and hosted tracing off | Accepted |
+| D-21 | One model interface, with our own record and replay | Accepted |
 
 ## Template
 
@@ -247,7 +249,7 @@ SQLite's message is kept verbatim on the error for the repair attempt.
 
 ## D-14: Model provider: Anthropic (Claude) through its API
 
-**Status:** Accepted; not built yet. Supersedes D-05.
+**Status:** Accepted; built, with the settings in D-20. Supersedes D-05.
 
 **Context:** D-05 chose a local Qwen model in Ollama, mainly so that no API key was needed and nothing left the machine. Exploratory runs on the two local models (see [`ARCHITECTURE.md`](ARCHITECTURE.md#evidence)) showed the approach was workable, but slower end to end, and a reviewer would need a download of 18.5 GB for the larger model and enough memory to load it. Two things changed the balance: the owner has an Anthropic API key, and the evaluation suite is designed to be replayed offline from recorded model replies (proposed), so a reviewer needs no model at all to check the reported results.
 
@@ -273,7 +275,7 @@ SQLite's message is kept verbatim on the error for the repair attempt.
 
 ## D-15: LangGraph as a fixed state graph, not an agent loop
 
-**Status:** Accepted; not built yet
+**Status:** Accepted. The two packages are installed (D-20) and two facts the graph depends on are pinned by tests (D-21); the graph itself is not built yet.
 
 **Context:** One turn has several steps with strict rules between them: model-written SQL must pass a guard before it runs, a rule must be backtested before it is shown, and a failed attempt may be repaired once and no more. Follow-up questions need a small memory per conversation. The question is what holds these steps together, and how much freedom the model gets in choosing them.
 
@@ -295,7 +297,7 @@ Two dependencies will be added by the task that builds the model layer: `langgra
 
 ## D-16: The model chooses one of five tools; code executes it
 
-**Status:** Accepted; not built yet. Which of the two modes below is the default will be set by a measurement.
+**Status:** Accepted; refined by D-21. The five tools, the fallback object and the check that turns either into one typed action are built (D-21); the graph that routes on the action is not. Default mode: tools, confirmed by the live measurement recorded in D-21 (`fsm-assistant check-model`). Rate of replies with exactly one valid tool call: 11 of 11 on each of two models, `claude-opus-5-5` and `claude-haiku-5-5`. Structured output stays as the fallback behind the `FSM_TOOL_MODE` setting. The check is small: eleven questions, each asked once, with a minimal system message and not the final prompt, and it measures whether the reply was one valid tool call, not whether the SQL was right. The text below is as it was written before the measurement.
 
 **Context:** Every reply from the model has to be one of five actions with known fields, so that code can route on it without parsing free text. Claude offers two ways to get that: tool calls (the model names an action and fills in typed arguments) and structured output (the reply is one object constrained to a schema).
 
@@ -464,3 +466,98 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 - The schema context is byte-identical after the conversion, the backtest's numbers are unchanged, and a 1,000-row `run_query` takes the same time as before (about 1.3 ms for 8 columns, 5.8 ms for 38).
 - One private class, the scanner state inside `sql_guard`, stays a mutable dataclass: it is updated in place and never leaves its module.
 - A test module added later is checked strictly, like the package: `pyproject.toml` has no list of exceptions.
+
+## D-20: Model settings, key handling, and hosted tracing off
+
+**Status:** Accepted. Builds D-14.
+
+**Context:** D-14 chose Claude and left the request settings to the task that builds the client. The wrapper library (`langchain-anthropic`) has defaults that would break the design or send data somewhere unexpected. Checked in the installed source (1.7.12): it retries a failed request twice; when `max_tokens` is not given it takes the model's maximum (128,000); it reads the API address from `ANTHROPIC_API_URL` or `ANTHROPIC_BASE_URL`, and then from a LangSmith gateway setting, before falling back to Anthropic's; and LangChain sends every call to LangSmith, a hosted tracing service, when `LANGSMITH_TRACING` or `LANGCHAIN_TRACING_V2` is `true` in the environment. The key is a secret that must not reach a log, an error message or a recorded file.
+
+**Decision:**
+
+- **Dependencies.** `langgraph` (1.2) and `langchain-anthropic` (1.7), as approved in D-15. They bring 38 packages into the lock file, among them the `anthropic` SDK, `langchain-core` and `langsmith`. The project imports `langchain_anthropic`, `langchain_core` and `langsmith` in `llm.py` only; the `anthropic` SDK is not imported by the package.
+- **Settings**, all in `config.py`, each an environment variable with a default:
+
+  | Setting | Variable | Default |
+  |---|---|---|
+  | API key | `ANTHROPIC_API_KEY` | none |
+  | Model | `ANTHROPIC_MODEL` | `claude-opus-5-5` |
+  | Effort (how much reasoning the model spends) | `FSM_EFFORT` | `medium`; one of `low`, `medium`, `high`, `xhigh`, `max` |
+  | Most output tokens per reply | `FSM_MAX_TOKENS` | 8,000 |
+  | Seconds to wait for a reply | `FSM_MODEL_TIMEOUT_SECONDS` | 120 |
+  | Longest user message, in characters | `FSM_MAX_MESSAGE_CHARACTERS` | 2,000 |
+  | Output mode (D-16) | `FSM_TOOL_MODE` | `tools`; or `structured` |
+
+- **What a request carries.** The model, `max_tokens`, the system text, one user message, the effort (as `output_config.effort`), and either the five tools or the output schema. Not sent: `temperature`, `top_p`, `top_k` (the default model rejects them), a `thinking` setting (the model decides, steered by effort), any beta header, and the server-side fallback to another model after a refusal. Effort is passed as `output_config` and not through the wrapper's `effort` shortcut, because the shortcut also adds a `thinking` block that asks for summarised reasoning to be returned.
+- **Retries are off** (`max_retries=0`). The turn graph owns the one repair, and "at most two model requests per turn" would not hold if the client retried on its own. A failed request is a `ModelUnavailable` error with a `kind`.
+- **The key.** `Settings.anthropic_api_key` is a pydantic `SecretStr`: `repr`, `str` and `model_dump` show asterisks. A missing key does not fail `load_settings`; it fails, with `ModelUnavailable("missing_key")`, only when a live client is built. The key and the address `https://api.anthropic.com` are passed to the client explicitly, so no environment variable can send the key to another host. If the key's text appears in a provider error, it is replaced before the error is raised. `check-model` prints whether a key is set, never the key.
+- **Hosted tracing is forced off.** Every model call runs inside LangSmith's `tracing_context(enabled=False)`, which takes precedence over the environment. The environment is not changed. Opt-in tracing is a later task ([Observability](ARCHITECTURE.md#observability)).
+- **Errors.** Authentication, permission, unknown model, rate limit, overload or server error, connection, timeout and a rejected request all become `ModelUnavailable`. A reply with stop reason `refusal`, or `max_tokens` (cut off), becomes `ModelOutputError` and carries the reply. Anything else the model sends is returned unjudged.
+
+**Alternatives:**
+
+- The `anthropic` SDK directly: one dependency fewer in name, but it is installed either way, and D-15 already uses LangChain's wrapper for the binding of tools and schemas.
+- Leaving retries on: a rate-limited turn would wait and resend up to three times, unseen and uncounted.
+- Setting `LANGSMITH_TRACING=false` in `os.environ`: changes the process for everything else in it, and LangSmith caches what it read.
+- `pydantic-settings` for the key: rejected in D-19.
+- A lower `max_tokens`: the reply is a short tool call, but the model's reasoning counts against the same limit, and a reply cut off there fails the turn. 8,000 leaves room; the effort setting is what controls spend.
+- Server-side fallback after a refusal: it would answer with another model than the one configured, and an evaluation run records one model.
+
+**Consequences:**
+
+- A turn that hits a rate limit or an overload fails at once with `model_unavailable`; the FSM asks again.
+- The API's own request id (an HTTP header) is not exposed by the wrapper. A reply carries the message id (`msg_…`) instead, as `response_id`.
+- An `ANTHROPIC_BASE_URL` in the environment is ignored on purpose. Routing through a proxy would need a setting of our own.
+- Tests build the real client with a made-up key and replace the one method that performs the HTTP call, so they check the request that would be sent (no retries, no temperature, strict tools, tracing off) without sending it. That method is private to the wrapper, so an upgrade can break those tests; the version range is pinned.
+- Every test runs with network connections refused, so a test that reached for the API would fail, not spend.
+- `config.py`, `.env.example` and their tests no longer carry the earlier provider's settings (`OLLAMA_HOST`, `OLLAMA_MODEL`, `Settings.require_model`).
+
+## D-21: One model interface, with our own record and replay
+
+**Status:** Accepted. Builds the model side of D-16 and records the measurement that confirms its default mode.
+
+**Context:** Three kinds of caller need a model: the turn graph (live), the tests (no model at all) and the evaluation suite, which must be replayable by a reviewer with no key and no network. Claude's output cannot be reproduced from a seed, so replay has to come from stored replies, and a stored reply is only evidence if it belongs to the request the code would send today.
+
+**Decision:**
+
+- **One interface.** `llm.IntentModel` has one method, `complete(request) -> ModelReply`. A `ModelRequest` is the system text, the user text, and the turn and call numbers (the second call of a turn is the repair). A `ModelReply` is what came back, unjudged: the tool calls, the text, the stop reason, token usage, the model id, the message id and a request hash. Both are frozen pydantic models; no LangChain type crosses the boundary, and `llm.py` is the only module that imports LangChain's Claude wrapper.
+- **Four implementations.** `ClaudeModel` (live, D-20); `RecordingModel` (wraps another model and writes each reply to a file); `ReplayModel` (reads those files, builds no client, needs no key); `ScriptedModel` (returns queued replies or raises queued errors, counts its calls, and raises `ScriptExhausted` when asked for more than it holds).
+- **The request hash.** SHA-256 of a canonical JSON document holding the model id, effort, `max_tokens`, output mode, both messages, the JSON schemas the mode sends (the five tools with their descriptions, or the single object) and `PROMPT_VERSION`. The turn and call numbers are not part of it.
+- **Recordings.** One JSON file per call, `<case id>.turn<N>.call<M>.json`, holding a versioned `Recording` document: `format_version` (1), the case id, turn, call and the reply with its hash. A case id is letters, digits, `-` and `_`. A refusal or a cut-off reply is recorded and replays as the same error; a failed request (`ModelUnavailable`) is not recorded.
+- **The first user is `check-model`.** Its logic is in `model_check.py`, which returns values and text; `cli.py` parses the arguments, prints and sets the exit code. A paid run wraps the live client in `RecordingModel`, one case id per question (`q01` to `q11`), and writes to `evals/recordings/check-model/<model id>/`, which is committed. Beside the recordings it writes `summary.json`, a frozen `CheckSummary`: model id, effort, `max_tokens`, output mode, prompt version, the versions of `langchain-anthropic`, `langchain-core` and `langgraph`, and for each question its text, the tools called, whether the reply was exactly one valid call, the kind of failure if not, tokens and seconds; then the totals and the decision. It holds no date, no key and no path. `check-model --replay` reads the replies back through `ReplayModel`, takes only the seconds from the summary, and prints the same table and decision; it stops with `StaleRecording` if the summary or a recording is missing, a hash differs, or the summary disagrees with the recordings. A summary is written only for a run that asked all eleven questions.
+- **The measured result: tools are the default mode.** `check-model` was run once on each of two models, with effort `medium` and `max_tokens` 8,000. The rule was fixed beforehand (D-16): tools stay the default if at most one of the eleven replies is not exactly one valid tool call.
+
+  | Model | Replies that were exactly one valid tool call | Input tokens | Output tokens | Seconds, eleven requests |
+  |---|---|---|---|---|
+  | `claude-opus-5-5` | 11 of 11 | 36,111 | 2,195 | 36.7 |
+  | `claude-haiku-5-5` | 11 of 11 | 36,111 | 2,459 | 19.0 |
+
+  Both models chose the same tool for every question: `run_sql` for the five data questions; `decline` for the delete request, the missing email column, the prompt injection and the rule that would read the fraud labels; `ask_clarification` for "risky transactions"; `propose_rule` for the debit-card rule. `FSM_TOOL_MODE` therefore stays `tools`, and structured output stays built as the fallback behind that setting. The replies and both summaries are in `evals/recordings/check-model/`; `fsm-assistant check-model --replay` (with `--model claude-haiku-5-5` for the second) prints them with no key.
+- **Replay never passes silently.** `ReplayModel` raises `StaleRecording` when the file is missing (`missing`), is not a version 1 recording (`unreadable`), or holds a hash different from the current request's (`stale`).
+- **What the model is offered lives in `nl2sql.py`,** as the architecture planned: the five argument models, the descriptions the model reads, the flat `Intent` object of the fallback mode, and `check_shape(reply)`, a pure function that returns one typed `Action` or a `ShapeFailure` with a kind and a reason written for the repair message. `llm.py` receives the tools as data (`ModelSpec`) and knows nothing about what they mean; `nl2sql` imports `llm` for the reply types, not the other way round.
+- **Schemas.** Each tool's schema is generated from its pydantic model and made to fit the API's strict mode: closed (`additionalProperties: false`), every property required, no length or range keywords. The rules those keywords would have carried (a statement is not empty, two or three suggestions, a clause without the word `WHERE`) are validators on the models, so they are checked when a call's arguments are read. The fallback object is flat, every field required and nullable where unused; which fields go with which `kind` is a validator too.
+- **Normalisation** is the guard's: trim, and drop one trailing `;` from a statement or clause (`sql_guard.normalise`). A Markdown fence is left for the guard to refuse.
+- **Two LangGraph facts pinned by tests,** because the graph of D-15 will rely on them. A state field annotated `Annotated[T, UntrackedValue]` is seen by later nodes and returned by `invoke` but is never written to the checkpointer, neither in a checkpoint nor in a pending write; it also does not carry over to the next invocation. Every other field persists across invocations on the same `thread_id` until a node resets it: without a reset, the second turn starts with the first turn's attempt counter and approved query.
+
+**Alternatives:**
+
+- LangChain's own cache for replay: it is keyed by the prompt and settings, cannot be keyed by case and call, and on a miss it calls the live model. A reviewer without a key would get an authentication error where they should get "stale recording"; one with a key would be billed without knowing.
+- Recording HTTP exchanges (a cassette library): a dependency, and it stores headers, so the key would have to be scrubbed from every file.
+- One file per case or per run: a single edit rewrites replies that did not change, which hides in a diff what did.
+- Hashing only the prompt version: a changed tool description or `max_tokens` would replay as if nothing had changed.
+- The tool definitions in `llm.py`: the provider module would then hold domain rules, and a second provider would have to duplicate them.
+- A separate schema module: cleaner while `nl2sql.py` holds no prompt, but the prompt, the glossary and the tools are one contract with the model and are versioned together.
+- The argument models and the actions as two sets of types: the validated arguments are the action, so one set serves both modes.
+
+**Consequences:**
+
+- `check-model --replay` rebuilds the system text from the schema context, so it needs `data/data.db`, and a request that got no reply (`ModelUnavailable`) leaves no file, so a run with one cannot be replayed.
+- Any change to a prompt, a tool description, a schema or a model setting makes every recording stale. That is the point; it also means recordings are re-made (a paid run) after such a change.
+- `PROMPT_VERSION` is `tools-1`: today the only prompt text is the tool descriptions. `check-model` uses its own label and its own short system message.
+- A recording holds the model's reply (the SQL it wrote) and the hash of the request, not the request itself: neither the system text nor the question is in the file. `check-model`'s `summary.json` holds the eleven questions, which are fixed text in `model_check.py`. It never holds result rows, which the model is never sent, or the key.
+- The shape check reads a reply's mode from the reply itself, so a recording made in one mode cannot be read as the other.
+- The measurement is a small check, not an evaluation. Eleven questions, each asked once per model, cannot tell a rare failure from none. It used a three-sentence system message, not the final prompt, which does not exist yet. And it counts whether a reply was exactly one valid tool call: it does not run the SQL or judge whether the SQL or the chosen tool was right. The fallback mode was built and is tested, but was not measured live.
+- Two things seen in the recorded replies, noted as observations and not conclusions. For "debit card transactions over $1,000" the two models wrote different rules: `claude-opus-5-5` used `card_type IN ('Debit', 'Debit (Prepaid)')` and `claude-haiku-5-5` used `card_type = 'Debit'`, each listing its reading as an assumption. And for "What is the overall fraud rate?" both returned a percentage (`ROUND(100.0 * …)`), not a fraction. Both are for the prompt and glossary of the next task to settle or to surface as an assumption.
+- `explanation` may be empty: an empty explanation does not cost the turn its repair.
+- The hash does not cover library versions. They belong in an evaluation run's metadata, which is not built yet.
+- The spike tests fix the state design: query results go in an untracked field, and the first node of a turn resets every per-turn field.

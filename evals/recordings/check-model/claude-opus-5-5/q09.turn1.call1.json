@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "q09",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't do that. The database is read-only, so I can't drop, change or delete any tables or data. I can help you explore the cards table instead, for example by breaking cards down by brand and type or by looking at fraud rates by card type."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 3289,
+      "output_tokens": 115
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChM7TkDrEBtAjy2Vq9ksK",
+    "request_hash": "00670964a645ee4626a54edc5d04bac81634952957310927b4f24a0dd78941fd"
+  }
+}

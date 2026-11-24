@@ -1,4 +1,4 @@
-"""Shared fixtures.
+"""Shared fixtures and helpers.
 
 Unit tests use a small database built in a temp directory from
 data/schema.sql, so they are fast and do not need the real 100 MB file.
@@ -7,11 +7,25 @@ skipped when it is missing.
 """
 
 import hashlib
+import socket
 import sqlite3
 from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
+
+from fsm_assistant import llm
+from fsm_assistant.llm import (
+    JsonObject,
+    ModelError,
+    ModelOutputError,
+    ModelReply,
+    ModelRequest,
+    ModelSpec,
+    ScriptedModel,
+    TokenUsage,
+    ToolCall,
+)
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 REAL_DB = DATA_DIR / "data.db"
@@ -45,6 +59,53 @@ INSERT INTO fraud_labels VALUES ('1001', 0), ('1002', 1), ('1003', 0), ('1004', 
 
 def file_sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def tool_reply(*tools: str, stop_reason: str = "tool_use") -> ModelReply:
+    """A reply in tool mode that calls the named tools with valid arguments."""
+    arguments: dict[str, JsonObject] = {
+        "run_sql": {"sql": "SELECT 1", "explanation": "", "assumptions": []},
+        "decline": {"reason": "Not possible."},
+        "ask_clarification": {"question": "Which?", "suggestions": ["a", "b"]},
+        "propose_rule": {"where_clause": "id > 5", "explanation": "", "assumptions": []},
+    }
+    return ModelReply(
+        tool_mode="tools",
+        tool_calls=tuple(ToolCall(name=tool, arguments=arguments.get(tool, {})) for tool in tools),
+        text="",
+        stop_reason=stop_reason,
+        usage=TokenUsage(input_tokens=1000, output_tokens=100),
+        model_id="scripted",
+        response_id=None,
+        request_hash="h",
+    )
+
+
+class StampingModel:
+    """A scripted model whose replies carry the hash of the request they answer, as live ones do."""
+
+    def __init__(self, spec: ModelSpec, steps: list[ModelReply | ModelError]) -> None:
+        self._spec = spec
+        self._inner = ScriptedModel(steps)
+
+    def complete(self, request: ModelRequest) -> ModelReply:
+        stamp = {"request_hash": llm.request_hash(self._spec, request)}
+        try:
+            return self._inner.complete(request).model_copy(update=stamp)
+        except ModelOutputError as error:
+            raise ModelOutputError(error.kind, error.reply.model_copy(update=stamp)) from None
+
+
+# Eleven replies for the eleven questions of `check-model`: eight valid, three misses.
+MIXED_RUN: list[ModelReply | ModelError] = [
+    *[tool_reply("run_sql")] * 5,
+    tool_reply("decline"),
+    tool_reply("ask_clarification"),
+    tool_reply(),
+    tool_reply("run_sql", "decline"),
+    ModelOutputError("refusal", tool_reply(stop_reason="refusal")),
+    tool_reply("propose_rule"),
+]
 
 
 @pytest.fixture(scope="session")
@@ -82,3 +143,14 @@ def real_db() -> Iterator[Path]:
     assert {path.name for path in DATA_DIR.iterdir()} == files_before
     assert REAL_DB.stat().st_mtime_ns == mtime_before
     assert file_sha256(REAL_DB) == hash_before
+
+
+def _refuse_connection(*args: object, **kwargs: object) -> None:
+    raise AssertionError(f"a test tried to open a network connection: {args[1:]!r}")
+
+
+# No test may open a connection, so an accidental model or tracing call fails
+# loudly and sends nothing. Set for the whole process and never restored: a
+# library's background thread can outlive the test that started it.
+setattr(socket.socket, "connect", _refuse_connection)
+setattr(socket.socket, "connect_ex", _refuse_connection)
