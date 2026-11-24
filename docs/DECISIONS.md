@@ -437,8 +437,8 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 **Decision:**
 
 - Every structured value passed between modules is a pydantic v2 model with `ConfigDict(frozen=True, extra="forbid")`. `Settings`, `QueryResult` and `BacktestResult` are converted, with the same field names and behaviour. A closed set of values is a `Literal` or an enum. Errors stay ordinary exception classes.
-- Every function and method is fully annotated. `mypy` runs in strict mode over `src/` with the pydantic plugin (`init_typed`, `init_forbid_extra`), as a dev-only dependency, and `uv run mypy` must pass as `uv run pytest` must. The package ships a `py.typed` marker. `Any` is kept in one place, the bind parameters of `run_query`, with a comment.
-- Tests are checked too, against the package's types, with three relaxations: they need no annotations of their own, they may call unannotated helpers, and they may assert on an optional value without narrowing it (a `None` there fails the test when it runs).
+- Every function and method is fully annotated. `mypy` runs in strict mode over `src/` and `tests/` with the pydantic plugin (`init_typed`, `init_forbid_extra`), as a dev-only dependency, and `uv run mypy` must pass as `uv run pytest` must. The package ships a `py.typed` marker. `Any` is kept in one place, the bind parameters of `run_query`, with a comment.
+- Tests are held to the same standard as the package, with no per-module override: every test, fixture and helper is annotated, and a test narrows an optional value (`assert decision.reason is not None`) before it reads it. A `# type: ignore` in a test marks a line that is ill-typed on purpose, such as assigning to a frozen field, and carries its error code and reason.
 - `Settings` holds the rules for its values (a positive, finite number, read from text with Python's `int()` or `float()`; an `http` or `https` host). `load_settings` turns the model's first error, in field order, into a `ConfigError` that names the environment variable, with the same wording as before.
 - A cell of a `QueryResult` is `str | int | float | bytes | None`. `run_query` builds its result with `model_construct`, without validation: the column names come from the cursor and the cells from `sqlite3` with no converter or row factory, which returns only those five types. Validating 1,000 rows cost 0.2 ms for 8 columns and 1.1 ms for 38, about a fifth of the query's own time. A `QueryResult` built any other way is validated.
 - A blob has no JSON form. `QueryResult` writes it to JSON as URL-safe base64 text, so serialising never fails on bytes that are not UTF-8; read back, the cell is that text. `model_dump` keeps the bytes. No column of the data holds a blob; only an expression such as `zeroblob(4)` produces one. How a blob is shown to the FSM is for the presentation step.
@@ -452,7 +452,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 - `pydantic-settings` for `Settings`: a second dependency to replace twenty lines, and its errors name fields, not environment variables.
 - Validating every `QueryResult`: the measured cost above, on every query, to re-check values the engine has just produced. A test validates real results of every cell type instead.
 - Rejecting a blob in a result: the engine returns one for a legitimate expression, and `db` reports what ran. Writing bytes to JSON as text (pydantic's default) fails on bytes that are not UTF-8.
-- Checking the tests as strictly as the package: about 80 missing annotations and 30 optional-value assertions to rewrite, for no gain in what the tests catch.
+- Relaxing the check for the tests (no annotations required, optional values read without narrowing): less to write, but a second standard to explain, a helper that returns the wrong type goes unnoticed, and a test that reads a `None` fails with an `AttributeError` or `TypeError` instead of an assertion that says what was missing.
 - Annotations with no checker: they drift, as the `Any` cells showed.
 
 **Consequences:**
@@ -463,4 +463,4 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 - `run_query` is the one place that trusts its own construction. A row factory or a converter added to the connection would break that assumption; a test that validates real results guards it.
 - The schema context is byte-identical after the conversion, the backtest's numbers are unchanged, and a 1,000-row `run_query` takes the same time as before (about 1.3 ms for 8 columns, 5.8 ms for 38).
 - One private class, the scanner state inside `sql_guard`, stays a mutable dataclass: it is updated in place and never leaves its module.
-- A test module added later is checked strictly unless it is added to the relaxed list in `pyproject.toml`.
+- A test module added later is checked strictly, like the package: `pyproject.toml` has no list of exceptions.

@@ -24,7 +24,7 @@ A take-home submission for Checkout.com's "Fraud Success Manager Assistant Chall
 2. Help turn an insight into a **rule**: a valid SQL `WHERE` clause over the `transactions` table, backtested against `fraud_labels`.
 3. Ship with an initial evaluation suite, and a README that justifies the design, covers GenAI limitations, and describes offline and online metrics.
 
-Current state: the data layer and the SQL guard are built, and the target design is written down. `config.py`, `db.py` (`run_query` to execute, `inspect_query` to compile without running), `schema_context.py`, `sql_scan.py` (the SQL text scanner), `sql_guard.py` (`check_query`, `check_rule_clause`) and `rules/backtest.py` are implemented and tested. `backtest` applies the guard's rule policy itself; nothing else calls the guard yet. The package is fully annotated and passes `mypy` in strict mode, and every structured value it passes between modules is a frozen pydantic model. Everything else is proposed: the other modules are docstring-only, the only runtime dependency is `pydantic`, and there is no model call, turn graph, rule proposal or evaluation suite yet. The design they will follow is in `docs/ARCHITECTURE.md`; decisions D-14 to D-16 (Claude, a fixed LangGraph graph, five tools) are made but not built. `config.py`, `.env.example` and some placeholder docstrings still mention the earlier local provider (Ollama); they are replaced when the model layer is built.
+Current state: the data layer and the SQL guard are built, and the target design is written down. `config.py`, `db.py` (`run_query` to execute, `inspect_query` to compile without running), `schema_context.py`, `sql_scan.py` (the SQL text scanner), `sql_guard.py` (`check_query`, `check_rule_clause`) and `rules/backtest.py` are implemented and tested. `backtest` applies the guard's rule policy itself; nothing else calls the guard yet. The package and the tests are fully annotated and pass `mypy` in strict mode, and every structured value it passes between modules is a frozen pydantic model. Everything else is proposed: the other modules are docstring-only, the only runtime dependency is `pydantic`, and there is no model call, turn graph, rule proposal or evaluation suite yet. The design they will follow is in `docs/ARCHITECTURE.md`; decisions D-14 to D-16 (Claude, a fixed LangGraph graph, five tools) are made but not built. `config.py`, `.env.example` and some placeholder docstrings still mention the earlier local provider (Ollama); they are replaced when the model layer is built.
 
 ## Where to find things
 
@@ -49,7 +49,7 @@ New project docs go in `docs/`. `README.md` stays at the root because the brief 
 uv sync                  # create .venv, install the package (editable) and dev tools
 uv run fsm-assistant     # run the entry point (placeholder for now)
 uv run pytest            # run the tests
-uv run mypy              # type-check src/ (strict) and tests/
+uv run mypy              # type-check src/ and tests/ (strict)
 ```
 
 Python 3.13, managed by uv. The package uses a `src/` layout built with `uv_build`.
@@ -60,13 +60,13 @@ Python 3.13, managed by uv. The package uses a `src/` layout built with `uv_buil
 - Safety is enforced in code, not only in the prompt. Model-written SQL reaches `db` only after `sql_guard` accepted it: `db.inspect_query` has no timeout, and the guard's text limits are what bound a compile. A rule is measured only through `backtest`, which applies the rule policy itself.
 - Numbers shown to the user (counts, fraud rates, precision, recall) come from executed SQL, never from model text.
 - **Typed code, pydantic data (D-19).** `uv run mypy` must pass before a change is done, as `uv run pytest` must.
-  - Every function and method has complete parameter and return annotations. No implicit `Any`; an explicit `Any` needs a one-line comment saying why (SQL bind parameters are the one case today).
+  - Every function and method has complete parameter and return annotations, in `tests/` as in `src/`: tests, fixtures and helpers included. No implicit `Any`; an explicit `Any` needs a one-line comment saying why (SQL bind parameters are the one case today).
   - Structured data is a frozen pydantic model (`model_config = ConfigDict(frozen=True, extra="forbid")`): settings, results, decisions, and later tool arguments, graph state, evaluation cases and API bodies. No dataclass, `NamedTuple` or `TypedDict` for these.
   - A closed set of values is a `Literal` or an enum, not a bare `str`.
   - No untyped `dict` passed between modules. A dict is fine inside one function, for example on its way into `model_validate`.
   - Exceptions stay ordinary exception classes with typed attributes.
   - Private working state that is updated in place and never leaves its module (`sql_guard._OpenCall`) may be a plain class.
-  - No `# type: ignore` without an error code and a reason on the same line.
+  - No `# type: ignore` without an error code and a reason on the same line. In a test it is for a line that is ill-typed on purpose (assigning to a frozen field); an optional value is narrowed with `assert x is not None`, not ignored.
 - Tests run offline. No test calls a real model; once code depends on one, tests use a scripted fake. Anything that calls a real model belongs in `evals/`.
 - Small, explainable changes. Say what changed and why.
 

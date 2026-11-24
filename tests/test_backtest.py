@@ -62,7 +62,7 @@ def build_db(path: Path, script: str) -> Path:
 
 
 @pytest.fixture(scope="module")
-def rules_db(tmp_path_factory) -> Path:
+def rules_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     return build_db(tmp_path_factory.mktemp("rules") / "rules.db", ROWS + LABELS)
 
 
@@ -70,7 +70,7 @@ def run(path: Path, clause: str) -> BacktestResult:
     return backtest(clause, db_path=path, timeout_seconds=10.0)
 
 
-def test_brief_style_rule_with_a_subquery_on_cards(rules_db):
+def test_brief_style_rule_with_a_subquery_on_cards(rules_db: Path) -> None:
     result = run(rules_db, BRIEF_RULE)  # matches 2 (fraud), 7 (legitimate), 10 (unlabelled)
     assert result.clause == BRIEF_RULE
     assert result.flagged == 3
@@ -90,7 +90,7 @@ def test_brief_style_rule_with_a_subquery_on_cards(rules_db):
     assert result.elapsed_seconds >= 0
 
 
-def test_everything_flagged(rules_db):
+def test_everything_flagged(rules_db: Path) -> None:
     result = run(rules_db, "1=1")
     assert (result.flagged, result.flagged_labelled, result.flagged_unlabelled) == (10, 7, 3)
     assert (result.true_positives, result.false_positives, result.false_negatives) == (3, 4, 0)
@@ -102,7 +102,7 @@ def test_everything_flagged(rules_db):
     assert result.false_positive_amount_cents == 2500 - 5000 + 999 + 200000  # net of the negative amount
 
 
-def test_nothing_flagged(rules_db):
+def test_nothing_flagged(rules_db: Path) -> None:
     result = run(rules_db, "amount_usd_cents > 99999999")
     assert (result.flagged, result.flagged_labelled, result.flagged_unlabelled) == (0, 0, 0)
     assert (result.true_positives, result.false_positives, result.false_negatives) == (0, 0, 3)
@@ -116,7 +116,7 @@ def test_nothing_flagged(rules_db):
     assert (result.total_transactions, result.total_labelled, result.total_fraud) == (10, 7, 3)
 
 
-def test_only_unlabelled_rows_flagged(rules_db):
+def test_only_unlabelled_rows_flagged(rules_db: Path) -> None:
     result = run(rules_db, "id IN (5, 6)")
     assert (result.flagged, result.flagged_labelled, result.flagged_unlabelled) == (2, 0, 2)
     assert (result.true_positives, result.false_positives) == (0, 0)
@@ -130,7 +130,7 @@ def test_only_unlabelled_rows_flagged(rules_db):
 
 
 @pytest.mark.parametrize("clause", ["id = 2", "transactions.id = 2", "  id = 2\n"])
-def test_id_means_the_transaction_id(rules_db, clause):
+def test_id_means_the_transaction_id(rules_db: Path, clause: str) -> None:
     # fraud_labels is joined in the same statement; `id` must not be
     # ambiguous or resolve against it.
     result = run(rules_db, clause)
@@ -151,7 +151,7 @@ def test_id_means_the_transaction_id(rules_db, clause):
         ("count(*) > 1", "misuse of aggregate function count()"),
     ],
 )
-def test_invalid_sql_keeps_sqlites_message(rules_db, clause, message):
+def test_invalid_sql_keeps_sqlites_message(rules_db: Path, clause: str, message: str) -> None:
     with pytest.raises(RuleClauseError) as raised:
         run(rules_db, clause)
     assert raised.value.sqlite_message == message
@@ -183,7 +183,7 @@ def test_invalid_sql_keeps_sqlites_message(rules_db, clause, message):
         ("1=1 \x00", "NUL"),
     ],
 )
-def test_break_out_attempts_are_rejected_before_any_query(clause, reason, tmp_path):
+def test_break_out_attempts_are_rejected_before_any_query(clause: str, reason: str, tmp_path: Path) -> None:
     # The database does not exist: a rejection here never reached SQLite.
     with pytest.raises(RuleClauseError) as raised:
         run(tmp_path / "missing.db", clause)
@@ -207,20 +207,20 @@ def test_one_trailing_semicolon_is_dropped_as_the_guard_does(rules_db: Path) -> 
         "1, 2",
     ],
 )
-def test_text_that_is_not_one_where_expression_is_rejected_by_sqlite(rules_db, clause):
+def test_text_that_is_not_one_where_expression_is_rejected_by_sqlite(rules_db: Path, clause: str) -> None:
     with pytest.raises(RuleClauseError) as raised:
         run(rules_db, clause)
     assert raised.value.sqlite_message
 
 
-def test_punctuation_inside_quotes_is_data(rules_db):
+def test_punctuation_inside_quotes_is_data(rules_db: Path) -> None:
     # ';', ')', '--' and '?' inside a literal or a quoted name are not structure.
     assert run(rules_db, "errors = 'a;b) -- c ''?'").clause == "errors = 'a;b) -- c ''?'"
     result = run(rules_db, """errors = 'Bad PIN' OR errors = ';) -- /* ?' OR "id" = 2 OR [id] = 7 OR `id` = 9""")
     assert (result.flagged, result.true_positives, result.false_positives) == (4, 2, 2)
 
 
-def test_ratios_are_none_without_labelled_fraud_or_transactions(tmp_path):
+def test_ratios_are_none_without_labelled_fraud_or_transactions(tmp_path: Path) -> None:
     no_fraud = build_db(tmp_path / "no_fraud.db", ROWS + "INSERT INTO fraud_labels VALUES ('1', 0), ('2', 0);")
     result = run(no_fraud, "id IN (1, 5)")
     assert (result.flagged, result.flagged_labelled, result.true_positives, result.false_positives) == (2, 1, 0, 1)
@@ -233,7 +233,7 @@ def test_ratios_are_none_without_labelled_fraud_or_transactions(tmp_path):
     assert (empty.precision, empty.recall, empty.flag_rate, empty.flagged_label_coverage) == (None,) * 4
 
 
-def test_result_is_immutable(rules_db):
+def test_result_is_immutable(rules_db: Path) -> None:
     result = run(rules_db, "1=1")
     with pytest.raises(ValidationError):
         result.flagged = 0  # type: ignore[misc]  # assigning to a frozen field is what is tested
@@ -252,13 +252,13 @@ def test_result_holds_the_measured_numbers_and_rejects_anything_else(rules_db: P
         BacktestResult.model_validate({k: v for k, v in dumped.items() if k != "total_fraud"})
 
 
-def test_timeout_propagates_as_the_db_error(rules_db):
+def test_timeout_propagates_as_the_db_error(rules_db: Path) -> None:
     endless = "(WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n) SELECT count(*) FROM n) > 0"
     with pytest.raises(db.QueryTimeout):
         backtest(endless, db_path=rules_db, timeout_seconds=0.2)
 
 
-def test_missing_database_propagates(tmp_path):
+def test_missing_database_propagates(tmp_path: Path) -> None:
     with pytest.raises(db.DatabaseNotFoundError):
         run(tmp_path / "missing.db", "1=1")
 

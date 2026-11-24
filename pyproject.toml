@@ -33,25 +33,3 @@ plugins = ["pydantic.mypy"]
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
-
-# Tests are checked against the package's types, but need no annotations of
-# their own, and may assert on an optional value without narrowing it first
-# (a None there fails the test when it runs). A test module not listed here
-# is checked as strictly as the package.
-[[tool.mypy.overrides]]
-module = [
-    "conftest",
-    "test_backtest",
-    "test_config",
-    "test_db",
-    "test_real_db",
-    "test_schema_context",
-    "test_smoke",
-    "test_sql_guard",
-    "test_sql_scan",
-]
-disallow_untyped_defs = false
-disallow_incomplete_defs = false
-disallow_untyped_calls = false
-strict_optional = false
-warn_return_any = false

@@ -84,7 +84,7 @@ What can be reproduced today:
 ```bash
 uv sync          # install
 uv run pytest    # a few seconds, offline (no model, no key)
-uv run mypy      # type check: strict on src/, tests checked against the package's types
+uv run mypy      # type check: strict on src/ and tests/
 ```
 
 The tests cover configuration, read-only execution, the schema context, the rule backtest and the SQL guard (each accepted query shape, and each rejection with its reason). Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
