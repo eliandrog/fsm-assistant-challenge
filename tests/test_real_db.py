@@ -16,29 +16,34 @@ from fsm_assistant.sql_guard import ReasonCode, check_query, check_rule_clause
 from fsm_assistant.schema_context import LABEL_JOIN, build_schema_context
 
 
-def run(path, sql, row_cap=100, timeout_seconds=30.0):
+def run(path: Path, sql: str, row_cap: int = 100, timeout_seconds: float = 30.0) -> db.QueryResult:
     return db.run_query(sql, db_path=path, row_cap=row_cap, timeout_seconds=timeout_seconds)
 
 
-def scalar(path, sql):
+def scalar(path: Path, sql: str) -> db.Cell:
     return run(path, sql).rows[0][0]
 
 
-def test_select_is_capped(real_db):
+def as_int(cell: db.Cell) -> int:
+    assert isinstance(cell, int)
+    return cell
+
+
+def test_select_is_capped(real_db: Path) -> None:
     result = run(real_db, "SELECT id FROM transactions", row_cap=10)
     assert result.row_count == 10
     assert result.truncated is True
 
 
 @pytest.mark.parametrize("sql", ["INSERT INTO mcc_codes VALUES (1, 'x')", "DROP TABLE transactions"])
-def test_writes_are_rejected(real_db, sql):
+def test_writes_are_rejected(real_db: Path, sql: str) -> None:
     with pytest.raises(db.ReadOnlyViolation):
         run(real_db, sql)
     assert scalar(real_db, "SELECT count(*) FROM transactions") == 1_159_966
     assert scalar(real_db, "SELECT count(*) FROM mcc_codes") == 109
 
 
-def test_a_runaway_join_is_interrupted(real_db):
+def test_a_runaway_join_is_interrupted(real_db: Path) -> None:
     # The label join without the cast, driven from transactions, compares
     # every transaction with every label. It is the mistake the timeout is for.
     started = time.monotonic()
@@ -52,7 +57,7 @@ def test_a_runaway_join_is_interrupted(real_db):
     assert time.monotonic() - started < 3
 
 
-def test_schema_context_on_the_real_data(real_db):
+def test_schema_context_on_the_real_data(real_db: Path) -> None:
     build_schema_context.cache_clear()
     context = build_schema_context(real_db)
     for table, rows in {
@@ -80,7 +85,7 @@ def test_schema_context_on_the_real_data(real_db):
     assert build_schema_context(real_db).encode() == context.encode()
 
 
-def test_label_join_facts(real_db):
+def test_label_join_facts(real_db: Path) -> None:
     # Every label id is the canonical text of an integer, so casting
     # transactions.id to text matches exactly the same rows as comparing numbers.
     assert scalar(
@@ -109,7 +114,7 @@ def test_label_join_facts(real_db):
     assert unlabelled.rows == ((1_159_966 - 777_339,),)
 
 
-def test_note_facts_hold(real_db):
+def test_note_facts_hold(real_db: Path) -> None:
     date_format = "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]"
     assert scalar(
         real_db,
@@ -147,7 +152,7 @@ def test_note_facts_hold(real_db):
     assert scalar(real_db, "SELECT count(*) FROM transactions WHERE errors IS NULL") == 1_141_312
 
 
-def test_backtest_of_the_brief_rule_matches_an_independent_query(real_db):
+def test_backtest_of_the_brief_rule_matches_an_independent_query(real_db: Path) -> None:
     # The brief's example ($1,000, debit cards) with the real column and value.
     result = backtest(
         "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
@@ -169,6 +174,7 @@ def test_backtest_of_the_brief_rule_matches_an_independent_query(real_db):
         "JOIN cards c ON c.id = t.card_id "
         "WHERE c.card_type = 'Debit' AND t.amount_usd_cents >= 100001",
     ).rows[0]
+    assert isinstance(flagged, int) and isinstance(labelled, int) and isinstance(fraud, int)
     assert (result.flagged, result.flagged_amount_cents) == (flagged, flagged_amount)
     assert (result.flagged_labelled, result.true_positives) == (labelled, fraud)
     assert result.false_positives == labelled - fraud
@@ -184,7 +190,7 @@ def test_backtest_of_the_brief_rule_matches_an_independent_query(real_db):
     assert result.elapsed_seconds < 5
 
 
-def test_backtest_of_a_rule_that_flags_everything(real_db):
+def test_backtest_of_a_rule_that_flags_everything(real_db: Path) -> None:
     result = backtest("1=1", db_path=real_db, timeout_seconds=30.0)
     assert (result.flagged, result.flagged_labelled, result.flagged_unlabelled) == (1_159_966, 777_339, 382_627)
     assert (result.true_positives, result.false_positives) == (1360, 775_979)
@@ -207,6 +213,7 @@ MONTHLY_FRAUD_RATE = (
 def test_guard_accepts_the_reference_rules(real_db: Path) -> None:
     brief = check_rule_clause(BRIEF_RULE, db_path=real_db)
     assert brief.accepted, brief.reason
+    assert brief.reads is not None
     assert brief.reads.tables == {"transactions", "cards"}
     rome = check_rule_clause(ROME_RULE, db_path=real_db)
     assert rome.accepted, rome.reason
@@ -263,6 +270,7 @@ def test_the_briefs_column_name_in_double_quotes_is_an_error(real_db: Path) -> N
     decision = check_rule_clause('"amount" > 1000', db_path=real_db)
     assert not decision.accepted
     assert decision.reason_code is ReasonCode.SQLITE_ERROR
+    assert decision.reason is not None
     assert 'no such column: "amount"' in decision.reason
     with pytest.raises(db.QueryError):
         run(real_db, 'SELECT count(*) FROM transactions WHERE "amount" > 1000')
@@ -274,16 +282,18 @@ def test_guard_accepts_the_monthly_fraud_rate_query_quickly(real_db: Path) -> No
     decision = check_query(MONTHLY_FRAUD_RATE, db_path=real_db)
     assert time.monotonic() - started < 0.1  # compiled, not run: the query itself takes about a second
     assert decision.accepted, decision.reason
+    assert decision.reads is not None
     assert decision.reads.tables == {"transactions", "fraud_labels"}
     result = run(real_db, decision.sql)
     assert result.row_count == 10
-    assert sum(row[1] for row in result.rows) == 777_339
-    assert sum(row[2] for row in result.rows) == 1360
+    assert sum(as_int(row[1]) for row in result.rows) == 777_339
+    assert sum(as_int(row[2]) for row in result.rows) == 1360
 
 
 def test_guard_allows_exactly_the_seven_tables(real_db: Path) -> None:
     decision = check_query("SELECT * FROM sqlite_master", db_path=real_db)
     assert decision.reason_code is ReasonCode.TABLE_NOT_ALLOWED
+    assert decision.reason is not None
     assert decision.reason.endswith(
         "The tables are: cards, fraud_labels, mcc_codes, merchant_locations, merchants, transactions, users."
     )

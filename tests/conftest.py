@@ -8,6 +8,7 @@ skipped when it is missing.
 
 import hashlib
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -47,7 +48,7 @@ def file_sha256(path: Path) -> str:
 
 
 @pytest.fixture(scope="session")
-def fixture_db(tmp_path_factory) -> Path:
+def fixture_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A small database with the real schema. Not in WAL mode: no sidecar files."""
     path = tmp_path_factory.mktemp("fixture") / "fixture.db"
     connection = sqlite3.connect(path)
@@ -59,7 +60,7 @@ def fixture_db(tmp_path_factory) -> Path:
 
 
 @pytest.fixture(scope="session")
-def real_db():
+def real_db() -> Iterator[Path]:
     """Path to data/data.db, with a check that the test session left data/ as it found it.
 
     The database is in WAL mode, so a read-only connection creates

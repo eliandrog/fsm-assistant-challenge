@@ -42,7 +42,7 @@ cd fsm-assistant-challenge-python
 uv sync
 ```
 
-`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its one runtime dependency (`pydantic`, for typed data models) and installs the dev tools (pytest).
+`uv sync` creates `.venv`, installs the `fsm_assistant` package in editable mode with its one runtime dependency (`pydantic`, for typed data models) and installs the dev tools (pytest, mypy).
 
 **Data.** The SQLite database is in the repository at `data/data.db` (about 100 MB), with its schema in `data/schema.sql`. No download or import step is needed. The application treats it as read-only. The `data/` directory itself must be writable: the database is in WAL mode, and SQLite creates two git-ignored sidecar files next to it on the first read ([`docs/DATA.md`](docs/DATA.md#access)).
 
@@ -84,6 +84,7 @@ What can be reproduced today:
 ```bash
 uv sync          # install
 uv run pytest    # a few seconds, offline (no model, no key)
+uv run mypy      # type check: strict on src/ and tests/
 ```
 
 The tests cover configuration, read-only execution, the schema context, the rule backtest and the SQL guard (each accepted query shape, and each rejection with its reason). Most use small databases built in a temp directory from `data/schema.sql`, where every backtest metric is computed by hand; those in `tests/test_real_db.py` run against `data/data.db`, check the data facts the schema context states and compare the backtest with independently written queries, and are skipped if the file is missing. The database is opened read-only and the suite checks it is unchanged afterwards.
@@ -149,7 +150,7 @@ _A walk through one real exploration question and one real rule proposal, with o
 
 ## Design choices and trade-offs
 
-Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first fourteen rows are about built code; the last three are decided and not built yet.
+Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). The first fifteen rows are about built code; the last three are decided and not built yet.
 
 | Choice | Why | Cost |
 |---|---|---|
@@ -167,6 +168,7 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | Rule text contained by parentheses plus a lexical scan (no `;`, comments, bind parameters, unbalanced parentheses) | A rule must not be able to change what is measured; needs no SQL parser | `--` is refused even where it would be valid arithmetic; table and column allow-listing is left to the SQL guard |
 | The SQL guard compiles a statement without running it and judges what SQLite reports (tables, columns, functions), not the text | SQLite resolves aliases, CTEs and `SELECT *` itself, so the guard cannot disagree with what will run; no SQL parser dependency | Depends on the engine's reporting, pinned by tests; date arguments still need a small text check; compiling has no timeout, so the text is bounded first (length, and how often CTEs refer to each other), which can refuse an unusually CTE-heavy statement |
 | Unknown double-quoted names are errors; values capped at 100,000 bytes, results at 100 columns and 5 MB | `"amount" > 1000` used to match every row; one huge value could outrun the timeout; the row cap alone let 300 rows take 340 MB | A string written in double quotes is refused; a very long `group_concat` or a very large result is an error |
+| Every structured value is a frozen pydantic model; the code is fully annotated and checked by mypy in strict mode | One way to write a data type, validated where data enters and immutable afterwards; a wrong field or type fails the check, not a run | A second command to keep passing; query results skip per-cell validation for speed, which a test covers |
 | Model: Claude through the Anthropic API (decided, not built) | Stronger SQL than the small local models tried first, and no multi-gigabyte download for a reviewer; offline replay of the evaluation means checking results needs no model | An API key and a cost per call for live use; the question and schema are sent to a hosted service |
 | One turn is a fixed state graph in LangGraph, not an agent (decided, not built) | See the paragraph below | Two dependencies; no multi-step reasoning within a turn |
 | The model picks one of five tools; code executes it (decided, not built) | Code can route on a typed action instead of parsing free text; the model never sees a result | The default model does not accept a forced tool choice, so a plain-text reply is possible and uses the one repair |

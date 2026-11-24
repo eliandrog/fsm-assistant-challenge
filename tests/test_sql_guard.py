@@ -124,6 +124,7 @@ def test_an_accepted_decision_reports_what_is_read(fixture_db: Path) -> None:
         db_path=fixture_db,
     )
     assert decision.accepted
+    assert decision.reads is not None
     assert decision.reads.tables == {"transactions", "cards"}
     assert decision.reads.columns_of("cards") == {"id", "card_type"}
     assert decision.reads.functions == {"lower", "count"}
@@ -250,6 +251,7 @@ REJECTED_QUERIES = [
 def test_rejected_queries_say_why(fixture_db: Path, sql: str, reason: str) -> None:
     decision = check_query(sql, db_path=fixture_db)
     assert not decision.accepted
+    assert decision.reason is not None
     assert reason in decision.reason
     assert decision.reason_code is not None
 
@@ -257,6 +259,7 @@ def test_rejected_queries_say_why(fixture_db: Path, sql: str, reason: str) -> No
 def test_dbstat_is_rejected_whether_or_not_sqlite_has_it(fixture_db: Path) -> None:
     decision = check_query("SELECT name, pageno FROM dbstat", db_path=fixture_db)
     assert not decision.accepted
+    assert decision.reason is not None
     assert "dbstat" in decision.reason
 
 
@@ -274,9 +277,10 @@ def test_decisions_are_immutable(fixture_db: Path) -> None:
     decision = check_query("SELECT 1", db_path=fixture_db)
     assert isinstance(decision, GuardDecision)
     with pytest.raises(ValidationError):
-        decision.accepted = False
+        decision.accepted = False  # type: ignore[misc]  # assigning to a frozen field is what is tested
+    assert decision.reads is not None
     with pytest.raises(ValidationError):
-        decision.reads.actions = ()
+        decision.reads.actions = ()  # type: ignore[misc]  # assigning to a frozen field is what is tested
     with pytest.raises(ValidationError):
         GuardDecision(accepted=True, sql="SELECT 1", reason="left over")
 
@@ -306,6 +310,7 @@ def test_rules_that_are_accepted(fixture_db: Path, clause: str) -> None:
     decision = check_rule_clause(clause, db_path=fixture_db)
     assert decision.accepted, decision.reason
     assert decision.sql == clause
+    assert decision.reads is not None
     assert "transactions" in decision.reads.tables
     backtest(decision.sql, db_path=fixture_db, timeout_seconds=5.0)
 
@@ -314,6 +319,7 @@ def test_the_rule_decision_reports_what_the_clause_alone_reads(fixture_db: Path)
     decision = check_rule_clause(f"  {BRIEF_RULE} ; ", db_path=fixture_db)
     assert decision.accepted
     assert decision.sql == BRIEF_RULE
+    assert decision.reads is not None
     assert decision.reads.tables == {"transactions", "cards"}
     assert decision.reads.columns_of("transactions") == {"amount_usd_cents", "card_id"}
 
@@ -351,7 +357,9 @@ def test_a_rule_that_reads_the_labels_is_rejected(fixture_db: Path, clause: str)
     decision = check_rule_clause(clause, db_path=fixture_db)
     assert not decision.accepted
     assert decision.reason_code is ReasonCode.LABEL_READ
+    assert decision.reason is not None
     assert "A rule must not read fraud_labels" in decision.reason
+    assert decision.reads is not None
     assert "fraud_labels" in decision.reads.tables
 
 
@@ -402,6 +410,7 @@ REJECTED_RULES = [
 def test_rejected_rules_say_why(fixture_db: Path, clause: str, reason: str) -> None:
     decision = check_rule_clause(clause, db_path=fixture_db)
     assert not decision.accepted
+    assert decision.reason is not None
     assert reason in decision.reason
     assert decision.reason_code is not None
 
@@ -416,6 +425,7 @@ def test_containment_is_checked_before_the_database_is_touched(tmp_path: Path) -
     decision = check_rule_clause("1=1) OR (1=1", db_path=tmp_path / "absent.db")
     assert not decision.accepted
     assert decision.reason_code is ReasonCode.CLAUSE_NOT_CONTAINED
+    assert decision.reason is not None
     assert "')' with no matching '('" in decision.reason
     assert decision.reads is None
 
@@ -486,6 +496,7 @@ def test_a_statement_that_would_take_long_to_compile_is_rejected_at_once(fixture
         decision = check(text, db_path=fixture_db)
         assert time.monotonic() - started < 0.25
         assert decision.reason_code is ReasonCode.TOO_COMPLEX
+        assert decision.reason is not None
         assert "Refer to each WITH name fewer times" in decision.reason
         assert decision.reads is None  # never compiled
 
@@ -527,6 +538,7 @@ def test_the_number_of_definitions_is_bounded(fixture_db: Path) -> None:
     assert check_query(chain(sql_guard.MAX_DEFINITIONS), db_path=fixture_db).accepted
     decision = check_query(chain(sql_guard.MAX_DEFINITIONS + 1), db_path=fixture_db)
     assert decision.reason_code is ReasonCode.TOO_COMPLEX
+    assert decision.reason is not None
     assert "has 21 definitions" in decision.reason and "the limit is 20" in decision.reason
 
 
@@ -546,9 +558,11 @@ def test_the_length_limit(fixture_db: Path) -> None:
     decision = check_query("SELECT " + ", ".join(["1"] * 500_000), db_path=fixture_db)
     assert time.monotonic() - started < 0.25
     assert decision.reason_code is ReasonCode.TOO_LONG
+    assert decision.reason is not None
     assert "1,500,005 characters long; the limit is 10,000" in decision.reason
     rule = check_rule_clause(f"errors = '{'a' * sql_guard.MAX_STATEMENT_CHARACTERS}'", db_path=fixture_db)
     assert rule.reason_code is ReasonCode.TOO_LONG
+    assert rule.reason is not None
     assert "Write a shorter clause" in rule.reason
 
 
@@ -578,8 +592,10 @@ def test_known_limits_of_the_today_check(fixture_db: Path) -> None:
 
 def test_a_rule_is_not_offered_the_label_table(fixture_db: Path) -> None:
     rule = check_rule_clause("id IN (SELECT rootpage FROM sqlite_master)", db_path=fixture_db)
+    assert rule.reason is not None
     assert rule.reason.endswith("The tables are: cards, mcc_codes, merchant_locations, merchants, transactions, users.")
     query = check_query("SELECT rootpage FROM sqlite_master", db_path=fixture_db)
+    assert query.reason is not None
     assert query.reason.endswith(TABLES)
 
 

@@ -34,8 +34,9 @@ code and reason. Writes are impossible either way (`db` enforces read-only
 in the engine).
 """
 
-from dataclasses import dataclass
 from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant import db
 from fsm_assistant.schema_context import label_join
@@ -94,13 +95,16 @@ class RuleClauseError(Exception):
         self.sqlite_message = sqlite_message
 
 
-@dataclass(frozen=True, slots=True)
-class BacktestResult:
+class BacktestResult(BaseModel):
     """What a rule would have flagged, measured against the fraud labels.
 
     Counts are transactions; amounts are sums of `amount_usd_cents` (cents,
-    and net of negative amounts, which exist in the data).
+    and net of negative amounts, which exist in the data). The ratios are
+    properties worked out from the counts, not fields, so `model_dump` holds
+    the measured numbers only.
     """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     clause: str  # the clause as measured (surrounding whitespace removed)
     flagged: int  # transactions matching the rule, labelled or not
@@ -186,11 +190,14 @@ def _backtest_unchecked(clause: str, *, db_path: Path, timeout_seconds: float) -
         raise RuleClauseError(
             f"The clause is not a read-only expression. {error}", ReasonCode.NOT_READ_ONLY
         ) from error
-    # By column name, so the template and the result type cannot drift apart.
-    return BacktestResult(
-        clause=clause,
-        elapsed_seconds=result.elapsed_seconds,
-        **dict(zip(result.columns, result.rows[0], strict=True)),
+    # By column name, so the template and the result type cannot drift apart:
+    # a column that is not a field, or a field with no column, fails validation.
+    return BacktestResult.model_validate(
+        {
+            "clause": clause,
+            "elapsed_seconds": result.elapsed_seconds,
+            **dict(zip(result.columns, result.rows[0], strict=True)),
+        }
     )
 
 

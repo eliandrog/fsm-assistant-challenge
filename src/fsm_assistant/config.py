@@ -14,12 +14,16 @@ Loading never touches the database or the model server: a missing database
 file is reported by `db` when a query runs, and a missing model name by
 `Settings.require_model()` when a real model is asked for. That keeps the
 offline parts (tests, schema context) usable without a model.
+
+`Settings` holds the rules for each value; `load_settings` reports a broken
+one as a `ConfigError` that names the environment variable it came from.
 """
 
 import os
 from collections.abc import Mapping
-from dataclasses import dataclass
 from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
 from fsm_assistant.db import DEFAULT_MAX_RESULT_BYTES
 
@@ -41,16 +45,45 @@ class ConfigError(ValueError):
     """A setting is missing or has an invalid value."""
 
 
-@dataclass(frozen=True, slots=True)
-class Settings:
-    """Validated, immutable settings."""
+class Settings(BaseModel):
+    """Validated, immutable settings.
+
+    A number may be given as text, as it comes from the environment; it is
+    read with Python's own `int()` or `float()`.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
 
     db_path: Path
-    ollama_host: str
+    ollama_host: str  # without a trailing slash
     ollama_model: str | None
     row_cap: int
     query_timeout_seconds: float
     max_result_bytes: int
+
+    @field_validator("ollama_host")
+    @classmethod
+    def _host_is_an_http_url(cls, value: str) -> str:
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://")
+        return value.rstrip("/")
+
+    @field_validator("row_cap", "max_result_bytes", mode="before")
+    @classmethod
+    def _whole_number(cls, value: object) -> object:
+        return _number(int, value)
+
+    @field_validator("query_timeout_seconds", mode="before")
+    @classmethod
+    def _decimal_number(cls, value: object) -> object:
+        return _number(float, value)
+
+    @field_validator("row_cap", "query_timeout_seconds", "max_result_bytes")
+    @classmethod
+    def _positive_and_finite[N: (int, float)](cls, value: N) -> N:
+        if not 0 < value < float("inf"):
+            raise ValueError("must be greater than zero")
+        return value
 
     def require_model(self) -> str:
         """Return the model tag, or fail if it is not configured.
@@ -64,6 +97,17 @@ class Settings:
                 "tag (for example qwen3:14b) in the environment or in .env."
             )
         return self.ollama_model
+
+
+# Settings field -> the environment variable it is read from.
+_VARIABLES = {
+    "db_path": "FSM_DB_PATH",
+    "ollama_host": "OLLAMA_HOST",
+    "ollama_model": "OLLAMA_MODEL",
+    "row_cap": "FSM_ROW_CAP",
+    "query_timeout_seconds": "FSM_QUERY_TIMEOUT_SECONDS",
+    "max_result_bytes": "FSM_MAX_RESULT_BYTES",
+}
 
 
 def parse_env_file(text: str) -> dict[str, str]:
@@ -115,37 +159,30 @@ def load_settings(
         # same .env works wherever the command is run from.
         db_path = PROJECT_ROOT / db_path
 
-    ollama_host = get("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST
-    if not ollama_host.startswith(("http://", "https://")):
-        raise ConfigError(
-            f"OLLAMA_HOST must start with http:// or https://, got {ollama_host!r}"
-        )
-
-    return Settings(
-        db_path=db_path,
-        ollama_host=ollama_host.rstrip("/"),
-        ollama_model=get("OLLAMA_MODEL"),
-        row_cap=_positive(int, "FSM_ROW_CAP", get("FSM_ROW_CAP"), DEFAULT_ROW_CAP),
-        query_timeout_seconds=_positive(
-            float,
-            "FSM_QUERY_TIMEOUT_SECONDS",
-            get("FSM_QUERY_TIMEOUT_SECONDS"),
-            DEFAULT_QUERY_TIMEOUT_SECONDS,
-        ),
-        max_result_bytes=_positive(
-            int, "FSM_MAX_RESULT_BYTES", get("FSM_MAX_RESULT_BYTES"), DEFAULT_MAX_RESULT_BYTES
-        ),
-    )
-
-
-def _positive[N: (int, float)](kind: type[N], name: str, raw: str | None, default: N) -> N:
-    """Parse `raw` as a positive, finite number of type `kind`."""
-    if raw is None:
-        return default
+    fields: dict[str, object] = {
+        "db_path": db_path,
+        "ollama_host": get("OLLAMA_HOST") or DEFAULT_OLLAMA_HOST,
+        "ollama_model": get("OLLAMA_MODEL"),
+        "row_cap": get("FSM_ROW_CAP") or DEFAULT_ROW_CAP,
+        "query_timeout_seconds": get("FSM_QUERY_TIMEOUT_SECONDS")
+        or DEFAULT_QUERY_TIMEOUT_SECONDS,
+        "max_result_bytes": get("FSM_MAX_RESULT_BYTES") or DEFAULT_MAX_RESULT_BYTES,
+    }
     try:
-        value = kind(raw)
+        return Settings.model_validate(fields)
+    except ValidationError as error:
+        # The first error, in field order, with the variable's name in place of the field's.
+        first = error.errors()[0]
+        field = str(first["loc"][0])
+        reason = first.get("ctx", {}).get("error", first["msg"])
+        raise ConfigError(f"{_VARIABLES[field]} {reason}, got {fields[field]!r}") from None
+
+
+def _number(kind: type[int] | type[float], value: object) -> object:
+    """Read text as a number of type `kind`; anything else is left for the field's own check."""
+    if not isinstance(value, str):
+        return value
+    try:
+        return kind(value)
     except ValueError:
-        raise ConfigError(f"{name} must be a number, got {raw!r}") from None
-    if not 0 < value < float("inf"):
-        raise ConfigError(f"{name} must be greater than zero, got {raw!r}")
-    return value
+        raise ValueError("must be a number") from None

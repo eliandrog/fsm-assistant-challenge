@@ -1,20 +1,21 @@
 """config: defaults, environment overrides, .env parsing, validation."""
 
-from dataclasses import FrozenInstanceError
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from fsm_assistant import config, db
-from fsm_assistant.config import ConfigError, load_settings, parse_env_file
+from fsm_assistant.config import ConfigError, Settings, load_settings, parse_env_file
 
 
-def load(environ=None, env_file=None):
+def load(environ: Mapping[str, str] | None = None, env_file: Path | None = None) -> Settings:
     """load_settings isolated from the developer's real environment and .env."""
     return load_settings(environ or {}, env_file)
 
 
-def test_defaults():
+def test_defaults() -> None:
     settings = load()
     assert settings.db_path == config.PROJECT_ROOT / "data" / "data.db"
     assert settings.db_path.is_absolute()
@@ -25,11 +26,11 @@ def test_defaults():
     assert settings.max_result_bytes == db.DEFAULT_MAX_RESULT_BYTES == 5_000_000
 
 
-def test_project_root_is_the_repository():
+def test_project_root_is_the_repository() -> None:
     assert (config.PROJECT_ROOT / "pyproject.toml").is_file()
 
 
-def test_environment_overrides():
+def test_environment_overrides() -> None:
     settings = load(
         {
             "FSM_DB_PATH": "/tmp/other.db",
@@ -48,32 +49,64 @@ def test_environment_overrides():
     assert settings.max_result_bytes == 20_000
 
 
-def test_relative_db_path_is_resolved_against_the_project_not_the_cwd(tmp_path, monkeypatch):
+def test_relative_db_path_is_resolved_against_the_project_not_the_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     assert load({"FSM_DB_PATH": "data/copy.db"}).db_path == config.PROJECT_ROOT / "data/copy.db"
     assert load().db_path == config.PROJECT_ROOT / "data" / "data.db"
 
 
-def test_empty_values_count_as_unset():
+def test_empty_values_count_as_unset() -> None:
     settings = load({"FSM_DB_PATH": "", "OLLAMA_MODEL": "  ", "FSM_ROW_CAP": ""})
     assert settings.db_path == config.DEFAULT_DB_PATH
     assert settings.ollama_model is None
     assert settings.row_cap == config.DEFAULT_ROW_CAP
 
 
-def test_settings_are_immutable():
-    with pytest.raises(FrozenInstanceError):
-        load().row_cap = 5
+def test_settings_are_immutable() -> None:
+    with pytest.raises(ValidationError):
+        load().row_cap = 5  # type: ignore[misc]  # assigning to a frozen field is what is tested
 
 
-def test_missing_model_fails_only_when_a_model_is_requested():
+def test_settings_reject_unknown_fields() -> None:
+    fields = load().model_dump()
+    assert Settings.model_validate(fields) == load()
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        Settings.model_validate({**fields, "row_limit": 5})
+
+
+def test_the_model_holds_the_rules_for_values_built_in_code() -> None:
+    fields = load().model_dump()
+    for field, value in [
+        ("row_cap", 0),
+        ("row_cap", 1.5),
+        ("query_timeout_seconds", float("inf")),
+        ("max_result_bytes", -1),
+        ("ollama_host", "localhost:11434"),
+    ]:
+        with pytest.raises(ValidationError, match=field):
+            Settings.model_validate({**fields, field: value})
+
+
+def test_the_first_invalid_variable_in_field_order_is_the_one_named() -> None:
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many", "OLLAMA_HOST": "localhost"})
+    assert str(error.value) == "OLLAMA_HOST must start with http:// or https://, got 'localhost'"
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many"})
+    assert str(error.value) == "FSM_ROW_CAP must be a number, got 'many'"
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0"})
+    assert str(error.value) == "FSM_MAX_RESULT_BYTES must be greater than zero, got '0'"
+
+
+def test_missing_model_fails_only_when_a_model_is_requested() -> None:
     settings = load()  # loading without OLLAMA_MODEL is fine
     with pytest.raises(ConfigError, match="OLLAMA_MODEL"):
         settings.require_model()
     assert load({"OLLAMA_MODEL": "qwen3:14b"}).require_model() == "qwen3:14b"
 
 
-def test_missing_db_file_is_not_an_error_at_load_time():
+def test_missing_db_file_is_not_an_error_at_load_time() -> None:
     assert load({"FSM_DB_PATH": "/nonexistent/x.db"}).db_path == Path("/nonexistent/x.db")
 
 
@@ -93,13 +126,13 @@ def test_missing_db_file_is_not_an_error_at_load_time():
         ("OLLAMA_HOST", "localhost:11434", "http://"),
     ],
 )
-def test_invalid_values_name_the_variable(name, value, message):
+def test_invalid_values_name_the_variable(name: str, value: str, message: str) -> None:
     with pytest.raises(ConfigError, match=name) as error:
         load({name: value})
     assert message in str(error.value)
 
 
-def test_parse_env_file():
+def test_parse_env_file() -> None:
     text = """
         # a comment
         OLLAMA_MODEL=qwen3:14b
@@ -118,12 +151,12 @@ def test_parse_env_file():
 
 
 @pytest.mark.parametrize("line", ["JUST_A_WORD", "=value", "export FOO=bar"])
-def test_parse_env_file_rejects_other_syntax(line):
+def test_parse_env_file_rejects_other_syntax(line: str) -> None:
     with pytest.raises(ConfigError, match="line 2"):
         parse_env_file(f"OK=1\n{line}\n")
 
 
-def test_env_file_is_read_and_the_environment_wins(tmp_path):
+def test_env_file_is_read_and_the_environment_wins(tmp_path: Path) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text("FSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
     assert load(env_file=env_file).row_cap == 25
@@ -132,16 +165,16 @@ def test_env_file_is_read_and_the_environment_wins(tmp_path):
     assert settings.ollama_model == "from-file"
 
 
-def test_missing_env_file_is_ignored(tmp_path):
+def test_missing_env_file_is_ignored(tmp_path: Path) -> None:
     assert load(env_file=tmp_path / "absent.env").row_cap == config.DEFAULT_ROW_CAP
 
 
-def test_os_environ_is_the_default_source(monkeypatch):
+def test_os_environ_is_the_default_source(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FSM_ROW_CAP", "3")
     assert load_settings(env_file=None).row_cap == 3
 
 
-def test_env_example_is_a_valid_env_file():
+def test_env_example_is_a_valid_env_file() -> None:
     values = parse_env_file((config.PROJECT_ROOT / ".env.example").read_text())
     assert {"FSM_DB_PATH", "OLLAMA_HOST", "OLLAMA_MODEL", "FSM_ROW_CAP",
             "FSM_QUERY_TIMEOUT_SECONDS", "FSM_MAX_RESULT_BYTES"} <= values.keys()

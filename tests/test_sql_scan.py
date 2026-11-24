@@ -45,4 +45,4 @@ def test_an_unclosed_block_comment_runs_to_the_end() -> None:
 def test_tokens_are_immutable() -> None:
     token = Token(kind="word", text="SELECT")
     with pytest.raises(ValidationError):
-        token.text = "DELETE"
+        token.text = "DELETE"  # type: ignore[misc]  # assigning to a frozen field is what is tested
