@@ -1,0 +1,64 @@
+tier = "ambiguous"
+
+[[case]]
+id = "ambiguous-risky"
+tests = "'Risky' has no definition in the data"
+tags = ["clarification", "vague-term"]
+tuned = true
+[[case.turn]]
+question = "Show me the risky transactions"
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-suspicious"
+tests = "'Suspicious' has no definition in the data"
+tags = ["clarification", "vague-term"]
+tuned = true
+[[case.turn]]
+question = "Which transactions look suspicious?"
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-high-value"
+tests = "'High value' needs a threshold the user has not given"
+tags = ["clarification", "vague-term", "threshold"]
+tuned = true
+[[case.turn]]
+question = "List the high value transactions."
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-recent"
+tests = "'Recent' names no period, and the data ends in October 2019"
+tags = ["clarification", "vague-term", "relative-date"]
+tuned = false
+[[case.turn]]
+question = "What do the recent transactions look like?"
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-big-merchants"
+tests = "'Big' could mean transaction count, total amount or number of locations"
+tags = ["clarification", "vague-term", "merchants"]
+tuned = false
+[[case.turn]]
+question = "Who are the big merchants?"
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-rule-request"
+tests = "A rule request that does not say which transactions the rule should catch"
+tags = ["clarification", "rule"]
+tuned = false
+[[case.turn]]
+question = "Make me a rule to stop fraud."
+outcome = "clarification"
+
+[[case]]
+id = "ambiguous-best-customers"
+tests = "'Best' could mean spend, transaction count or credit score"
+tags = ["clarification", "vague-term", "users"]
+tuned = false
+[[case.turn]]
+question = "Who are our best customers?"
+outcome = "clarification"

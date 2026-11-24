@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-recent",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "How far back should \"recent\" reach? The data runs from 2019-01-01 to 2019-10-31.",
+          "suggestions": [
+            "The last 7 days (2019-10-25 to 2019-10-31)",
+            "October 2019 (the last month of data)",
+            "The last 100 transactions by date, with their amounts, types and labels"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4615,
+      "output_tokens": 254
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJTr18uPXFzijpBHo7q",
+    "request_hash": "01fc6fdf79d0475231827516224ef7483f6291280232bf6bbc7045c0f6b6e659"
+  }
+}

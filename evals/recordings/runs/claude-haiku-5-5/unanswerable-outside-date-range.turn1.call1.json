@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-outside-date-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The transaction data covers only 2019-01-01 to 2019-10-31, so there are no 2018 transactions to count. I can count transactions for any period inside that range, such as January to October 2019, if that helps."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 167
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJUjLKv6s4pR9JEkUaE",
+    "request_hash": "7b2ac2c98ad2981ada25079fe0394a6361a8cf43a2dbc1926640f2d8c5ad6c2e"
+  }
+}

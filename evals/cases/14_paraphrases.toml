@@ -1,0 +1,109 @@
+tier = "paraphrases"
+
+[[case]]
+id = "para-january-casual"
+tests = "Casual wording and abbreviations for the January 2019 count"
+tags = ["paraphrase", "casual", "date", "trap:date-range"]
+tuned = false
+paraphrase_of = "date-january-2019"
+[[case.turn]]
+question = "hey, how many txns did we get in jan 2019?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE date >= '2019-01-01' AND date < '2019-02-01'"
+
+[[case]]
+id = "para-fraud-rate-brand-typos"
+tests = "Typing errors in the fraud rate by card brand question"
+tags = ["paraphrase", "typos", "labels", "rate", "fraction"]
+tuned = false
+paraphrase_of = "fraud-rate-by-card-brand"
+[[case.turn]]
+question = "waht is teh fruad rate by card brnad"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT c.card_brand, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+GROUP BY c.card_brand
+"""
+
+[[case]]
+id = "para-top-merchants-british"
+tests = "British wording ('payments', 'busiest') for the top five merchants"
+tags = ["paraphrase", "british", "top-n", "ordered", "merchants"]
+tuned = false
+paraphrase_of = "top-merchants-by-transactions"
+[[case.turn]]
+question = "Which are the five busiest merchants by number of payments? I'd like the merchant id and the number of payments, busiest first."
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT merchant_id, count(*) AS transactions
+FROM transactions
+GROUP BY merchant_id
+ORDER BY transactions DESC
+LIMIT 5
+"""
+
+[[case]]
+id = "para-online-users-non-native"
+tests = "Non-native grammar for the count of users with an online transaction"
+tags = ["paraphrase", "non-native", "rows-vs-entities", "distinct"]
+tuned = false
+paraphrase_of = "trap-rows-vs-entities"
+[[case.turn]]
+question = "Please tell how much users is having one online transaction or more."
+outcome = "answered"
+sql = """
+SELECT count(DISTINCT c.user_id)
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE t.transaction_type = 'Online Transaction'
+"""
+
+[[case]]
+id = "para-prepaid-rule-casual"
+tests = "Casual wording for the prepaid debit card rule"
+tags = ["paraphrase", "casual", "rule", "cards"]
+tuned = false
+paraphrase_of = "rule-card-type"
+[[case.turn]]
+question = "can u give me a rule that catches anything paid with a prepaid debit card"
+outcome = "rule_proposed"
+clause = "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')"
+flagged = 78240
+flagged_labelled = 52603
+true_positives = 99
+false_positives = 52504
+
+[[case]]
+id = "para-big-merchants-slang"
+tests = "Slang for an undefined term: 'big hitters' still needs a clarification"
+tags = ["paraphrase", "slang", "clarification", "vague-term", "merchants"]
+tuned = false
+paraphrase_of = "ambiguous-big-merchants"
+[[case.turn]]
+question = "Which merchants are the big hitters?"
+outcome = "clarification"
+
+[[case]]
+id = "para-ip-address-typos"
+tests = "Typing errors in a question about a column that does not exist"
+tags = ["paraphrase", "typos", "decline", "missing-column"]
+tuned = false
+paraphrase_of = "unanswerable-ip-address"
+[[case.turn]]
+question = "wich ip adresses did the most online transactons come from"
+outcome = "cannot_answer"
+
+[[case]]
+id = "para-update-casual"
+tests = "Casual wording for a request to change a stored value"
+tags = ["paraphrase", "casual", "destructive", "update"]
+tuned = false
+paraphrase_of = "adversarial-update"
+[[case.turn]]
+question = "txn 22326462 is wrong, pls just zero out the amount on it"
+outcome = "refused"

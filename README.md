@@ -2,7 +2,7 @@
 
 A prototype assistant for Fraud Success Managers (FSMs): ask questions about transaction data in natural language, and turn the patterns found into fraud rules. A submission for the "Fraud Success Manager Assistant Challenge"; the original brief is preserved in [`docs/CHALLENGE.md`](docs/CHALLENGE.md).
 
-> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; and that shows a proposed rule only with its backtest against the fraud labels. Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Tried live, not yet measured:** the assistant has been tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with a handful of questions, seven asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)); the evaluation suite that would measure it properly is not built yet, so this README does not say how well the model answers in general. The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). **Proposed**, with the design written down but no code: the fraud-concentration scan (asking for it gets "not available yet"), rule evidence month by month, structured logs, the evaluation suite and the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
+> **Status: work in progress.** **Built** and tested: a terminal assistant that takes a question in plain language, has Claude choose one of five actions, checks the SQL it wrote without running it, runs it on a read-only connection and shows the SQL next to the result; and that shows a proposed rule only with its backtest against the fraud labels. Under it: configuration, read-only execution, the schema context, the SQL guard, the rule backtest, the model client with recording and replay, the prompt, the graph that runs one turn, and the presentation of a result with its caveats. **Measured once, on one model:** the evaluation suite is built (119 cases, scorers, a runner, recording and offline replay) and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt 116 of 117 cases passed, 1 failed (a marked known limitation) and 2 were skipped ([Evaluation](#evaluation)). That is a single run, made after the prompt and the suite had been adjusted to the first one (109 of 117), on cases of our own: one sample, not a rate, and not a statement of how well the model answers in general. `claude-opus-5-5` has not been run on the suite. Before the suite existed, the assistant was tried live on both models (`claude-haiku-5-5` and `claude-opus-5-5`) with seven questions asked once each through `ask`, and all fourteen answers were correct ([Evidence](docs/ARCHITECTURE.md#a-live-smoke-test-of-the-turn)). The graph and the prompt are otherwise tested with scripted model replies, and the only other live calls are one small paid check of tool calls (`check-model`, under [How to run](#how-to-run)). **Proposed**, with the design written down but no code: the fraud-concentration scan (asking for it gets "not available yet"), rule evidence month by month, structured logs and the web chat. Each section below says what is built and what is proposed; parts marked _To be completed_ are filled in as the work is done.
 
 ## Contents
 
@@ -51,7 +51,7 @@ uv sync
 - **The tests need no key and no network.** They never call a model, and every test runs with network connections refused.
 - **A live call needs a key and costs money.** Put the key in `.env` in the project root, as `ANTHROPIC_API_KEY=...` (see Configuration below). `.env` is git-ignored; `.env.example` lists the names only. The key is never printed or logged, and a missing key is an error only when a live call is attempted.
 - Three commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask` and `fsm-assistant chat`, one or two requests per question, and `fsm-assistant check-model --yes-spend`. Each prints the model it is about to use. `ask` and `chat` stop with a message when the key is missing; `check-model` sends nothing without its flag.
-- The evaluation suite is designed to be replayed offline from recorded model replies, so checking the reported results will not need a key. Recording and replay are built; the suite is not. The only recordings so far are those of `check-model`, which replay with no key.
+- The evaluation suite replays offline from recorded model replies (`fsm-assistant eval --replay --model claude-haiku-5-5`), so checking reported results needs no key. One evaluation run is recorded, on `claude-haiku-5-5`; the recordings of `check-model`, for two models, replay with no key too.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
 
@@ -89,7 +89,7 @@ uv run fsm-assistant graph                                    # the turn graph a
 
 `uv run python -m fsm_assistant` is the same program.
 
-**`ask` and `chat` call the Anthropic API and are billed to your key.** They need `ANTHROPIC_API_KEY` ([Setup](#setup)) and stop with "Cannot start: ANTHROPIC_API_KEY is not set" when it is missing. A question costs one request, or two when the first reply has to be repaired: about 4,450 input tokens each (the schema, the rules and the tool definitions, sent every time; measured in the live smoke test, on both models) and 87 to 471 output tokens in that test. They print the model in use before anything is sent.
+**`ask` and `chat` call the Anthropic API and are billed to your key.** They need `ANTHROPIC_API_KEY` ([Setup](#setup)) and stop with "Cannot start: ANTHROPIC_API_KEY is not set" when it is missing. A question costs one request, or two when the first reply has to be repaired: about 4,450 input tokens each (the schema, the rules and the tool definitions, sent every time; measured in the live smoke test, on both models, on the prompt as it then was; the two lines added since are an estimated 130 tokens more) and 87 to 471 output tokens in that test. They print the model in use before anything is sent.
 
 - `ask "<question>"` answers one question in a new conversation. It prints the answer, the SQL that ran, the result table (the first 20 rows, with "Showing 20 of N rows"), the model's explanation and assumptions, labelled as the model's, any caveats, and a line with the outcome, the tool the model chose, the codes of any reply that was refused on the way, the model, the number of requests, tokens and time. For a rule it prints the clause and its backtest. A table wider than 160 characters shows the columns that fit and names the rest. Exit code: 0 for an answer, a rule or a question back to you; 1 when the turn failed; 2 when it could not start (a bad argument or setting, no key, an unusable `--record-dir`); 3 when the assistant could not answer (it declined, or the scan is not available); 4 when the guard rejected the SQL; 130 after Ctrl-C.
 - `chat` does the same in a loop and keeps one conversation, so a follow-up ("and for October?") is told the previous question and the SQL that answered it. A question that failed or was refused is not kept, so a follow-up after an error still builds on the last one that worked. Ctrl-C while a question is being answered abandons that question and returns to the prompt. The process keeps only the state of the latest turn, and the conversation is forgotten when the command ends.
@@ -197,11 +197,19 @@ print(check_rule_clause('id IN (SELECT CAST(transaction_id AS INTEGER) FROM frau
 "
 ```
 
-_To be completed: the single command that replays the evaluation suite offline, where it writes results, the model and settings used for the reported numbers, and the run time and cost of a live run._
+The evaluation suite, offline. Listing the cases needs nothing; the references are checked by the tests, which re-run all 72 reference queries and 13 reference rules on the shipped database:
+
+```bash
+uv run fsm-assistant eval --list            # the 119 cases and the count per tier
+uv run pytest tests/test_eval_evidence.py   # every reference against its pinned result
+uv run fsm-assistant eval --replay --model claude-haiku-5-5   # re-scores the recorded run through the real code; no key, no network
+```
+
+The recorded run behind the reported numbers was made on `claude-haiku-5-5` (effort `medium`, output mode `tools`, prompt `turn-4`); its replies and `run.json` are in `evals/recordings/runs/claude-haiku-5-5/` and its report in `evals/results/claude-haiku-5-5/report.md`. The replay sends those replies through the real graph, guard, database and scorers, ends with "All 119 replayed case(s) scored exactly as recorded in run.json" and writes `evals/results/claude-haiku-5-5/replay.md`. It stops with "stale recording" if the prompt, a tool, the model settings or a question has changed since. No run is recorded for `claude-opus-5-5`, the default model, so the replay needs `--model claude-haiku-5-5`. The first run, on an earlier prompt (`turn-3`), is kept as a report and a `run.json` in `evals/results/history/turn-3-claude-haiku-5-5/` and cannot be replayed. A live run of the whole suite is 123 turns: 123 requests to Claude, plus one for each turn that needs a repair; the recorded run averaged about 4,640 input tokens a request and took under five minutes, run one after another.
 
 ## Solution overview
 
-**Built for the terminal; run against Claude only as a seven-question smoke test on two models.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+**Built for the terminal; run against Claude as a seven-question smoke test on two models and as two recorded runs of the evaluation suite on one of them.** Full description, diagrams and the status of every component: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 The principle: the model only chooses and writes; code decides what runs, runs it and computes every number. For each message, Claude is given the real schema and a short glossary and picks exactly one of five actions: answer with a SQL query, propose a rule, ask for a fixed fraud scan, ask the FSM what was meant, or decline. Code then checks the SQL without running it, accepts only a single read-only `SELECT` over the known tables, runs it on a read-only connection with a timeout and a row cap, and shows the SQL next to the result. A rule is a `WHERE` clause and is never shown without its backtest against the fraud labels. If the first attempt fails, the model gets the exact error once; a second failure is shown as a failure. The model is never shown a result row, so it has no number to restate.
 
@@ -223,17 +231,18 @@ What exists today:
 - **Schema context** (`schema_context.py`): the description of the database that goes into every prompt, read from the database itself (tables, columns, types, keys, row counts, the actual values of categorical columns) plus short notes on what a model would otherwise get wrong (amounts in cents, case-sensitive values, how to join the fraud labels, partial label coverage). It is deterministic, about 3,300 characters.
 - **Rule backtest** (`rules/backtest.py`): `backtest(clause, db_path=…, timeout_seconds=…)` takes a rule as a `WHERE` clause over `transactions` and measures it with one fixed SQL template: transactions flagged, how many of those are labelled, fraud caught, false positives, precision, recall, flag rate, and the amounts involved in cents. Precision and recall use labelled transactions only, and the unlabelled part of the flagged set is reported next to them; a ratio with a zero denominator is "undefined", not 0. The clause is untrusted text: it is wrapped in parentheses inside a subquery that sees only `transactions`, and rejected with a reason if it contains a statement separator, a comment, a bind parameter or a parenthesis that would close the template's own. It applies the guard's rule policy itself before measuring, so a clause that reads the labels is refused with the guard's reason and cannot be scored by calling the backtest directly.
 - **Model layer** (`llm.py`, `nl2sql.py`): one small interface, `complete(request) -> reply`, with four implementations. The live one sends a single request to Claude with retries off, a token limit, an effort level and no temperature, and turns provider failures, refusals and cut-off replies into typed errors. A recording one writes each reply to a JSON file with a hash of the request; a replaying one reads those files with no key and no network, and stops with "stale recording" if the prompt, the schemas or the model settings have changed since. A scripted one serves the tests. The five actions are defined as typed tools with strict schemas, plus the same actions as one flat object for the fallback mode, and one function turns a raw reply into exactly one typed action or a reason it is not one.
-- **Prompt** (`prompt.py`): one system text, the same for every question: when to choose each action, the schema context, and a glossary that fixes what a model otherwise gets wrong on this data. A fraud rate is `1.0 * SUM(is_fraud) / COUNT(*)` over labelled rows, returned as a fraction. Relative dates resolve against the last day of the data, so "last month" is October 2019, and the resolved range is listed as an assumption. A day range ends with `<` the next day. Locations join on the location key. Velocity uses a window function and compares whole seconds. "Debit card" means `'Debit'` only, stated as an assumption. "Risky" and similar words get a question back, not a guessed threshold. A follow-up is given the previous question and the SQL that answered it, never its rows. The question and every other quoted piece of text sit inside named tags, which the prompt declares to be data and not instructions.
+- **Prompt** (`prompt.py`): one system text, the same for every question: when to choose each action, the schema context, and a glossary that fixes what a model otherwise gets wrong on this data. A fraud rate is `1.0 * SUM(is_fraud) / COUNT(*)` over labelled rows, returned as a fraction. Relative dates resolve against the last day of the data, so "last month" is October 2019, and the resolved range is listed as an assumption. A day range ends with `<` the next day. Locations join on the location key. Velocity uses a window function and compares whole seconds. "Debit card" means `'Debit'` only, stated as an assumption. The data's range is stated, and a period entirely outside it is declined, not answered with a count of zero. SQL the user insists on running unchanged that breaks one of these rules is declined, not rewritten silently. "Risky" and similar words get a question back, not a guessed threshold. A follow-up is given the previous question and the SQL that answered it, never its rows. The question and every other quoted piece of text sit inside named tags, which the prompt declares to be data and not instructions.
 - **Turn graph** (`state.py`, `nodes.py`, `graph.py`): the ten steps and the routes between them, built with LangGraph. Code chooses every route. The one repair is bounded by a counter. Conversation memory holds the last turn's question and accepted SQL, in the process, keyed by a conversation id; one checkpoint is kept per conversation, so older turns are not retained. Nothing read from a row is saved or sent to the model, including a value SQLite quotes when a statement fails while running: the model and the memory get a fixed sentence, and only the user is shown SQLite's words.
 - **Result and presentation** (`result.py`, `presentation.py`): every turn returns one typed result with exactly one outcome (answered, rule proposed, clarification, cannot answer, rejected, failed), the tool the model chose, and the reason codes of any reply the guard or the shape check refused during the turn, a repaired one included. Caveats are chosen by code from a fixed list: the result was cut at the row cap; the query read the fraud labels, which a third of transactions lack; no rows matched (check the spelling and case of values); a rule's precision rests on fewer than 30 labelled transactions; a rule flags more than 5% of all transactions. Cents are shown as dollars and a fraction also as a percentage.
 - **Terminal** (`cli.py`): `ask`, `chat`, `graph` and `--trace` ([How to run](#how-to-run)).
+- **Evaluation suite** (`evals/`, `src/fsm_assistant/evals/`): 119 cases with reference results, scorers, a runner on the same entry point, and a recorded run that replays offline ([Evaluation](#evaluation)). Built; two recorded runs on `claude-haiku-5-5`, one of them on the current prompt, and none on `claude-opus-5-5`.
 - **Configuration** (`config.py`): see [Setup](#setup).
 
 _A walk through one real exploration question and one real rule proposal, with the live model's output: to be completed._
 
 ## Design choices and trade-offs
 
-Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). Every row is about built code; the last rows are about the model layer and the turn, which are built and have had one seven-question live smoke test on two models, not an evaluation.
+Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/DECISIONS.md). Every row is about built code; the last rows are about the model layer and the turn, which are built and have had one seven-question live smoke test on two models, which is not an evaluation, and two recorded runs of the evaluation suite on `claude-haiku-5-5` ([Evaluation](#evaluation)).
 
 | Choice | Why | Cost |
 |---|---|---|
@@ -261,6 +270,7 @@ Full entries, with the alternatives rejected, are in [`docs/DECISIONS.md`](docs/
 | One repair: a fresh request with the previous answer and the reason it failed | Many first failures are a wrong column name, and SQLite's compile message is enough to fix them; a counter keeps a turn at two requests | A question that needs a third try fails. A statement that fails while running gets only a generic reason, because SQLite's run-time message can quote a value from a row |
 | Memory is the last turn's question and accepted SQL, never rows; one checkpoint per conversation | A follow-up works; result rows cannot reach the model through a growing transcript; old questions and SQL do not pile up in the process | No reference further back than one turn; lost when the process ends |
 | Caveats come from a fixed list chosen by code; the model's text is shown labelled as the model's | A caveat can be tested and cannot contradict the result | Fixed thresholds (30 labelled rows, 5% of transactions), chosen by judgement |
+| Evaluation by result, not by SQL text: pinned reference results, rule match by flagged set, counts per tier with tuned and held-out apart, recorded runs replayed through the real code ([D-25](docs/DECISIONS.md#d-25-the-evaluation-suite-results-compared-with-pinned-references-recorded-runs-replayed-through-the-real-code)) | Two correct queries rarely share their text; a reviewer can re-score a run with no key; a small sample is not read as a rate | The expected answers are ours; replay says nothing about the live model today; a prompt change makes recordings stale |
 
 **Why LangGraph, and why not an agent.** An agent is a loop in which the model sees the result of each action and chooses the next one. That is flexible, but it could not guarantee that every query passes the guard, or that a turn costs at most two model requests, and result rows would pass through the model, which could then restate them wrongly. So a turn is a fixed graph instead: the steps and the routes between them are declared in code, and the model's only job is to pick one action and write it. LangGraph was chosen for that graph, rather than plain functions, because the structure is declared in one place and the diagram is drawn from the code, conversation memory comes as a store keyed by conversation, and each step can be traced. The cost is that the assistant does not chain several queries in one turn; the FSM asks a follow-up. ([D-15](docs/DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop))
 
@@ -280,13 +290,13 @@ Mitigations by risk, and whether each is built. Where each sits in the design: [
 |---|---|---|
 | Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns; the guard checks tables against the real ones; SQLite's compile error on an unknown column is sent back to the model for one repair | Measured in the evaluation suite |
 | Destructive or runaway SQL | Read-only connection, timeout, row cap, value-size cap, result-size budget; a guard that bounds the text, compiles the SQL without running it and accepts a single read-only `SELECT`; nothing in a turn runs without passing it | none |
-| SQL that runs but answers the wrong question | SQL always shown with the result, with the model's assumptions listed; a glossary that fixes the fraud rate, relative dates, day ranges and the location join | Execution accuracy measured in the evaluation suite |
+| SQL that runs but answers the wrong question | SQL always shown with the result, with the model's assumptions listed; a glossary that fixes the fraud rate, relative dates, day ranges and the location join | Execution accuracy measured by the evaluation suite (built; one recorded run on the current prompt, on `claude-haiku-5-5`, each case asked once) |
 | Made-up numbers | Every figure comes from executed SQL; the model is never shown result rows, and its text is labelled as model text | none |
 | Plausible but poor rules | No rule shown without its backtest; caveats for a small labelled sample and a high flag rate; the FSM decides, the tool does not deploy | Evidence month by month |
 | A rule that reads the labels it is scored on | The guard rejects any clause that reads `fraud_labels`, in the turn and again in the backtest. Not detectable: a clause that lists fraud transaction ids as literals | none |
 | An empty result that looks like an answer (a filter relative to today, on data that ends in 2019; a value in the wrong case) | The guard rejects `'now'` given to a date function; the glossary resolves relative dates against the last day of the data; a zero-row result carries a caveat to check spelling and case | none |
 | Misleading fraud rates from partial labels | The schema context and the glossary tell the model to use labelled rows only; rule metrics on labelled transactions only, with the unlabelled share reported; a coverage caveat on every result that read the labels | none |
-| Vague or unanswerable questions answered anyway | The two actions exist and the prompt says when to use them: ask for "risky", "suspicious", "high value"; decline for missing data and for requests to change data | Such cases in the evaluation set |
+| Vague or unanswerable questions answered anyway | The two actions exist and the prompt says when to use them: ask for "risky", "suspicious", "high value"; decline for missing data and for requests to change data | Such cases are in the evaluation set (two recorded runs on `claude-haiku-5-5`; one such case failed in the first and a prompt line was added for it, so its pass in the second is a tuned one) |
 | A rule that fits history and nothing else | none yet | Scoring on months the rule was not derived from |
 | Instructions hidden in the question | The model can only choose one of five typed actions; whatever it writes still passes the guard and a read-only connection; the question and every quoted earlier text sit inside named tags that cannot be closed from inside, and the prompt says text in them is not an instruction | Such cases in the evaluation set |
 
@@ -296,27 +306,102 @@ _What was observed in testing with the real model, and residual risks: to be com
 
 ## Evaluation
 
-The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite does not exist yet.** The assistant it would measure now runs in the terminal, but has only been tested with scripted replies and one live smoke test of seven questions, asked once each on two models. Everything in this section is proposed; the design is in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#evaluation) and [`evals/README.md`](evals/README.md). The metrics below are the plan, not results.
+The brief asks how to show a stakeholder such as the Head of Fraud that the tool is effective and safe, with offline and online metrics, and for an initial evaluation suite. **The suite is built and has two recorded runs, both on `claude-haiku-5-5`, every case asked once. On the current prompt (`turn-4`), 116 of 117 cases passed, 1 failed (a marked known limitation) and 2 were skipped because the fraud scan is not built. That is one run on one model: model output varies between runs, so it is a sample and not a rate. It is also not an independent test. The first run (109 of 117, on prompt `turn-3`) came before it, and two prompt lines and two of the suite's expectations were changed after reading its failures, so the difference between the two runs is the sum of those changes and not evidence that the model got better. `claude-opus-5-5`, the default model, has not been run on the suite; that is planned as the final recorded run.** The suite itself is tested with scripted model replies; the full description is in [`evals/README.md`](evals/README.md), the design in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#evaluation) and the reasons in [D-25](docs/DECISIONS.md#d-25-the-evaluation-suite-results-compared-with-pinned-references-recorded-runs-replayed-through-the-real-code).
 
-**Offline** means measured on fixed cases before anyone uses the tool. The suite will run about 25 cases through the same code path the interface uses, and report counts per tier, not one accuracy percentage, because the sample is small. A live run will record the model's replies; the suite can then be replayed from those recordings with no model, no key and no network (recording and replay are built in the model client; the suite is not). Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today.
+**What the suite is.** 119 cases in fourteen tiers, run through the same entry point the terminal uses. The "effective" half asks questions with a known answer (aggregates, joins, fraud rates, dates, rankings, known traps, follow-ups, rules, paraphrases); the "safe" half sends vague words, questions the data cannot answer, writes, injections and rules that would read the labels. An answer is right when its rows equal the result of a reference query of ours, not when its SQL looks like ours. A rule is right when it flags the same transactions as a reference rule and its reported numbers equal an independent recomputation. Every turn is also scored on its outcome, on whether anything ran that should not have, and on whether the model itself wrote a write. A correct answer that carries extra columns after the expected ones passes and is counted apart. Results are counts per tier, with the 22 tuned cases (their question is in the prompt, or a prompt line was written because they failed) shown apart from the 97 held out, and never one accuracy percentage: a tier has between 2 and 13 cases.
+
+**How to run it.**
+
+```bash
+uv run fsm-assistant eval --list                                  # the cases, with the count per tier; free
+uv run fsm-assistant eval                                         # what a run would send and its upper bound; sends nothing
+uv run fsm-assistant eval --yes-spend --model claude-haiku-5-5    # PAID: runs the suite and records every reply
+uv run fsm-assistant eval --replay --model claude-haiku-5-5       # re-runs the recorded replies offline; free, no key
+```
+
+`--tier`, `--case`, `--tag`, `--held-out`, `--tuned` and `--limit` narrow any of them. A run prints a line per case with pass, fail and the reason code, then the table per tier (with "correct, with extra columns" and "failed, known limitation" as counts of their own), the tuned and held-out split, the failure reasons and the token and time totals, and writes `evals/results/<model id>/report.md` and `report.json`. Exit code 0 when every case that ran passed, 1 when one failed, 2 when the command could not start, 3 when a replay did not reproduce its record.
+
+**Offline** means measured on fixed cases before anyone uses the tool. A live run records the model's replies under `evals/recordings/runs/<model id>/` with a `run.json` of every score. A replay then sends the same cases through the real graph, guard, database and scorers with the recorded replies in place of the model: no key, no network. It stops with "stale recording" if the prompt, the tools, the model settings or a question changed since, and says whether every case scored as recorded. Replay shows that the recorded output, scored by the real code, gives the reported results. It does not show how the live model behaves today. A filtered run replaces only the cases it ran and leaves the rest of the record in place.
 
 **Online** means measured while FSMs use the tool, which would need a deployment. The assistant is planned to write one structured log line per step of each turn (today `--trace` prints those steps to the terminal and nothing is stored) (question, SQL, tool chosen, guard decision, outcome, row count, duration, token usage; never result rows or the key). Those log fields are what the online metrics below would be computed from.
 
-Each offline measure is there because it predicts something that matters online:
+Each offline measure is there because it predicts something that matters online. The offline column is built, except where it says otherwise; the online column is proposed.
 
-| Offline measure (proposed) | Online metric it predicts (proposed) |
+| Offline measure | Online metric it predicts (proposed) |
 |---|---|
 | Execution accuracy: the generated query returns the same result as a reference query, per tier | Share of generated queries the FSM uses as they are, against the share they correct or report as wrong |
-| Guardrail: unsafe inputs (writes, injection) that reach execution; target zero | Unsafe statements reaching the database (must stay zero); rate of guard rejections |
+| Guardrail: unsafe inputs (writes, injection) that reach execution, and writes the model wrote at all; target zero | Unsafe statements reaching the database (must stay zero); rate of guard rejections |
 | Clarification and refusal: vague or unanswerable questions are not answered with invented SQL | Share of clarifications followed by a successful answer; answers reported as wrong |
 | Rule arithmetic: the reported backtest equals an independent recomputation | Trust in the numbers: audits of shown figures find no differences |
-| Rule match and score on later months | Share of proposed rules accepted; live precision and false-positive rate of accepted rules after deployment |
-| Fraud scan finds the known concentration | Time from first question to a validated insight |
-| Model requests and time per turn | Response time and cost per question |
+| Rule match against a reference rule. Score on later months: proposed | Share of proposed rules accepted; live precision and false-positive rate of accepted rules after deployment |
+| Fraud scan finds the known concentration: the two cases exist and are skipped until the scan is built | Time from first question to a validated insight |
+| Model requests, tokens and time per turn, recorded with each run | Response time and cost per question |
 
 Further online metrics with no offline counterpart: time from insight to deployed rule against the current workflow; fraud value prevented against legitimate payments blocked.
 
-_Results, the case set and known failure cases: to be completed._
+**Results: the first recorded run.** `claude-haiku-5-5`, prompt `turn-3`, every case asked once: **109 of 117 cases passed, 8 failed, 2 skipped** (the scan is not built). Read it by tier, not as one rate:
+
+| Tier | Cases | Passed | Failed | Skipped |
+|---|---|---|---|---|
+| aggregates | 9 | 9 | 0 | 0 |
+| joins | 9 | 8 | 1 | 0 |
+| fraud | 13 | 12 | 1 | 0 |
+| dates | 9 | 9 | 0 | 0 |
+| top_n | 6 | 6 | 0 | 0 |
+| traps | 12 | 11 | 1 | 0 |
+| follow_ups | 7 | 6 | 1 | 0 |
+| ambiguous | 7 | 7 | 0 | 0 |
+| unanswerable | 7 | 6 | 1 | 0 |
+| adversarial | 13 | 12 | 1 | 0 |
+| rules | 10 | 10 | 0 | 0 |
+| rule_policy | 7 | 6 | 1 | 0 |
+| scan | 2 | 0 | 0 | 2 |
+| paraphrases | 8 | 7 | 1 | 0 |
+
+Of the 20 cases then marked tuned, 19 passed and 1 was skipped; of the 99 held out, 90 passed, 8 failed and 1 was skipped. The eight failures, none of them a wrong number and none a guardrail failure:
+
+- Four were correct answers that carried extra columns (the counts behind a rate or an average).
+- Three answered where the case expected a decline or a refusal: a count of 0 for 2018, a year the data does not cover; SQL relative to today that the user said to run unchanged, rewritten and answered; and a fixed 1% rule (`transactions.id % 100 = 0`) proposed for "a random 1%".
+- One was a follow-up to a declined delete, which got a clarification, because a declined turn is not remembered.
+
+**What was changed after that run. These changes were made after seeing its results**, which makes the suite easier to pass; the first run's report is kept unchanged in `evals/results/history/turn-3-claude-haiku-5-5/` for that reason.
+
+- Two prompt lines (`turn-4`, [D-26](docs/DECISIONS.md#d-26-two-prompt-lines-added-after-the-first-recorded-run)): a period entirely outside the data's range is declined; SQL the user insists on running unchanged that breaks a rule is declined, not rewritten. The two cases they describe are now counted as tuned, not held out.
+- Extra columns after correct expected ones pass, and are counted on their own line.
+- The random-sample case accepts a refusal or a repeatable rule that flags about 1%.
+- The follow-up after a decline is kept as a failing case and marked as a known limitation, which the report counts apart and never leaves out.
+
+**Results on the current prompt (`turn-4`).** `claude-haiku-5-5`, every case asked once: **116 of 117 cases passed, 1 failed, 2 skipped** (the scan is not built). Five of the passes are correct answers with extra columns, and the one failure is the marked known limitation. 123 turns, 125 model requests, 579,530 input and 42,582 output tokens, 277.7 seconds in turns. By tier:
+
+| Tier | Cases | Passed | With extra columns | Failed | Known limitation | Skipped |
+|---|---|---|---|---|---|---|
+| aggregates | 9 | 9 | 0 | 0 | 0 | 0 |
+| joins | 9 | 9 | 2 | 0 | 0 | 0 |
+| fraud | 13 | 13 | 1 | 0 | 0 | 0 |
+| dates | 9 | 9 | 0 | 0 | 0 | 0 |
+| top_n | 6 | 6 | 0 | 0 | 0 | 0 |
+| traps | 12 | 12 | 1 | 0 | 0 | 0 |
+| follow_ups | 7 | 6 | 0 | 1 | 1 | 0 |
+| ambiguous | 7 | 7 | 0 | 0 | 0 | 0 |
+| unanswerable | 7 | 7 | 0 | 0 | 0 | 0 |
+| adversarial | 13 | 13 | 0 | 0 | 0 | 0 |
+| rules | 10 | 10 | 0 | 0 | 0 | 0 |
+| rule_policy | 7 | 7 | 0 | 0 | 0 | 0 |
+| scan | 2 | 0 | 0 | 0 | 0 | 2 |
+| paraphrases | 8 | 8 | 1 | 0 | 0 | 0 |
+| Total | 119 | 116 | 5 | 1 | 1 | 2 |
+
+Of the 22 tuned cases, 21 passed and 1 was skipped; of the 97 held out, 95 passed (5 of them with extra columns), 1 failed and 1 was skipped. The failure is `follow-after-decline`: after a declined delete, "just tell me how many there are" got a clarification, because a declined turn is not remembered. No guardrail score failed in either run.
+
+**How to read it.**
+
+- **One run, one model.** Model output varies between runs, so this is one sample and not a rate. `claude-opus-5-5` has not been run on the suite.
+- **Not an independent test of the changes.** Seven more cases passed than in the first run, and all seven are accounted for by what was changed after it. The four extra-column cases returned extra columns again and the random-sample case got the same fixed 1% rule again; they pass because the scoring changed. (The first run's replies, re-scored once under the new rules before they were replaced, gave 114 of 117; that check cannot be repeated from the repository.) The two prompt-fix cases were declined this time, under prompt lines written for them, and are counted as tuned. So the step from 109 to 116 is the sum of those changes, not the model getting better.
+- **What it shows.** On these cases, asked once: result rows that equal our references, backtests that equal their recomputation, nothing run that the guard rejects, and vague, unanswerable and adversarial requests ending in a clarification, a decline or a refusal.
+- **What it does not show.** The cases and the expected answers are ours, and a reference can share a blind spot with its author. 22 of the 119 cases resemble wording in the prompt or had a prompt line written for them. Every case was asked once, so a rare failure cannot be told from none. The database is a single synthetic dataset in which all labelled fraud sits in one place (Rome, Italy), so the rule cases say nothing about whether a rule would hold elsewhere.
+- **What a reader can check with no key and no network.** `uv run fsm-assistant eval --replay --model claude-haiku-5-5` sends the recorded replies through the real graph, guard, database and scorers and reports whether every case scored as recorded; `uv run pytest` runs the tests, which re-run every reference against its pinned result. Neither shows what the model would reply if asked again.
+
+Case by case, with reasons: [`evals/README.md`](evals/README.md#results).
 
 ## Data: differences from the brief
 
@@ -333,15 +418,15 @@ So the brief's example rule, `amount > 1000 AND card_id IN (SELECT id FROM cards
 
 ## What is not built yet
 
-Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result and the terminal commands `ask`, `chat` and `graph`. Natural language → SQL and a rule shown with its backtest work end to end with scripted model replies. Against Claude, the current prompt (`turn-3`) has had one smoke test: seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly. That is not an evaluation.
+Built: configuration, read-only execution, the schema context, the rule backtest, the SQL guard, the model layer (the Claude client, the five tools, recording and replay of model replies), the prompt, the graph for one turn, the presentation of a result, the terminal commands `ask`, `chat` and `graph`, and the evaluation suite with its `eval` command. Natural language → SQL and a rule shown with its backtest work end to end with scripted model replies. Against Claude, an earlier prompt (`turn-3`) has had one smoke test (seven questions, asked once each through `ask` on `claude-haiku-5-5` and `claude-opus-5-5`, all answered correctly; not an evaluation), and the evaluation suite has two recorded runs on `claude-haiku-5-5`: 109 of 117 cases passed on `turn-3`, and 116 of 117 on the current prompt (`turn-4`) after the prompt and the suite were adjusted to the first run ([Evaluation](#evaluation)).
 
 Not built, in planned order:
 
 1. Live runs of `ask` and `chat` beyond the seven-question smoke test, and what they show about the prompt.
 2. Structured logs for every step, and opt-in hosted tracing with result rows filtered out.
-3. The evaluation suite with offline replay.
+3. A recorded run of the evaluation suite on `claude-opus-5-5`, planned as the final recorded run. Only `claude-haiku-5-5` has been run.
 4. Rule evidence month by month, and scoring on months a rule was not derived from.
-5. The fraud-concentration scan. Until then the action exists and ends in "not available yet".
+5. The fraud-concentration scan. Until then the action exists and ends in "not available yet", and the suite's two scan cases are skipped.
 6. The web chat and its HTTP API. First to be cut if time runs out.
 
 Not planned for this prototype: authentication, conversation memory that survives a restart, streaming of replies, charts, deploying a rule, a second model provider, a free agent loop, and proof that a rule generalises beyond this dataset.
@@ -364,9 +449,15 @@ src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        sql_scan.py, sql_guard.py, rules/backtest.py, llm.py,
                        nl2sql.py (tools, shape check), prompt.py, state.py,
                        nodes.py, graph.py (one turn), result.py, presentation.py,
-                       model_check.py (the check behind check-model), cli.py.
+                       model_check.py (the check behind check-model), cli.py,
+                       evals/ (cases, scorers, evidence, report, runner,
+                       recorded runs, the eval command).
                        rules/proposal.py is a docstring-only placeholder
 tests/                 pytest tests (fixture databases built from data/schema.sql)
-evals/                 Evaluation suite (not built; see its README). Holds the
-                       recorded replies of check-model for two models
+evals/                 Evaluation suite data (see its README): 119 cases in
+                       cases/, pinned reference results, the recorded
+                       replies of check-model for two models, the recorded
+                       evaluation run on claude-haiku-5-5 (recordings/runs/,
+                       results/), and the report of the first evaluation
+                       run in results/history/
 ```

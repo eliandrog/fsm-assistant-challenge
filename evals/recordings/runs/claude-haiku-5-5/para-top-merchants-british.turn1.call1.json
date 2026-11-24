@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "para-top-merchants-british",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT merchant_id, COUNT(*) AS payments FROM transactions GROUP BY merchant_id ORDER BY payments DESC, merchant_id ASC LIMIT 5",
+          "explanation": "Counts all transactions per merchant id and returns the five with the most payments, busiest first.",
+          "assumptions": [
+            "'Payments' means all rows in the transactions table, including those with no fraud label and those with errors or negative amounts.",
+            "Ties in payment count are broken by merchant id ascending."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4642,
+      "output_tokens": 243
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJapCSDV1xEAgMdw5dK",
+    "request_hash": "8cdba35319390fd4640656d46b624edcb7d0ceb63d8ffebed603cbc7f1ef43e0"
+  }
+}

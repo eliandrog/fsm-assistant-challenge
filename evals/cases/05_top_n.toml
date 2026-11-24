@@ -1,0 +1,110 @@
+tier = "top_n"
+
+[[case]]
+id = "top-merchants-by-transactions"
+tests = "Top five by a count, in order; the fifth and sixth are 31,598 and 30,341, so no tie at the cut"
+tags = ["top-n", "ordered", "merchants"]
+tuned = false
+[[case.turn]]
+question = "Which five merchants have the most transactions? Give the merchant id and the number of transactions, highest first."
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT merchant_id, count(*) AS transactions
+FROM transactions
+GROUP BY merchant_id
+ORDER BY transactions DESC
+LIMIT 5
+"""
+
+[[case]]
+id = "top-users-by-spend"
+tests = "Top five by a sum through a join, in dollars, in order; no tie at the cut"
+tags = ["top-n", "ordered", "users", "join", "cents", "sum"]
+tuned = false
+[[case.turn]]
+question = "Which five users spent the most in total? Give the user id and the total in dollars, highest first."
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT c.user_id, sum(t.amount_usd_cents) / 100.0 AS total_dollars
+FROM transactions t JOIN cards c ON c.id = t.card_id
+GROUP BY c.user_id
+ORDER BY total_dollars DESC
+LIMIT 5
+"""
+
+[[case]]
+id = "top-mccs-by-transactions"
+tests = "Top three categories through two joins, in order; code and count are compared, a description is tolerated"
+tags = ["top-n", "ordered", "mcc", "join"]
+tuned = false
+[[case.turn]]
+question = "What are the three merchant category codes with the most transactions, highest first, and how many transactions does each have?"
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT m.mcc, count(*) AS transactions
+FROM transactions t JOIN merchants m ON m.id = t.merchant_id
+GROUP BY m.mcc
+ORDER BY transactions DESC
+LIMIT 3
+"""
+
+[[case]]
+id = "top-us-states-by-transactions"
+tests = "Top five US states: the blank state of online locations, which would rank first, and country names are left out"
+tags = ["top-n", "ordered", "location", "join"]
+tuned = false
+[[case.turn]]
+question = "Which five US states have the most transactions, highest first, and how many each?"
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT l.state, count(*) AS transactions
+FROM transactions t JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE length(l.state) = 2
+GROUP BY l.state
+ORDER BY transactions DESC
+LIMIT 5
+"""
+
+[[case]]
+id = "top-largest-transactions"
+tests = "Top five rows by amount, in dollars, in order; the five largest amounts are all different"
+tags = ["top-n", "ordered", "cents"]
+tuned = false
+[[case.turn]]
+question = "List the five largest transactions: the transaction id and the amount in dollars, largest first."
+outcome = "answered"
+ordered = true
+allow_extra_columns = true
+sql = """
+SELECT id, amount_usd_cents / 100.0 AS dollars
+FROM transactions
+ORDER BY amount_usd_cents DESC
+LIMIT 5
+"""
+
+[[case]]
+id = "top-quietest-months"
+tests = "Bottom three by a count, ascending; the month's own format is not compared"
+tags = ["top-n", "ordered", "date", "group-by"]
+tuned = false
+[[case.turn]]
+question = "Which three months had the fewest transactions? Give the month and the count, fewest first."
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT strftime('%Y-%m', date) AS month, count(*) AS transactions
+FROM transactions
+GROUP BY month
+ORDER BY transactions ASC
+LIMIT 3
+"""

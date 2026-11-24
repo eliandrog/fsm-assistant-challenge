@@ -1,0 +1,190 @@
+tier = "fraud"
+
+[[case]]
+id = "fraud-labelled-count"
+tests = "Label coverage as a count: rows of fraud_labels, not of transactions"
+tags = ["labels", "count", "coverage"]
+tuned = true
+[[case.turn]]
+question = "How many transactions have a fraud label?"
+outcome = "answered"
+sql = "SELECT count(*) FROM fraud_labels"
+
+[[case]]
+id = "fraud-count"
+tests = "The number of labelled-fraud transactions"
+tags = ["labels", "count"]
+tuned = true
+[[case.turn]]
+question = "How many transactions are labelled as fraud?"
+outcome = "answered"
+sql = "SELECT count(*) FROM fraud_labels WHERE is_fraud = 1"
+
+[[case]]
+id = "fraud-overall-rate"
+tests = "The fraud rate as a fraction of labelled transactions, with the label-coverage caveat"
+tags = ["labels", "rate", "fraction"]
+tuned = true
+[[case.turn]]
+question = "What is the overall fraud rate?"
+outcome = "answered"
+sql = "SELECT 1.0 * sum(is_fraud) / count(*) FROM fraud_labels"
+require = ["caveat_label_coverage"]
+
+[[case]]
+id = "fraud-label-coverage-share"
+tests = "Label coverage as a fraction of all transactions"
+tags = ["labels", "coverage", "fraction"]
+tuned = false
+[[case.turn]]
+question = "What fraction of all transactions have a fraud label?"
+outcome = "answered"
+sql = "SELECT 1.0 * (SELECT count(*) FROM fraud_labels) / count(*) FROM transactions"
+
+[[case]]
+id = "fraud-rate-by-card-type"
+tests = "Fraud rate per card type over labelled rows only"
+tags = ["labels", "rate", "fraction", "cards", "group-by"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate for each card type?"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT c.card_type, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+GROUP BY c.card_type
+"""
+
+[[case]]
+id = "fraud-rate-by-card-brand"
+tests = "Fraud rate per card brand over labelled rows only"
+tags = ["labels", "rate", "fraction", "cards", "group-by"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate by card brand?"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT c.card_brand, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+GROUP BY c.card_brand
+"""
+
+[[case]]
+id = "fraud-rate-by-month"
+tests = "Fraud rate per calendar month, in month order; the month's own format is not compared"
+tags = ["labels", "rate", "fraction", "date", "group-by", "ordered"]
+tuned = false
+[[case.turn]]
+question = "What was the fraud rate in each month, from January to October 2019?"
+outcome = "answered"
+ordered = true
+compare_columns = [1]
+allow_extra_columns = true
+sql = """
+SELECT strftime('%Y-%m', t.date) AS month, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+GROUP BY month
+ORDER BY month
+"""
+
+[[case]]
+id = "fraud-rate-by-transaction-type"
+tests = "Fraud rate per transaction type, a column of transactions itself"
+tags = ["labels", "rate", "fraction", "group-by"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate for chip, online and swipe transactions?"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT t.transaction_type, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+GROUP BY t.transaction_type
+"""
+
+[[case]]
+id = "fraud-rate-by-mcc"
+tests = "Fraud rate per MCC with a HAVING on the fraud count"
+tags = ["labels", "rate", "fraction", "mcc", "group-by", "having"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate for each MCC that has at least 50 transactions labelled as fraud?"
+outcome = "answered"
+allow_extra_columns = true
+sql = """
+SELECT m.mcc, 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN merchants m ON m.id = t.merchant_id
+GROUP BY m.mcc
+HAVING sum(f.is_fraud) >= 50
+"""
+
+[[case]]
+id = "fraud-by-city-and-state"
+tests = "Fraud counts by city read together with state: one row, Rome in Italy"
+tags = ["labels", "count", "location", "city-state"]
+tuned = false
+[[case.turn]]
+question = "In which cities did the transactions labelled as fraud take place, and how many in each? Give the city with its state."
+outcome = "answered"
+sql = """
+SELECT l.city, l.state, count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE f.is_fraud = 1
+GROUP BY l.city, l.state
+"""
+
+[[case]]
+id = "fraud-rate-in-italy"
+tests = "Fraud rate inside one location segment, over that segment's labelled rows"
+tags = ["labels", "rate", "fraction", "location"]
+tuned = false
+[[case.turn]]
+question = "What is the fraud rate for transactions at merchant locations in Italy?"
+outcome = "answered"
+sql = """
+SELECT 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN merchant_locations l ON l.id = t.merchant_location_id
+WHERE l.state = 'Italy'
+"""
+
+[[case]]
+id = "fraud-transactions-vs-users"
+tests = "Rows against entities: fraud transactions and the distinct users behind them"
+tags = ["labels", "count", "distinct", "users", "rows-vs-entities"]
+tuned = false
+[[case.turn]]
+question = "How many transactions are labelled as fraud, and how many different users made them?"
+outcome = "answered"
+sql = """
+SELECT count(*), count(DISTINCT c.user_id)
+FROM transactions t
+JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+JOIN cards c ON c.id = t.card_id
+WHERE f.is_fraud = 1
+"""
+
+[[case]]
+id = "fraud-amount-total-dollars"
+tests = "The amount of labelled fraud, in dollars"
+tags = ["labels", "sum", "cents"]
+tuned = false
+[[case.turn]]
+question = "What is the total amount in dollars of the transactions labelled as fraud?"
+outcome = "answered"
+sql = """
+SELECT sum(t.amount_usd_cents) / 100.0
+FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+WHERE f.is_fraud = 1
+"""

@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-off-topic",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can only answer questions about the transaction database and turn fraud patterns into rules, so I can't write a poem. I can instead count chargeable-error transactions, such as those with a 'Bad CVV' or 'Insufficient Balance' error, or show how fraud rates vary by merchant category."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 169
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJUzFFhVm6dFHbM8Gb5",
+    "request_hash": "2b8eb52098fe757121ad2896164ee9a601d33681baefd2b4a4b33d2c7eb79d7a"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-answer-a-clarification",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "\"High value\" isn't defined in this data. Which threshold did you mean?",
+          "suggestions": [
+            "Transactions of $1,000 or more",
+            "Transactions in the top 1% by amount",
+            "Transactions above a dollar amount you specify (for example $500)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4614,
+      "output_tokens": 171
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJSyFg8o7Ma7yC4xGwX",
+    "request_hash": "28c329b03d5a82163e14c5f503aff7a3803064f7f5a992d03314ca4802a1dfcf"
+  }
+}

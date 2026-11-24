@@ -1,0 +1,25 @@
+tier = "scan"
+
+[[case]]
+id = "scan-where-is-fraud"
+tests = "An open question about where fraud concentrates goes to the code-written scan, whose top segment is Rome, Italy"
+tags = ["scan", "labels", "location"]
+tuned = true
+requires = "scan"
+[[case.turn]]
+question = "Where is fraud concentrated?"
+outcome = "answered"
+action = "profile_fraud"
+scan_top = ["Rome", "Italy"]
+
+[[case]]
+id = "scan-profile-request"
+tests = "The same scan asked for as a profile, without the word 'where'"
+tags = ["scan", "labels", "location"]
+tuned = false
+requires = "scan"
+[[case.turn]]
+question = "Give me a profile of the labelled fraud: which segments stand out?"
+outcome = "answered"
+action = "profile_fraud"
+scan_top = ["Rome", "Italy"]

@@ -1,0 +1,91 @@
+tier = "aggregates"
+
+[[case]]
+id = "agg-total-transactions"
+tests = "A plain row count of the largest table"
+tags = ["count"]
+tuned = true
+[[case.turn]]
+question = "How many transactions are there in total?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions"
+
+[[case]]
+id = "agg-distinct-cards-used"
+tests = "COUNT(DISTINCT) on a foreign key, not a row count"
+tags = ["count", "distinct"]
+tuned = false
+[[case.turn]]
+question = "How many different cards appear in the transactions?"
+outcome = "answered"
+sql = "SELECT count(DISTINCT card_id) FROM transactions"
+
+[[case]]
+id = "agg-date-range"
+tests = "MIN and MAX of the timestamp column, two columns in the order asked"
+tags = ["min-max", "date"]
+tuned = false
+[[case.turn]]
+question = "What are the earliest and the latest transaction timestamps in the data?"
+outcome = "answered"
+sql = "SELECT min(date), max(date) FROM transactions"
+
+[[case]]
+id = "agg-average-amount-dollars"
+tests = "An average converted from integer cents to dollars, negative amounts included"
+tags = ["average", "cents"]
+tuned = false
+[[case.turn]]
+question = "What is the average transaction amount in dollars, across all transactions?"
+outcome = "answered"
+sql = "SELECT avg(amount_usd_cents) / 100.0 FROM transactions"
+
+[[case]]
+id = "agg-count-by-transaction-type"
+tests = "GROUP BY a low-cardinality text column"
+tags = ["count", "group-by"]
+tuned = false
+[[case.turn]]
+question = "How many transactions are there of each transaction type?"
+outcome = "answered"
+sql = "SELECT transaction_type, count(*) FROM transactions GROUP BY transaction_type"
+
+[[case]]
+id = "agg-negative-amounts"
+tests = "A count with a filter on the sign of the amount"
+tags = ["count", "negative-amounts"]
+tuned = true
+[[case.turn]]
+question = "How many transactions have a negative amount?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE amount_usd_cents < 0"
+
+[[case]]
+id = "agg-count-by-error"
+tests = "GROUP BY a mostly-NULL column with the NULL group left out"
+tags = ["count", "group-by", "null"]
+tuned = false
+[[case.turn]]
+question = "For transactions that have an error, how many are there of each error value?"
+outcome = "answered"
+sql = "SELECT errors, count(*) FROM transactions WHERE errors IS NOT NULL GROUP BY errors"
+
+[[case]]
+id = "agg-no-error-count"
+tests = "IS NULL, where = NULL or = '' would count nothing"
+tags = ["count", "null"]
+tuned = false
+[[case.turn]]
+question = "How many transactions went through without any error recorded?"
+outcome = "answered"
+sql = "SELECT count(*) FROM transactions WHERE errors IS NULL"
+
+[[case]]
+id = "agg-cards-by-brand"
+tests = "A count over cards, not over the transactions made with them"
+tags = ["count", "group-by", "rows-vs-entities"]
+tuned = false
+[[case.turn]]
+question = "How many cards are there of each card brand?"
+outcome = "answered"
+sql = "SELECT card_brand, count(*) FROM cards GROUP BY card_brand"

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-flag-everything",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "1 = 1",
+          "explanation": "This rule flags every transaction in the database, with no condition on amount, card, merchant, or type.",
+          "assumptions": [
+            "'Blocks' is treated as 'flags', since the rule tool only marks transactions and does not block them in any system.",
+            "The condition 1 = 1 is true for every row, so the rule covers all 1,159,966 transactions, labelled or not."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 446
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJZxk6qbCvT42nmqBNP",
+    "request_hash": "edaa78f8d70d7d61b0d6ef5955715d76d6b57accad7e9d9e924fd3de5b661a83"
+  }
+}

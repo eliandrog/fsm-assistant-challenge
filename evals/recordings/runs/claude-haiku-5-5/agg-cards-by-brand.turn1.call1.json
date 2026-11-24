@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-cards-by-brand",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT card_brand, COUNT(*) AS card_count FROM cards GROUP BY card_brand ORDER BY card_brand",
+          "explanation": "Counts the cards in the cards table for each card brand, listed alphabetically by brand.",
+          "assumptions": [
+            "Counts every row in the cards table, including all card types (Credit, Debit, Debit (Prepaid))."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 202
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJFvJXAfU2iRyHBbEhz",
+    "request_hash": "4f233bdd9aa4bf679796c320b3f6f7d15db5a31e1e5b9b9a4db495345b41b867"
+  }
+}

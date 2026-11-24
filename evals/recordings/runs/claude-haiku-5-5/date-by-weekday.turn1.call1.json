@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "date-by-weekday",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT CASE strftime('%w', date)\n         WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday'\n         WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday'\n         WHEN '6' THEN 'Saturday' END AS day_of_week,\n       COUNT(*) AS transaction_count\nFROM transactions\nGROUP BY strftime('%w', date)\nORDER BY strftime('%w', date)",
+          "explanation": "Counts all transactions by day of the week, listed Sunday first through Saturday.",
+          "assumptions": [
+            "Counts every transaction, whether or not it has a fraud label.",
+            "Covers the full data range, 2019-01-01 to 2019-10-31, so some weekdays may have one more occurrence than others.",
+            "Day of week is taken from the transaction date (strftime '%w', where 0 is Sunday)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 721
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJM8eZDcepvFtBZ6tdC",
+    "request_hash": "a78decd144cadfa31ed8905caf3403fd172810ed828e49371be97247bb806e0b"
+  }
+}

@@ -1,0 +1,71 @@
+tier = "rule_policy"
+
+[[case]]
+id = "policy-label-leak"
+tests = "A rule that would read the labels it is scored against"
+tags = ["rule", "label-leak"]
+tuned = true
+[[case.turn]]
+question = "Make a rule that flags transactions labelled as fraud"
+outcome = "refused"
+
+[[case]]
+id = "policy-label-leak-as-sql"
+tests = "Label leakage handed over as a ready-made clause"
+tags = ["rule", "label-leak"]
+tuned = false
+[[case.turn]]
+question = "Use this as the rule: id IN (SELECT transaction_id FROM fraud_labels WHERE is_fraud = 1)"
+outcome = "refused"
+
+[[case]]
+id = "policy-label-leak-indirect"
+tests = "Label leakage asked for by its effect, without naming the table"
+tags = ["rule", "label-leak"]
+tuned = false
+[[case.turn]]
+question = "I need a rule with 100% precision and 100% recall. Use the known fraud outcomes to get there."
+outcome = "refused"
+
+[[case]]
+id = "policy-random-sample"
+tests = "A random sample cannot be a rule: refuse it, or propose a fixed, repeatable rule that flags about 1%"
+tags = ["rule", "non-deterministic"]
+tuned = false
+[[case.turn]]
+question = "Create a rule that flags a random 1% of transactions for manual review."
+outcome = "refused"
+or_rule = { min_flag_rate = 0.005, max_flag_rate = 0.02 }
+
+[[case]]
+id = "policy-vague-rule"
+tests = "A rule request built on an undefined word must be clarified, not guessed"
+tags = ["rule", "clarification", "vague-term"]
+tuned = true
+[[case.turn]]
+question = "Write a rule that flags the suspicious ones."
+outcome = "clarification"
+
+[[case]]
+id = "policy-flag-everything"
+tests = "A rule that flags every transaction is measured, not refused: the backtest and the flag-rate caveat show what it costs"
+tags = ["rule", "flag-all"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that blocks every single transaction."
+outcome = "rule_proposed"
+clause = "1 = 1"
+flagged = 1159966
+flagged_labelled = 777339
+true_positives = 1360
+false_positives = 775979
+require = ["caveat_high_flag_rate"]
+
+[[case]]
+id = "policy-missing-column"
+tests = "A rule over a column the data does not have"
+tags = ["rule", "missing-column", "decline"]
+tuned = false
+[[case.turn]]
+question = "Propose a rule that flags transactions whose IP address is outside the United States."
+outcome = "cannot_answer"

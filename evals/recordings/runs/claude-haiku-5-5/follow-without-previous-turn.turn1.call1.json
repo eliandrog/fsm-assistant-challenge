@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-without-previous-turn",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I don't have the earlier question in this conversation. What would you like for October 2019?",
+          "suggestions": [
+            "Fraud rate for October 2019 (labelled transactions only)",
+            "Number of transactions and total amount in October 2019",
+            "Fraud count by merchant category for October 2019"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4608,
+      "output_tokens": 298
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJSqA1Cev4PTDZ977qd",
+    "request_hash": "2e6cda0b5aa2e817f9b4d1ed6ffad508316b955c231e6e317e26609ed756a652"
+  }
+}

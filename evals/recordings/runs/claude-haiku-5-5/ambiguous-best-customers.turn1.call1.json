@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-best-customers",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What do you mean by \"best customers\"? The data supports several readings.",
+          "suggestions": [
+            "Highest total spend: users ranked by the sum of their transaction amounts",
+            "Most active: users ranked by number of transactions",
+            "Highest credit score or income: users ranked by their profile figures"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4612,
+      "output_tokens": 209
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChMJUCwy7yvSxpA2E2Xv1",
+    "request_hash": "d40d61f4483da16c2d90cdceb33f2ef0d40f782156ef1841dbe25e628e33c1f6"
+  }
+}
