@@ -1,12 +1,12 @@
 """config: defaults, environment overrides, .env parsing, validation."""
 
-from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from fsm_assistant import config, db
-from fsm_assistant.config import ConfigError, load_settings, parse_env_file
+from fsm_assistant.config import ConfigError, Settings, load_settings, parse_env_file
 
 
 def load(environ=None, env_file=None):
@@ -62,8 +62,40 @@ def test_empty_values_count_as_unset():
 
 
 def test_settings_are_immutable():
-    with pytest.raises(FrozenInstanceError):
+    with pytest.raises(ValidationError):
         load().row_cap = 5
+
+
+def test_settings_reject_unknown_fields() -> None:
+    fields = load().model_dump()
+    assert Settings.model_validate(fields) == load()
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        Settings.model_validate({**fields, "row_limit": 5})
+
+
+def test_the_model_holds_the_rules_for_values_built_in_code() -> None:
+    fields = load().model_dump()
+    for field, value in [
+        ("row_cap", 0),
+        ("row_cap", 1.5),
+        ("query_timeout_seconds", float("inf")),
+        ("max_result_bytes", -1),
+        ("ollama_host", "localhost:11434"),
+    ]:
+        with pytest.raises(ValidationError, match=field):
+            Settings.model_validate({**fields, field: value})
+
+
+def test_the_first_invalid_variable_in_field_order_is_the_one_named() -> None:
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many", "OLLAMA_HOST": "localhost"})
+    assert str(error.value) == "OLLAMA_HOST must start with http:// or https://, got 'localhost'"
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0", "FSM_ROW_CAP": "many"})
+    assert str(error.value) == "FSM_ROW_CAP must be a number, got 'many'"
+    with pytest.raises(ConfigError) as error:
+        load({"FSM_MAX_RESULT_BYTES": "0"})
+    assert str(error.value) == "FSM_MAX_RESULT_BYTES must be greater than zero, got '0'"
 
 
 def test_missing_model_fails_only_when_a_model_is_requested():

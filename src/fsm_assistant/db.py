@@ -46,7 +46,6 @@ statements.
 import sqlite3
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -177,12 +176,23 @@ class ResultTooLarge(QueryError):
     """
 
 
-@dataclass(frozen=True, slots=True)
-class QueryResult:
-    """Rows returned by one statement, capped at the row cap."""
+# What SQLite hands back for one value: TEXT, INTEGER, REAL, BLOB or NULL.
+type Cell = str | int | float | bytes | None
+
+
+class QueryResult(BaseModel):
+    """Rows returned by one statement, capped at the row cap.
+
+    A blob has no JSON form, so `model_dump_json` writes it as URL-safe
+    base64 text, and that text is what reading the JSON back gives.
+    `model_dump` keeps the bytes. No column of the data holds a blob; only
+    an expression (`zeroblob(4)`) produces one.
+    """
+
+    model_config = ConfigDict(frozen=True, extra="forbid", ser_json_bytes="base64")
 
     columns: tuple[str, ...]
-    rows: tuple[tuple[Any, ...], ...]
+    rows: tuple[tuple[Cell, ...], ...]
     truncated: bool  # True when more rows existed than the cap allowed
     elapsed_seconds: float
 
@@ -268,7 +278,7 @@ def run_query(
         # The statement runs lazily as rows are fetched, so the deadline
         # covers the fetch too. Rows are taken one at a time so the size
         # budget stops the fetch at the row that crosses it.
-        rows: list[tuple[Any, ...]] = []
+        rows: list[tuple[Cell, ...]] = []
         size = 0
         truncated = False
         for row in cursor:
@@ -292,7 +302,12 @@ def run_query(
     finally:
         connection.close()
 
-    return QueryResult(
+    # Built without validation: checking every cell of a full page costs about
+    # a fifth of the query's own time, and each value here is already of the
+    # declared type. The names come from the cursor, and the cells from
+    # sqlite3 with no converter or row factory set, which returns only str,
+    # int, float, bytes and None.
+    return QueryResult.model_construct(
         columns=columns,
         rows=tuple(rows),
         truncated=truncated,

@@ -533,7 +533,11 @@ def _rule_policy(reads: db.QueryInspection) -> _Rejection | None:
 
 @dataclass(slots=True)
 class _OpenCall:
-    """An unclosed '(' while scanning, with the word before it."""
+    """An unclosed '(' while scanning, with the word before it.
+
+    Working state of `_reads_today`, updated as tokens are read; it never
+    leaves this module, so it is a plain mutable class and not a model.
+    """
 
     name: str | None
     has_arguments: bool = False

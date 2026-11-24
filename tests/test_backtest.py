@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from conftest import DATA_DIR
 from fsm_assistant import db
@@ -234,8 +235,21 @@ def test_ratios_are_none_without_labelled_fraud_or_transactions(tmp_path):
 
 def test_result_is_immutable(rules_db):
     result = run(rules_db, "1=1")
-    with pytest.raises(AttributeError):
-        result.flagged = 0
+    with pytest.raises(ValidationError):
+        result.flagged = 0  # type: ignore[misc]  # assigning to a frozen field is what is tested
+
+
+def test_result_holds_the_measured_numbers_and_rejects_anything_else(rules_db: Path) -> None:
+    result = run(rules_db, "1=1")
+    dumped = result.model_dump()
+    assert set(dumped) == set(BacktestResult.model_fields)
+    assert "precision" not in dumped  # derived from the counts, not stored
+    assert BacktestResult.model_validate(dumped) == result
+    assert BacktestResult.model_validate_json(result.model_dump_json()) == result
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        BacktestResult.model_validate({**dumped, "precision": 1.0})
+    with pytest.raises(ValidationError, match="total_fraud"):
+        BacktestResult.model_validate({k: v for k, v in dumped.items() if k != "total_fraud"})
 
 
 def test_timeout_propagates_as_the_db_error(rules_db):
@@ -282,7 +296,7 @@ def test_what_the_policy_prevents(rules_db: Path) -> None:
 def test_the_guarded_and_the_unchecked_path_give_the_same_numbers(rules_db: Path) -> None:
     unchecked = backtest_module._backtest_unchecked(BRIEF_RULE, db_path=rules_db, timeout_seconds=10.0)
     guarded = run(rules_db, BRIEF_RULE)
-    fields = [name for name in BacktestResult.__dataclass_fields__ if name != "elapsed_seconds"]
+    fields = [name for name in BacktestResult.model_fields if name != "elapsed_seconds"]
     assert [getattr(guarded, name) for name in fields] == [getattr(unchecked, name) for name in fields]
 
 

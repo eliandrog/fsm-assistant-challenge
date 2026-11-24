@@ -26,8 +26,9 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-14 | Model provider: Anthropic (Claude) through its API | Accepted; not built yet |
 | D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; not built yet |
 | D-16 | The model chooses one of five tools; code executes it | Accepted; not built yet; default mode to be set by a measurement |
-| D-17 | The SQL guard reads SQLite's own account of a compiled statement | Accepted |
+| D-17 | The SQL guard reads SQLite's own account of a compiled statement | Accepted; refined by D-19 |
 | D-18 | Connection hardening: unknown quoted names are errors, and values are capped in size | Accepted |
+| D-19 | Pydantic models at every structured boundary, and strict type checking | Accepted |
 
 ## Template
 
@@ -330,7 +331,7 @@ Which mode is the default is not decided here. It will be decided by a measureme
 
 ## D-17: The SQL guard reads SQLite's own account of a compiled statement
 
-**Status:** Accepted. Refines D-03, D-12 and D-13.
+**Status:** Accepted. Refines D-03, D-12 and D-13. Refined by D-19 (the three dataclasses left unchanged here are pydantic models too).
 
 **Context:** D-03 requires model-written SQL to be validated in code before it runs and left the method open ("a SQL parser or a strict allow-list"). D-12 and D-13 left three things to that validator: which tables a rule clause may read (a clause that reads `fraud_labels` backtests at precision 1.0 and recall 1.0), non-deterministic rules, and a reason precise enough for one repair attempt. No SQL parser is available without a new dependency, and the read-only connection (D-06) already stops writes whatever the validator does. What the validator adds is deciding which reads are in scope, and saying why not.
 
@@ -426,3 +427,40 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 - What is still not bounded: the time a statement takes to compile, which nothing on the connection can limit (the guard bounds it from the text, D-17), and the memory SQLite uses inside a running statement, for a sort or a `DISTINCT` over long values, which only the timeout and the value cap limit.
 - The value cap bounds what one instruction can allocate; it does not make the timeout a hard bound for every possible instruction.
 - `QueryError` now always means "the statement has to change", and `DatabaseNotFoundError` and `DatabaseAccessError` always mean "the setup is wrong", which is the split a repair step needs.
+
+## D-19: Pydantic models at every structured boundary, and strict type checking
+
+**Status:** Accepted. Refines D-17.
+
+**Context:** The code had two ways to write a data type. The guard's types (D-17) were frozen pydantic models; `Settings`, `QueryResult` and `BacktestResult` were frozen dataclasses, which check nothing when they are built. Annotations were a habit, not something a command checked: a query result's cells were `Any`, so nothing downstream of `run_query` was really typed. The parts still to be built are mostly data that crosses a boundary where it can be wrong: the arguments of a tool call written by a model, the state passed between graph nodes, evaluation cases read from files, and the bodies of an HTTP API.
+
+**Decision:**
+
+- Every structured value passed between modules is a pydantic v2 model with `ConfigDict(frozen=True, extra="forbid")`. `Settings`, `QueryResult` and `BacktestResult` are converted, with the same field names and behaviour. A closed set of values is a `Literal` or an enum. Errors stay ordinary exception classes.
+- Every function and method is fully annotated. `mypy` runs in strict mode over `src/` with the pydantic plugin (`init_typed`, `init_forbid_extra`), as a dev-only dependency, and `uv run mypy` must pass as `uv run pytest` must. The package ships a `py.typed` marker. `Any` is kept in one place, the bind parameters of `run_query`, with a comment.
+- Tests are checked too, against the package's types, with three relaxations: they need no annotations of their own, they may call unannotated helpers, and they may assert on an optional value without narrowing it (a `None` there fails the test when it runs).
+- `Settings` holds the rules for its values (a positive, finite number, read from text with Python's `int()` or `float()`; an `http` or `https` host). `load_settings` turns the model's first error, in field order, into a `ConfigError` that names the environment variable, with the same wording as before.
+- A cell of a `QueryResult` is `str | int | float | bytes | None`. `run_query` builds its result with `model_construct`, without validation: the column names come from the cursor and the cells from `sqlite3` with no converter or row factory, which returns only those five types. Validating 1,000 rows cost 0.2 ms for 8 columns and 1.1 ms for 38, about a fifth of the query's own time. A `QueryResult` built any other way is validated.
+- A blob has no JSON form. `QueryResult` writes it to JSON as URL-safe base64 text, so serialising never fails on bytes that are not UTF-8; read back, the cell is that text. `model_dump` keeps the bytes. No column of the data holds a blob; only an expression such as `zeroblob(4)` produces one. How a blob is shown to the FSM is for the presentation step.
+- The backtest's ratios (precision, recall, flag rate, label coverage) stay properties worked out from the counts, `None` when undefined (D-11). They are not fields, so a dumped `BacktestResult` holds the measured numbers only and can be read back.
+
+**Alternatives:**
+
+- Dataclasses only: no dependency, but nothing is checked when a value is built, and tool arguments, evaluation cases and API bodies would each need hand-written parsing and JSON code. `pydantic` is already installed and already needed by the model layer's packages.
+- `TypedDict`: checked by the type checker only, not when the program runs; a dict is mutable, cannot forbid an unknown key at run time and cannot carry methods such as `QueryInspection.columns_of`.
+- Dataclasses inside, pydantic only where data enters: two ways to write a type, and a rule about which to use that has to be re-argued for each new one.
+- `pydantic-settings` for `Settings`: a second dependency to replace twenty lines, and its errors name fields, not environment variables.
+- Validating every `QueryResult`: the measured cost above, on every query, to re-check values the engine has just produced. A test validates real results of every cell type instead.
+- Rejecting a blob in a result: the engine returns one for a legitimate expression, and `db` reports what ran. Writing bytes to JSON as text (pydantic's default) fails on bytes that are not UTF-8.
+- Checking the tests as strictly as the package: about 80 missing annotations and 30 optional-value assertions to rewrite, for no gain in what the tests catch.
+- Annotations with no checker: they drift, as the `Any` cells showed.
+
+**Consequences:**
+
+- Later tasks follow this without a new decision: tool arguments, typed actions, graph state, evaluation cases and API request and response bodies are frozen pydantic models, and their modules pass strict `mypy` from the first change.
+- Assigning to a field raises pydantic's `ValidationError`, where a frozen dataclass raised `FrozenInstanceError`. Building `Settings` in code with an invalid value raises `ValidationError`; only `load_settings` raises `ConfigError`.
+- Code that reads a cell has to say which type it expects. `schema_context` does, through one small helper that raises `TypeError` on a surprise.
+- `run_query` is the one place that trusts its own construction. A row factory or a converter added to the connection would break that assumption; a test that validates real results guards it.
+- The schema context is byte-identical after the conversion, the backtest's numbers are unchanged, and a 1,000-row `run_query` takes the same time as before (about 1.3 ms for 8 columns, 5.8 ms for 38).
+- One private class, the scanner state inside `sql_guard`, stays a mutable dataclass: it is updated in place and never leaves its module.
+- A test module added later is checked strictly unless it is added to the relaxed list in `pyproject.toml`.

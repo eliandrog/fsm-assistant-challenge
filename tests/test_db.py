@@ -1,9 +1,12 @@
 """db: read-only enforcement, row cap, timeout, typed errors."""
 
+import base64
+import json
 import os
 import sqlite3
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -343,10 +346,10 @@ def test_the_connection_is_closed_when_setup_fails(
 
     connect = sqlite3.connect
 
-    def connect_failing(database: str, **options: bool | None) -> sqlite3.Connection:
+    def connect_failing(database: str, **options: Any) -> sqlite3.Connection:
         return connect(database, factory=FailingSetup, **options)
 
-    monkeypatch.setattr(db.sqlite3, "connect", connect_failing)
+    monkeypatch.setattr(sqlite3, "connect", connect_failing)
     with pytest.raises(db.DatabaseAccessError, match="setup failed"):
         run(fixture_db, "SELECT 1")
     assert closed == [True]
@@ -458,11 +461,70 @@ def test_inspect_shows_a_pragma_as_its_first_action(fixture_db: Path) -> None:
 def test_inspection_is_immutable(fixture_db: Path) -> None:
     record = inspect(fixture_db, "SELECT id FROM cards")
     with pytest.raises(ValidationError):
-        record.functions = frozenset()
+        record.functions = frozenset()  # type: ignore[misc]  # assigning to a frozen field is what is tested
     with pytest.raises(ValidationError):
-        record.reads[0].table = "users"
+        record.reads[0].table = "users"  # type: ignore[misc]  # assigning to a frozen field is what is tested
 
 
 def test_inspect_missing_database(tmp_path: Path) -> None:
     with pytest.raises(db.DatabaseNotFoundError):
         inspect(tmp_path / "absent.db", "SELECT 1")
+
+
+# One value of each kind SQLite returns: text, integer, real, blob, NULL.
+EVERY_KIND = "SELECT 'a' AS t, 1 AS i, 1.5 AS r, x'00ff' AS b, NULL AS n"
+
+
+def test_result_is_immutable(fixture_db: Path) -> None:
+    result = db.run_query("SELECT 1", db_path=fixture_db, row_cap=1, timeout_seconds=10.0)
+    with pytest.raises(ValidationError):
+        result.truncated = True  # type: ignore[misc]  # assigning to a frozen field is what is tested
+    assert isinstance(result.rows, tuple) and isinstance(result.rows[0], tuple)
+
+
+def test_result_rejects_unknown_fields_and_wrong_types() -> None:
+    fields = {"columns": ("x",), "rows": ((1,),), "truncated": False, "elapsed_seconds": 0.0}
+    assert db.QueryResult.model_validate(fields).row_count == 1
+    with pytest.raises(ValidationError, match="extra_forbidden"):
+        db.QueryResult.model_validate({**fields, "row_count": 1})
+    with pytest.raises(ValidationError):
+        db.QueryResult.model_validate({**fields, "rows": (([1],),)})
+
+
+def test_a_result_from_run_query_is_what_validation_would_accept(fixture_db: Path) -> None:
+    # run_query builds its result without validating it; this is the check that it could.
+    for sql in (EVERY_KIND, "SELECT * FROM transactions", "SELECT * FROM cards WHERE 0"):
+        result = db.run_query(sql, db_path=fixture_db, row_cap=3, timeout_seconds=10.0)
+        validated = db.QueryResult.model_validate(result.model_dump())
+        assert validated == result
+        assert [[type(cell) for cell in row] for row in validated.rows] == [
+            [type(cell) for cell in row] for row in result.rows
+        ]
+
+
+def test_result_round_trips_through_model_dump(fixture_db: Path) -> None:
+    result = db.run_query(EVERY_KIND, db_path=fixture_db, row_cap=1, timeout_seconds=10.0)
+    dumped = result.model_dump()
+    assert dumped["columns"] == ("t", "i", "r", "b", "n")
+    assert dumped["rows"] == (("a", 1, 1.5, b"\x00\xff", None),)
+    assert db.QueryResult.model_validate(dumped) == result
+
+
+def test_result_round_trips_through_json_when_it_holds_no_blob(fixture_db: Path) -> None:
+    result = db.run_query(
+        "SELECT * FROM transactions", db_path=fixture_db, row_cap=3, timeout_seconds=10.0
+    )
+    assert result.truncated
+    assert db.QueryResult.model_validate_json(result.model_dump_json()) == result
+
+
+def test_a_blob_is_written_to_json_as_base64_text(fixture_db: Path) -> None:
+    # x'fffe' is not valid UTF-8: written as text it could not be serialised at all.
+    result = db.run_query(
+        "SELECT x'fffe' AS b", db_path=fixture_db, row_cap=1, timeout_seconds=10.0
+    )
+    encoded = base64.urlsafe_b64encode(b"\xff\xfe").decode()
+    assert json.loads(result.model_dump_json())["rows"] == [[encoded]]
+    assert result.model_dump(mode="json")["rows"] == [[encoded]]
+    # JSON has no blob type, so the text is what comes back.
+    assert db.QueryResult.model_validate_json(result.model_dump_json()).rows == ((encoded,),)

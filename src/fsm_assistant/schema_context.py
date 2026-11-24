@@ -16,7 +16,6 @@ cached: building it scans the large tables a few times.
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path
-from typing import Any
 
 from fsm_assistant import db
 
@@ -57,7 +56,7 @@ def build_schema_context(db_path: Path) -> str:
         )
 
     tables = [
-        row[0]
+        _as(str, row[0])
         for row in query(
             "SELECT name FROM sqlite_master WHERE type = 'table' "
             "AND name NOT LIKE 'sqlite_%' ORDER BY name"
@@ -69,7 +68,7 @@ def build_schema_context(db_path: Path) -> str:
     for table in tables:
         columns = query(f"PRAGMA table_info({_quote(table)})").rows
         references = {
-            row[3]: f"{row[2]}.{row[4]}"
+            _as(str, row[3]): f"{_as(str, row[2])}.{_as(str, row[4])}"
             for row in query(f"PRAGMA foreign_key_list({_quote(table)})").rows
         }
         joins += [f"{table}.{column} = {target}" for column, target in references.items()]
@@ -77,15 +76,15 @@ def build_schema_context(db_path: Path) -> str:
         # One scan per table gives the row count and each column's non-NULL count.
         counts = query(
             "SELECT count(*), "
-            + ", ".join(f"count({_quote(column[1])})" for column in columns)
+            + ", ".join(f"count({_quote(_as(str, column[1]))})" for column in columns)
             + f" FROM {_quote(table)}"
         ).rows[0]
-        total = counts[0]
+        total = _as(int, counts[0])
 
         lines.append(f"{table} ({total} rows)")
-        for (_, name, declared_type, _, _, is_primary_key), non_null in zip(
-            columns, counts[1:]
-        ):
+        for column, non_null_count in zip(columns, counts[1:]):
+            name, declared_type = _as(str, column[1]), _as(str, column[2])
+            is_primary_key, non_null = column[5], _as(int, non_null_count)
             parts = [f"  {name} {declared_type}"]
             if is_primary_key:
                 parts.append(" PRIMARY KEY")
@@ -118,18 +117,23 @@ def build_schema_context(db_path: Path) -> str:
 
 def _notes(query: Callable[[str], db.QueryResult]) -> list[str]:
     """The facts a model most often gets wrong, with figures read live."""
-    transactions, negative, first_date, last_date = query(
+    totals = query(
         "SELECT count(*), sum(amount_usd_cents < 0), min(date), max(date) "
         "FROM transactions"
     ).rows[0]
-    labelled, fraud = query(
+    transactions = _as(int, totals[0])
+    # The sums and the dates are NULL when the table is empty.
+    negative = _as(int, totals[1] or 0)
+    first_date, last_date = str(totals[2]), str(totals[3])
+    labels = query(
         "SELECT count(*), sum(fraud_labels.is_fraud) FROM transactions "
         f"JOIN fraud_labels ON {LABEL_JOIN}"
     ).rows[0]
+    labelled, fraud = _as(int, labels[0]), _as(int, labels[1] or 0)
     return [
         "Money: every *_usd_cents column is an integer number of US cents. "
         "$1,000 is 100000. Divide by 100.0 only to display dollars.",
-        f"transactions.amount_usd_cents is negative in {negative or 0} rows; "
+        f"transactions.amount_usd_cents is negative in {negative} rows; "
         "their meaning is not documented, so do not assume they are refunds.",
         "transactions.date is text 'YYYY-MM-DD HH:MM:SS', from "
         f"'{first_date}' to '{last_date}'. Other DATE columns are text "
@@ -144,8 +148,8 @@ def _notes(query: Callable[[str], db.QueryResult]) -> list[str]:
         "are unknown, not legitimate. Compute fraud rates over labelled "
         "transactions only (inner join to fraud_labels); never count a "
         "missing label as not fraud.",
-        f"Fraud is rare: is_fraud = 1 for {fraud or 0} of {labelled} labelled "
-        f"transactions ({_percent(fraud or 0, labelled, 2)}).",
+        f"Fraud is rare: is_fraud = 1 for {fraud} of {labelled} labelled "
+        f"transactions ({_percent(fraud, labelled, 2)}).",
         "Merchant category: transactions.merchant_id -> merchants.mcc -> "
         "mcc_codes.description. transactions has no mcc column.",
         "merchant_locations.state is a two-letter US state code, or a country "
@@ -160,14 +164,21 @@ def _quote(identifier: str) -> str:
     return '"' + identifier.replace('"', '""') + '"'
 
 
-def _literal(value: Any) -> str:
+def _as[T](kind: type[T], value: db.Cell) -> T:
+    """`value`, which the query that produced it always returns as a `kind`."""
+    if not isinstance(value, kind):
+        raise TypeError(f"expected {kind.__name__} from the database, got {value!r}")
+    return value
+
+
+def _literal(value: db.Cell) -> str:
     """Render a value the way it is written in SQL."""
     if isinstance(value, str):
         return "'" + value.replace("'", "''") + "'"
     return str(value)
 
 
-def _sort_key(value: Any) -> tuple[str, Any]:
+def _sort_key(value: db.Cell) -> tuple[str, db.Cell]:
     """Order mixed values deterministically (by type name, then value)."""
     return (type(value).__name__, value)
 

@@ -274,9 +274,9 @@ def test_decisions_are_immutable(fixture_db: Path) -> None:
     decision = check_query("SELECT 1", db_path=fixture_db)
     assert isinstance(decision, GuardDecision)
     with pytest.raises(ValidationError):
-        decision.accepted = False
+        decision.accepted = False  # type: ignore[misc]  # assigning to a frozen field is what is tested
     with pytest.raises(ValidationError):
-        decision.reads.actions = ()
+        decision.reads.actions = ()  # type: ignore[misc]  # assigning to a frozen field is what is tested
     with pytest.raises(ValidationError):
         GuardDecision(accepted=True, sql="SELECT 1", reason="left over")
 
