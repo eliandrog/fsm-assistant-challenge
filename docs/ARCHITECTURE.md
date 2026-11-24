@@ -1,6 +1,6 @@
 # Architecture
 
-**Status: partly built.** Eight modules are **Built** and tested: `config.py`, `db.py`, `schema_context.py`, `sql_scan.py`, `sql_guard.py`, `rules/backtest.py`, the model client `llm.py` and the tool-call check `model_check.py`. Two are partly built: `nl2sql.py` (the five tools and the shape check, not the prompt) and `cli.py` (one command) ([details](#built-components)). Everything else on this page is **Proposed**: it is the target design, and those modules under `src/fsm_assistant/` are docstring-only placeholders. No turn calls a model yet: the client exists, and the graph that would use it does not. Each section and table row says which is which. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
+**Status: the terminal chat is built; the rest is proposed.** **Built** and tested: `config.py`, `db.py`, `schema_context.py`, `sql_scan.py`, `sql_guard.py`, `rules/backtest.py`, the model client `llm.py`, the tools and shape check `nl2sql.py`, the prompt `prompt.py`, the turn graph (`state.py`, `nodes.py`, `graph.py`), the turn result and its presentation (`result.py`, `presentation.py`), the tool-call check `model_check.py` and the terminal commands in `cli.py` ([details](#built-components)). A turn runs end to end: question, one model request (two at most), the guard, read-only execution or the rule backtest, and a result with caveats. **The graph and the prompt have been tested with scripted model replies; against Claude they have had one smoke test, seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)), which is not an evaluation.** One of the five actions, `profile_fraud`, is routed to "not available yet" because its scan is not built. **Proposed**, with no code: the fraud-concentration scan, rule evidence by month, structured logs and tracing, the evaluation suite and the web chat. Each section and table row says which is which. Decisions already made are in [`DECISIONS.md`](DECISIONS.md); what is still open is listed under [Open points](#open-points).
 
 ## Contents
 
@@ -45,7 +45,7 @@ flowchart TD
 
     subgraph TURN["One turn: a fixed state graph"]
         GRAPH["Graph and nodes<br/>graph.py, nodes.py"]
-        PROMPT["Prompt, glossary, five tools<br/>nl2sql.py"]
+        PROMPT["Prompt, glossary, five tools<br/>prompt.py, nl2sql.py"]
         SCHEMA["Schema context<br/>schema_context.py"]
         MODEL["Model client<br/>llm.py"]
         GUARD{"SQL guard<br/>sql_guard.py"}
@@ -94,77 +94,85 @@ flowchart TD
 
     classDef built fill:#d4edda,stroke:#2e7d32,color:#000
     classDef proposed fill:#ffffff,stroke:#888888,stroke-dasharray: 5 5,color:#000
-    class SCHEMA,EXEC,BT,GUARD,DB,MODEL,L1 built
-    class CLI,WEB,GRAPH,PROMPT,PROP,SCAN,PRES,CASES,REC,CLAUDE,L2 proposed
+    class CLI,GRAPH,PROMPT,PRES,SCHEMA,EXEC,BT,GUARD,DB,MODEL,CLAUDE,L1 built
+    class WEB,PROP,SCAN,CASES,REC,L2 proposed
 ```
 
 Notes on the diagram:
 
 - `config.py` (built) supplies settings to every box and is left out to keep the picture readable.
-- The built boxes exist as tested functions, but nothing connects them yet: there is no graph and no chat interface.
-- The model client is built, with recording and replay inside it. The "Prompt, glossary, five tools" box stays dashed because only the tools and the shape check exist; the recordings box stays dashed because the only recordings are those of the check command, not of an evaluation run. Claude has been called only by that paid check command, run once on each of two models ([Evidence](#evidence)); nothing calls it in a turn.
-- The web chat and its HTTP API are proposed and not in this repository yet. The terminal chat comes first.
-- The only thing that will leave the machine by default is the request to Claude: the question, the schema context and the prompt. Result rows will never be sent to the model. Hosted tracing is a separate, opt-in switch (see [Observability](#observability)).
+- The terminal chat, the graph, the prompt and the presentation are built and connected. The two boxes the graph reaches that are still dashed are the scan (`profile_fraud` ends in "not available yet") and the rule evidence by month (a rule is shown with its overall backtest only).
+- The model client is built, with recording and replay inside it. The recordings box stays dashed because the only recordings are those of the check command, not of an evaluation run. Claude has been called only by that paid check command, run once on each of two models ([Evidence](#evidence)). `ask` and `chat` call it when the owner runs them; that has not been done yet.
+- The web chat and its HTTP API are proposed and not in this repository yet.
+- The only thing that leaves the machine is the request to Claude: the prompt, the schema context, the question, and on a follow-up the previous question with the SQL or clause that was accepted. Result rows are never sent to the model. Hosted tracing is forced off (see [Observability](#observability)).
 
 ## How one turn works
 
-**Proposed.** A turn is one FSM message and the reply to it. Each turn will run through a fixed state graph: a set of steps (nodes) connected by routes that code chooses. It will be built with LangGraph ([D-15](DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop)).
+**Built** ([D-23](DECISIONS.md#d-23-the-turn-graph-as-built-state-routes-repair-and-memory)). A turn is one FSM message and the reply to it. Each turn runs through a fixed state graph: a set of steps (nodes) connected by routes that code chooses. It is built with LangGraph ([D-15](DECISIONS.md#d-15-langgraph-as-a-fixed-state-graph-not-an-agent-loop)).
+
+This diagram is the output of `uv run fsm-assistant graph`, which draws it from the compiled graph, pasted here unchanged. A dotted edge is a route chosen by code; its label is the route's name.
 
 ```mermaid
-flowchart TD
-    S(["START"]) --> begin_turn
-    begin_turn -->|"input invalid"| present
-    begin_turn --> call_model
-    call_model -->|"provider error, refusal or truncated reply"| present
-    call_model --> check_intent
-    check_intent -->|"shape invalid"| retry{"first attempt?"}
-    check_intent -->|"run_sql"| guard_sql
-    check_intent -->|"propose_rule"| guard_rule
-    check_intent -->|"profile_fraud"| run_scan
-    check_intent -->|"ask_clarification or decline"| present
-    guard_sql -->|"accepted"| execute_sql
-    guard_sql -->|"rejected"| retry
-    execute_sql -->|"ok"| present
-    execute_sql -->|"SQL error or timeout"| retry
-    guard_rule -->|"accepted"| backtest_rule
-    guard_rule -->|"rejected"| retry
-    backtest_rule -->|"ok"| present
-    backtest_rule -->|"error or timeout"| retry
-    run_scan --> present
-    retry -->|"yes: one repair"| call_model
-    retry -->|"no"| present
-    present --> remember
-    remember --> E(["END"])
+graph TD;
+	__start__ --> begin_turn;
+	backtest_rule -. &nbsp;repair&nbsp; .-> call_model;
+	backtest_rule -. &nbsp;failed&nbsp; .-> present;
+	begin_turn -. &nbsp;ok&nbsp; .-> call_model;
+	begin_turn -. &nbsp;input invalid&nbsp; .-> present;
+	call_model -. &nbsp;ok&nbsp; .-> check_intent;
+	call_model -. &nbsp;no usable reply&nbsp; .-> present;
+	check_intent -. &nbsp;repair&nbsp; .-> call_model;
+	check_intent -. &nbsp;propose_rule&nbsp; .-> guard_rule;
+	check_intent -. &nbsp;run_sql&nbsp; .-> guard_sql;
+	check_intent -. &nbsp;ask_clarification or decline&nbsp; .-> present;
+	check_intent -. &nbsp;profile_fraud&nbsp; .-> run_scan;
+	execute_sql -. &nbsp;repair&nbsp; .-> call_model;
+	execute_sql -. &nbsp;failed&nbsp; .-> present;
+	guard_rule -. &nbsp;accepted&nbsp; .-> backtest_rule;
+	guard_rule -. &nbsp;repair&nbsp; .-> call_model;
+	guard_rule -. &nbsp;failed&nbsp; .-> present;
+	guard_sql -. &nbsp;repair&nbsp; .-> call_model;
+	guard_sql -. &nbsp;accepted&nbsp; .-> execute_sql;
+	guard_sql -. &nbsp;failed&nbsp; .-> present;
+	present --> remember;
+	run_scan --> present;
+	remember --> __end__;
 ```
 
-`retry` is a routing function, not a node. One function, `graph.run_turn(question, conversation_id, settings, model)`, will be the single entry point for the terminal, the HTTP API and the evaluation suite, so all three exercise the same code.
+How to read it:
+
+- `repair` and `failed` are the two answers of `retry`, a routing function, not a node. After a failure, `retry` sends one fresh request to the model (`repair`) if the failure can be repaired and this was the first attempt; otherwise the turn goes to `present` as a failure (`failed`).
+- Where two routes from one node lead to the same node, the diagram shows one edge: `check_intent` also reaches `present` by `failed`, when the reply's shape is invalid a second time.
+- `run_scan` runs nothing yet: `profile_fraud` ends in the outcome `cannot_answer` with the message that the fraud-concentration scan is not available.
+
+One method, `Assistant(settings, model).run_turn(question, conversation_id)` in `graph.py`, is the single entry point: the terminal uses it, and an HTTP API and the evaluation suite will, so all three exercise the same code. The module has no other entry point and keeps no state of its own: a caller keeps its `Assistant`, which owns the memory. `run_turn` returns a `TurnResult` for every input and never raises.
 
 ### The nodes
 
-All proposed. "Calls" names existing functions where they are built and planned ones otherwise.
+All built, as methods of `nodes.TurnNodes`; two of them do less than the design says, and say so in their row.
 
 | Node | Job | Calls | Writes to the turn's state |
 |---|---|---|---|
-| `begin_turn` | Empty and length check; reset every per-turn field | none | per-turn fields, `turn` |
-| `call_model` | Build the messages; the only node that calls the model | `nl2sql.build_messages`, the model client in `llm.py` | `raw_reply`, `attempt`, `model_calls` |
+| `begin_turn` | Empty and length check (a message of only spaces or invisible characters is empty); reset every per-turn field | none | per-turn fields, `turn` |
+| `call_model` | Clear what an earlier attempt approved, keeping only the code of its refusal; build the messages; the only node that calls the model, and it refuses a third request | `prompt.build_messages`, the model client in `llm.py` | `raw_reply`, `attempt`, `model_calls`, token counts, `refused`, or `failure` |
 | `check_intent` | Trim, drop one trailing `;`, check the reply is exactly one valid tool call, build a typed action | `nl2sql.check_shape` | `action` or `failure` |
-| `guard_sql` | Text limits, then a compile-only policy check of a query | `sql_guard.check_query` (built), which uses `sql_scan` and `db.inspect_query` (built) | `approved_sql` or `failure` |
-| `execute_sql` | Run the approved string, and only that | `db.run_query` (built) | `result` or `failure` |
-| `guard_rule` | Text limits, containment and rule policy for a clause | `sql_guard.check_rule_clause` (built) | `approved_clause` or `failure` |
-| `backtest_rule` | Backtest, then month-by-month evidence | `rules/backtest` (built; it applies the rule policy itself), `rules/proposal` | `result` or `failure` |
-| `run_scan` | Code-written fraud-concentration scan | `explore.scan` | `result`, `scan_seen` |
-| `present` | Format hints, coded caveats, the outcome | `presentation` | `result`, `outcome` |
+| `guard_sql` | Text limits, then a compile-only policy check of a query | `sql_guard.check_query`, which uses `sql_scan` and `db.inspect_query` | `approved_sql`, `reads_labels`, or `failure` |
+| `execute_sql` | Run the approved string, and only that | `db.run_query` | `result`, or `failure` (with `failure_detail` when SQLite failed the statement as it ran) |
+| `guard_rule` | Text limits, containment and rule policy for a clause | `sql_guard.check_rule_clause` | `approved_clause` or `failure` |
+| `backtest_rule` | Backtest the approved clause. The month-by-month evidence is proposed and not run | `rules/backtest` (it applies the rule policy itself) | `result`, or `failure` (with `failure_detail`, as above) |
+| `run_scan` | **Not available yet.** Runs nothing and reports that the scan is not built. The code-written scan is proposed | none (`explore.scan` when it exists) | `failure` of kind `not_available` |
+| `present` | Format hints, coded caveats, the one outcome | `presentation.build_result` | `response`, `outcome` |
 | `remember` | The only writer of conversation memory | none | `history` |
 
 ### The five tools
 
-A tool, here, is a named action with typed arguments that the model can ask for. The model will be offered exactly five ([D-16](DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it)). The tools, their schemas and the check of a reply's shape are built in `nl2sql.py`; the graph nodes in the right-hand column are not:
+A tool, here, is a named action with typed arguments that the model can ask for. The model is offered exactly five ([D-16](DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it)). The tools, their schemas and the check of a reply's shape are in `nl2sql.py`:
 
-| Tool | Arguments | What the graph will do with the call |
+| Tool | Arguments | What the graph does with the call |
 |---|---|---|
 | `run_sql` | `sql`, `explanation`, `assumptions` | `guard_sql`, then `execute_sql` |
 | `propose_rule` | `where_clause`, `explanation`, `assumptions` | `guard_rule`, then `backtest_rule` |
-| `profile_fraud` | none | `run_scan` (code writes the SQL) |
+| `profile_fraud` | none | `run_scan`, which today answers that the scan is not available yet (proposed: code writes the SQL) |
 | `ask_clarification` | `question`, `suggestions` (two or three) | Returned to the FSM; nothing runs |
 | `decline` | `reason` | Returned to the FSM; nothing runs |
 
@@ -172,14 +180,14 @@ A tool, here, is a named action with typed arguments that the model can ask for.
 
 ### Walkthrough
 
-Each step lists what will happen, why the step is there and what it protects against.
+Each step lists what happens, why the step is there and what it protects against.
 
 1. **`begin_turn`**
-   - What: checks the message is not empty or over-long and resets the fields that belong to one turn.
+   - What: checks the message is not empty or over-long and resets the fields that belong to one turn. A message made only of spaces, zero-width or other invisible characters counts as empty.
    - Why: every turn must start from a clean state.
    - Protects against: paying for a model call on unusable input; an approved query from an earlier turn being run again.
 2. **`call_model`**
-   - What: builds one request from the prompt, the schema context (built), the glossary (fixed definitions such as "fraud rate"), a short "previous turn" block and the question, and sends it to Claude with the five tools.
+   - What: builds one request from the prompt, the schema context, the glossary (fixed definitions such as "fraud rate"), a short "previous turn" block and the question, each quoted piece inside a named tag, and sends it to Claude with the five tools ([D-22](DECISIONS.md#d-22-the-prompt-one-system-text-a-fixed-glossary-and-a-repair-paragraph)).
    - Why: grounding the model in the real schema is what lets it write SQL that runs on this database.
    - Protects against: invented tables, columns and values. Being the only node that calls the model, it also keeps the number of requests countable.
 3. **`check_intent`**
@@ -187,53 +195,71 @@ Each step lists what will happen, why the step is there and what it protects aga
    - Why: every later node needs to know which of five things was asked for.
    - Protects against: acting on free text; a reply that asks for two things at once.
 4. **`guard_sql`** (for `run_sql`)
-   - What: calls the built guard, which first checks the text (length, no Markdown fence, a bound on what it would cost to compile), then compiles the query without running it and reads what SQLite reports about it: it must be a single read-only `SELECT` over the seven known tables, with no denied function and no filter relative to today's date.
+   - What: calls the guard, which first checks the text (length, no Markdown fence, a bound on what it would cost to compile), then compiles the query without running it and reads what SQLite reports about it: it must be a single read-only `SELECT` over the seven known tables, with no denied function and no filter relative to today's date.
    - Why: a prompt instruction cannot be enforced; a check in code can.
    - Protects against: writes, reads of internal tables, extension loading, several statements in one string, a statement that would take seconds to compile.
 5. **`execute_sql`**
-   - What: runs the string the guard approved, through `db.run_query` (built): read-only connection, timeout, row cap, result-size budget.
+   - What: runs the string the guard approved, through `db.run_query`: read-only connection, timeout, row cap, result-size budget.
    - Why: the answer has to come from the data.
    - Protects against: running anything the guard did not see (the node reads `approved_sql`, which only `guard_sql` writes); runaway queries; oversized results.
 6. **`guard_rule`** (for `propose_rule`)
-   - What: calls the built guard, which applies the text checks and the containment check to the clause, then the query policy to the clause alone, then the rule policy: the clause must not read `fraud_labels` and must not use non-deterministic functions.
+   - What: calls the guard, which applies the text checks and the containment check to the clause, then the query policy to the clause alone, then the rule policy: the clause must not read `fraud_labels` and must not use non-deterministic functions.
    - Why: a rule is text placed inside our backtest statement, so it must stay one expression and must not see the answers.
    - Protects against: a clause that changes what is measured; a clause that "predicts" fraud by reading the labels.
 7. **`backtest_rule`**
-   - What: runs the built backtest for the approved clause, then the month-by-month evidence. The backtest applies the rule policy again itself, so it cannot measure a clause the guard would refuse.
+   - What: runs the backtest for the approved clause. The backtest applies the rule policy again itself, so it cannot measure a clause the guard would refuse. Proposed and not built: the month-by-month evidence after it.
    - Why: a rule without numbers is an opinion.
-   - Protects against: a plausible rule that performs badly; a rule that only looks good in aggregate.
+   - Protects against: a plausible rule that performs badly. Not yet against a rule that only looks good in aggregate: that needs the evidence by month.
 8. **`run_scan`** (for `profile_fraud`)
-   - What: runs a fixed, code-written scan that ranks segments (for example city with state, hour, amount band) by their share of all labelled fraud.
+   - What today: nothing runs. The turn ends in `cannot_answer` with the fixed message that the fraud-concentration scan is not available yet, and two example questions to ask instead. No figure is produced.
+   - Proposed: a fixed, code-written scan that ranks segments (for example city with state, hour, amount band) by their share of all labelled fraud.
    - Why: "where is the fraud?" is the question an FSM starts with, and it should not depend on the model writing eight correct queries.
    - Protects against: a model-written scan that misses a dimension or ranks by a misleading measure.
 9. **`retry`** (a route, not a node)
-   - What: after a shape failure, a guard rejection, a SQL error or a timeout on the first attempt, sends one fresh request: the original prompt plus a paragraph quoting the previous answer and the exact reason it failed. A second failure goes to `present` as a failure.
-   - Why: many first failures are small (a wrong column name) and the error message is enough to fix them.
+   - What: after a shape failure, a guard rejection, a SQL error or a timeout on the first attempt, sends one fresh request: the original prompt plus a paragraph quoting the previous answer and the reason it failed, with the rule-scope sentence when the answer was a rule clause. The reason is the shape check's, the guard's (which quotes SQLite when the text did not compile), or, for a statement that failed or timed out while it ran, a fixed sentence written in code: SQLite's message for a failure at run time can quote a value from a row, so it is never sent. A second failure goes to `present` as a failure. A missing reply, a refusal, a reply cut off at the token limit and an unreadable database are not retried.
+   - Why: many first failures are small (a wrong column name) and the compile error is enough to fix them. A failure at run time gets a less specific hint; that is the price of keeping row values out of the prompt.
    - Protects against: unbounded cost. A turn makes at most two model requests, counted in state. A failure is shown as a failure, not papered over.
 10. **`present`**
     - What: builds what the FSM sees: the SQL that ran, the result table, the rule with its backtest, caveats chosen by code from a fixed list, and one [outcome](#outcomes).
     - Why: the FSM must be able to check the answer, so the SQL is always next to the result.
     - Protects against: made-up numbers (every figure comes from executed SQL; the model's explanation is shown labelled as model text); a failure reaching the interface as a bare exception.
 11. **`remember`**
-    - What: stores a short record of the turn for the next one: the question, the kind of action, the accepted SQL or clause, any clarification asked. Result rows are not stored.
+    - What: stores a short record of the turn for the next one: the question, the kind of action, the accepted SQL or clause, any clarification asked. Result rows are not stored. Only the last turn is kept, and an empty or over-long message is not recorded.
     - Why: a follow-up ("and for October?") needs the previous question and query.
     - Protects against: result rows flowing back to the model through a growing transcript.
 
 ### Invariants
 
-Proposed. Each one will become a test.
+Built. Each one has a test in `tests/test_graph.py`.
 
 1. No model-written SQL executes unless the guard accepted that exact string in the same turn.
 2. Every execution goes through `db.run_query`.
-3. At most two model requests per turn: one attempt, one repair.
+3. At most two model requests per turn: one attempt, one repair. The bound is a counter in the state, not the framework's recursion limit.
 4. Every figure in a result table or backtest comes from executed SQL.
 5. A rule is never returned without its backtest.
-6. Every failure maps to exactly one outcome.
-7. Result rows are never saved in conversation memory and never placed in a model message.
+6. Every failure maps to exactly one outcome, and no exception escapes `run_turn`.
+7. Nothing read from a row is saved with a conversation or placed in a model message: not result rows, and not a value quoted by SQLite's message when an approved statement fails while it runs. That message is replaced by a fixed sentence in the failure, the repair and the trace, and shown only to the user (`error.detail`). The test searches everything the store is ever handed, every user message sent and the trace.
+
+### State and memory
+
+Built ([D-23](DECISIONS.md#d-23-the-turn-graph-as-built-state-routes-repair-and-memory)). The state is one frozen pydantic model, `state.TurnState`.
+
+| Fields | Lifetime |
+|---|---|
+| `turn`, `history` (one turn only, the last that a follow-up can build on: question, kind of action, accepted SQL or clause, clarification asked), `scan_seen` (reserved for the scan) | Kept across the turns of a conversation, in an in-process store keyed by the conversation id. Lost when the process ends |
+| `attempt`, `model_calls`, `input_tokens`, `output_tokens`, `raw_reply`, `action`, `approved_sql`, `approved_clause`, `reads_labels`, `failure`, `refused` (the codes of the replies refused so far in this turn), `outcome` | One turn. `begin_turn` resets every one of them |
+| `result` (the rows or the backtest), `response` (the `TurnResult`), `failure_detail` (SQLite's message for a statement that failed while it ran) | Never saved. They are marked so that the store never receives them |
+
+- An invocation can write only the question, so saved state cannot be overwritten from outside.
+- There is no growing message list. A follow-up, or a reply to a clarification, is an ordinary new turn whose prompt carries a previous-turn block (headed "Earlier in this conversation") built from `history`.
+- What the process retains for a conversation is one checkpoint: the state as its latest turn left it. The graph writes a checkpoint once per turn, when the turn ends, and the store (`graph.LatestCheckpointSaver`) drops the one before it. So the questions and SQL of older turns are gone from the process, not only from the prompt. The per-turn fields of the latest turn (its question, the model's raw reply, the approved SQL, a failure's fixed message) stay until the next turn of that conversation replaces them, and a conversation that is never continued keeps its one checkpoint until the process ends: there is no expiry.
+- A turn stopped part-way (Ctrl-C in `chat`, or an error no node expected) leaves the remembered turn as it was.
+- `remember` writes `history` only when the turn ended as `answered`, `rule_proposed` or `clarification`. A turn that ended as `failed`, `rejected` or `cannot_answer` (a refusal and the unbuilt scan included), or whose message was invalid, leaves `history` as it was, so a follow-up after an error is still told the last turn that worked. If no turn has ended that way yet, the prompt has no previous-turn block.
+- A different conversation id starts empty.
 
 ## What is a tool and what is not
 
-**Proposed.** Only choosing the action is a tool. Everything that touches safety or numbers is ordinary code that the model cannot call or skip.
+**Built**, except the fraud scan. Only choosing the action is a tool. Everything that touches safety or numbers is ordinary code that the model cannot call or skip.
 
 | Capability | Form | Why |
 |---|---|---|
@@ -241,13 +267,13 @@ Proposed. Each one will become a test.
 | SQL guard and rule policy | Plain functions inside the guard nodes | Safety must not be skippable or callable by the model |
 | `db.run_query` | Plain function called by `execute_sql` | Reachable only through `approved_sql` |
 | Backtest and month-by-month evidence | Plain functions called by `backtest_rule` | Reachable only through `approved_clause` |
-| Fraud scan | Plain function; a node and a terminal command | Code writes the SQL |
+| Fraud scan (proposed; the node answers "not available yet") | Plain function; a node and a terminal command | Code writes the SQL |
 | Schema context, glossary | Prompt text | Static grounding, not a lookup |
 | Routing, repair, outcomes | Routes in the graph | Code decides every route |
 
 ## Why this design works
 
-The first four points describe the proposed design; the last two already hold in the built code.
+All six points hold in the built code. They are properties of the design, checked by tests with scripted model replies; how well the live model uses it is for the evaluation suite.
 
 **A fixed graph, not a free agent.** In an agent loop the model sees each tool result and chooses the next step. That is flexible, but it cannot promise that every query passes the guard, and a turn has no fixed cost. Here the routes are declared in code: a query can reach the database only through the guard, and a turn costs at most two model requests. The price is that the assistant cannot chain several steps in one turn; the FSM asks a follow-up instead.
 
@@ -257,14 +283,14 @@ The first four points describe the proposed design; the last two already hold in
 
 | Layer | What it does | Status |
 |---|---|---|
-| Prompt and the `decline` tool | Tells the model what is in scope and gives it a way to say no | Tool built; prompt Proposed |
-| SQL guard | Bounds the text, then compiles the SQL without running it and accepts a single read-only `SELECT` over known tables | Built ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); not yet called by a graph |
+| Prompt and the `decline` tool | Tells the model what is in scope and gives it a way to say no | Built ([D-22](DECISIONS.md#d-22-the-prompt-one-system-text-a-fixed-glossary-and-a-repair-paragraph)) |
+| SQL guard | Bounds the text, then compiles the SQL without running it and accepts a single read-only `SELECT` over known tables | Built ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); a node of the graph |
 | Read-only connection with its authorizer | SQLite itself refuses every action that is not a read | Built ([D-06](DECISIONS.md#d-06-read-only-is-enforced-in-three-engine-level-layers)) |
 | Timeout and limits | A query is interrupted after a deadline; at most a fixed number of rows is fetched; no single value may exceed 100,000 bytes, and a result may have at most 100 columns and 5,000,000 bytes | Built ([D-07](DECISIONS.md#d-07-query-timeout-through-a-progress-handler), [D-08](DECISIONS.md#d-08-db-owns-the-row-cap), [D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)) |
 
 **A rule is never shown without a backtest.** The only route from `propose_rule` to the FSM passes through `backtest_rule`.
 
-**Clarifying beats guessing.** "Risky", "suspicious" and "high value" have no definition in the data. The prompt will tell the model to ask what is meant, with two or three suggestions, instead of picking a threshold silently.
+**Clarifying beats guessing.** "Risky", "suspicious" and "high value" have no definition in the data. The prompt tells the model to ask what is meant, with two or three suggestions, instead of picking a threshold silently.
 
 **Precision and recall on labelled rows only (built).** About a third of transactions have no fraud label. They are unknown, not legitimate, so the backtest counts them separately and never as false positives ([D-11](DECISIONS.md#d-11-backtest-metrics-use-labelled-transactions-only-undefined-ratios-are-none)).
 
@@ -276,26 +302,29 @@ The first four points describe the proposed design; the last two already hold in
 | `db.py` | The only module that opens the database: read-only connection, timeout, row cap, value-size cap, result-size budget; `run_query` (execute) and `inspect_query` (compile only) | Built |
 | `schema_context.py` | Describes the real schema to the model: tables, columns, allowed values, join keys, data notes | Built |
 | `rules/backtest.py` | Measures a rule clause against the fraud labels, after the guard's rule policy has accepted it. Planned addition: a by-month template | Built (addition Proposed) |
-| `graph.py` | State, graph wiring, `run_turn`, export of the graph as a Mermaid diagram | Proposed |
-| `nodes.py` | The node functions listed [above](#the-nodes) | Proposed |
+| `state.py` | The turn's state, the `Failure` type and the list of types a saved state may hold | Built |
+| `graph.py` | Graph wiring, routing functions, `Assistant` (whose `run_turn` is the entry point), the trace, export of the graph as a Mermaid diagram | Built |
+| `nodes.py` | The node functions listed [above](#the-nodes) | Built; `run_scan` reports "not available yet" and `backtest_rule` runs no evidence by month |
 | `llm.py` | The only module that talks to a model provider. One small interface with four implementations: live (Claude), recording, replay, scripted (for tests) | Built |
-| `nl2sql.py` | Prompt assembly, glossary, the five tool schemas and typed actions, shape checks | Tool schemas, typed actions and shape check Built; prompt and glossary Proposed |
+| `nl2sql.py` | The five tool schemas and typed actions, shape checks, the prompt version | Built |
+| `prompt.py` | Prompt assembly: role and tool rules, glossary, rule scope, the previous-turn block and the repair paragraph | Built; run against Claude in one seven-question smoke test on two models |
 | `sql_scan.py` | Splits SQL text into tokens, pairing quotes and comments as SQLite does | Built |
 | `sql_guard.py` | Text limits, query policy and rule policy, decided in code | Built |
 | `explore.py` | Fraud-concentration scan | Proposed |
 | `rules/proposal.py` | Rule policy, backtest, month-by-month evidence, lift (how many times the base fraud rate) | Proposed |
-| `presentation.py` | Format hints (cents as dollars), coded caveats | Proposed |
+| `result.py` | The types of a turn's reply: `TurnResult`, outcomes, error kinds, caveats, the table and the rule card | Built |
+| `presentation.py` | Builds the `TurnResult`: the outcome, format hints (cents as dollars, fractions as percentages), coded caveats; and the terminal text | Built. The caveat for a weak month is Proposed |
 | `model_check.py` | The tool-call check: eleven fixed questions, the run that records each reply, its summary, the replay, and the table and decision as text. Returns values and text; prints nothing | Built |
-| `cli.py` | Terminal interface: ask one question, chat, scan, print the graph, run the evaluation suite. It parses arguments, wires settings to the module that does the work, prints and sets the exit code; it holds no logic of its own | Proposed, except the `check-model` command (Built), whose logic is in `model_check.py` |
+| `cli.py` | Terminal interface. It parses arguments, wires settings to the module that does the work, prints and sets the exit code; it holds no logic of its own | `ask`, `chat`, `graph`, `--trace` and `check-model` Built; `scan` and `eval` Proposed |
 | `api.py` | HTTP API for the web chat: one chat endpoint and one health endpoint | Proposed |
 | Observability (no module assigned yet) | One local structured log line per graph node, always on; opt-in LangSmith tracing with result rows filtered out | Proposed |
 | `evals/` | Cases, runner, scorers, recordings | Proposed. It holds only the recorded replies of `check-model` for two models |
 
 ## Built components
 
-Imports between the built modules go one way: `cli` imports `model_check`, `llm` and `config`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain.
+Imports between the built modules go one way: `cli` imports `graph`, `presentation`, `model_check`, `nl2sql`, `llm` and `config`; `graph` imports `nodes`, `state`, `presentation`, `result`, `rules/backtest`, `nl2sql`, `db`, `llm` and `config`; `nodes` imports `presentation`, `prompt`, `state`, `result`, `nl2sql`, `sql_guard`, `rules/backtest`, `schema_context`, `db`, `llm` and `config`; `presentation` imports `state`, `result`, `nl2sql`, `rules/backtest` and `db`; `state` imports `prompt`, `result`, `nl2sql`, `llm`, `rules/backtest` and `db`; `prompt` imports `schema_context`; `result` imports `config` and `db`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain's model wrapper; `state` and `graph` import LangGraph.
 
-Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-boundary-and-strict-type-checking)): every function is fully annotated and the package and its tests pass `mypy` in strict mode; every structured value that crosses a module boundary (`Settings`, `QueryResult`, `QueryInspection`, `TableRead`, `Token`, `GuardDecision`, `BacktestResult`, and the model layer's `ModelSpec`, `ModelRequest`, `ModelReply`, `Recording`, the five actions, `Intent`, `ShapeFailure` and `CheckSummary`) is a frozen pydantic model that rejects unknown fields; closed sets of values are a `Literal` or an enum; errors are ordinary exception classes. The proposed modules follow the same rule for graph state, evaluation cases and API bodies.
+Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-boundary-and-strict-type-checking)): every function is fully annotated and the package and its tests pass `mypy` in strict mode; every structured value that crosses a module boundary (`Settings`, `QueryResult`, `QueryInspection`, `TableRead`, `Token`, `GuardDecision`, `BacktestResult`, and the model layer's `ModelSpec`, `ModelRequest`, `ModelReply`, `Recording`, the five actions, `Intent`, `ShapeFailure` and `CheckSummary`, the prompt's `Messages`, `PreviousTurn` and `Repair`, the graph's `TurnState`, `Failure` and `TraceStep`, and `TurnResult` with its parts) is a frozen pydantic model that rejects unknown fields; closed sets of values are a `Literal` or an enum; errors are ordinary exception classes. The one exception is a node's update, which is the dict LangGraph takes; it is built by a function that refuses a key that is not a state field. The proposed modules follow the same rule for evaluation cases and API bodies.
 
 **`config.py`.** `load_settings()` returns an immutable `Settings` from environment variables, with defaults: database path, row cap, query timeout, result-size budget, and the model settings (API key, model id, effort, output-token limit, model timeout, longest user message, output mode; [D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)). The rules for each value (a positive, finite number; one of a closed set) are in the model. The API key is a secret type whose value does not appear when the settings are printed or dumped, and a missing key is not an error at load time. A `.env` file in the project root is read by a small built-in parser; real environment variables win ([D-09](DECISIONS.md#d-09-env-is-read-by-a-small-built-in-parser)), except that an empty one does not hide a value in the file, and a byte-order mark at the start of the file is ignored. Invalid values raise `ConfigError` naming the variable. Loading does not touch the database or a model.
 
@@ -307,11 +336,11 @@ Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-bounda
 - Result size ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)): the row cap alone does not bound memory, because a row can be wide and its values long (300 rows of 1,000,000-byte values took about 340 MB). Rows are fetched one at a time and the bytes of their values added up; over `max_result_bytes` (5,000,000 by default, `FSM_MAX_RESULT_BYTES`) the fetch stops with `ResultTooLarge`. A result has at most 100 columns.
 - Value size and quoted names ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)): no string or blob may exceed 100,000 bytes (the longest value in the data is 51 characters), so `zeroblob(1000000000)` fails at once; and SQLite's fallback that reads an unknown double-quoted name as a string is switched off, so `"amount" > 1000` is an error.
 - One statement per call (`execute`, never `executescript`). An empty or comment-only string is a `QueryError` ("empty statement"), not an empty result, and so is text that is not valid Unicode.
-- Typed errors, all subclasses of `DbError`: `ReadOnlyViolation`, `QueryTimeout`, `QueryError` (keeps SQLite's message in `sqlite_message` for the repair attempt) with its subclass `ResultTooLarge` (the statement is what has to change, so a repair step treats it like any other `QueryError`), `DatabaseNotFoundError`, and `DatabaseAccessError` for a file that exists but cannot be read where it is (a WAL-mode database in a directory that is not writable, see [`DATA.md`](DATA.md#access)). The last two are faults of the environment and are never blamed on the SQL.
+- Typed errors, all subclasses of `DbError`: `ReadOnlyViolation`, `QueryTimeout`, `QueryError` (keeps SQLite's message in `sqlite_message`; the turn sends it to the model only when it came from compiling, and shows it to the user alone when the statement failed while running, since it can then quote a value) with its subclass `ResultTooLarge` (the statement is what has to change, so a repair step treats it like any other `QueryError`), `DatabaseNotFoundError`, and `DatabaseAccessError` for a file that exists but cannot be read where it is (a WAL-mode database in a directory that is not writable, see [`DATA.md`](DATA.md#access); or a file that is not a database, is damaged or cannot be opened). The last two are faults of the environment and are never blamed on the SQL.
 
 `inspect_query(sql, *, db_path)` compiles one statement on the same kind of connection and does not run it: it prepares `EXPLAIN QUERY PLAN <sql>`, which reads no table rows, with the authorizer recording every action as well as denying the ones that are not reads. It returns an immutable `QueryInspection`: the action codes in order, the tables read with the columns named for each, and the functions called (lowercased). Unknown tables and columns, syntax errors and more than one statement raise `QueryError` with SQLite's message; a denied action raises `ReadOnlyViolation`. A statement the authorizer is never asked about (`VACUUM`) comes back with no actions, which callers must treat as a rejection. Its cost does not depend on the data, but it does depend on the statement: the timeout does not cover compiling, and a statement that refers to its CTEs many times over can take seconds and gigabytes to compile. `inspect_query` does not bound that; the guard does, from the text, before it calls.
 
-**`schema_context.py`.** `build_schema_context(db_path)` returns the text that will be given to the model, about 3,300 characters for the real database. Tables, columns, types, primary and foreign keys, row counts, NULL counts, the distinct values of low-cardinality `TEXT`/`BOOLEAN` columns (listed when there are at most 12) and the figures in the notes are read from the database through `db`. The notes cover cents, negative amounts, date format and range, case-sensitive values, the label join ([D-10](DECISIONS.md#d-10-the-schema-context-prescribes-one-form-of-the-label-join)), partial label coverage, the path to MCC, and how locations are encoded. Output is sorted and has nothing time-dependent, so two builds are byte-identical; it is cached per path for the life of the process.
+**`schema_context.py`.** `build_schema_context(db_path)` returns the text that is given to the model in every request, about 3,300 characters for the real database. Tables, columns, types, primary and foreign keys, row counts, NULL counts, the distinct values of low-cardinality `TEXT`/`BOOLEAN` columns (listed when there are at most 12) and the figures in the notes are read from the database through `db`. The notes cover cents, negative amounts, date format and range, case-sensitive values, the label join ([D-10](DECISIONS.md#d-10-the-schema-context-prescribes-one-form-of-the-label-join)), partial label coverage, the path to MCC, and how locations are encoded. Output is sorted and has nothing time-dependent, so two builds are byte-identical; it is cached per path for the life of the process.
 
 **`rules/backtest.py`.** `backtest(clause, *, db_path, timeout_seconds)` measures a rule, given as a `WHERE` clause over `transactions`, and returns an immutable `BacktestResult`. The caller supplies only the clause; the numbers come from one fixed statement run through `db.run_query`:
 
@@ -333,12 +362,12 @@ LEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)
 - Scope ([D-12](DECISIONS.md#d-12-one-backtest-template-the-clause-sees-only-transactions)): inside the CTE the only table is `transactions`, unaliased, so a clause uses bare column names or `transactions.<column>`, and subqueries on other tables work as in the brief's example. The labels are joined afterwards, so `id` in a clause can only be `transactions.id`, and `is_fraud` is not a column a clause can use directly.
 - Metrics ([D-11](DECISIONS.md#d-11-backtest-metrics-use-labelled-transactions-only-undefined-ratios-are-none)): defined [below](#backtest-metrics).
 - Policy ([D-13](DECISIONS.md#d-13-a-rule-clause-is-contained-by-parentheses-and-a-lexical-scan), [D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)): `backtest` calls `sql_guard.check_rule_clause` and measures only a clause it accepted, so the rule policy cannot be skipped by calling `backtest` directly. That covers containment (no `;`, comment, bind parameter, NUL, or parenthesis that is unbalanced or would close the template's own), the clause compiling as a single expression both after a bare `WHERE` and inside the template's parentheses, and what the clause may read (not `fraud_labels`). The clause is trimmed and one trailing `;` dropped, as the guard does. The template without the policy is a private function used by `backtest` and by the tests that show what an unguarded clause would score.
-- Errors: `RuleClauseError` with a `reason`, the guard's `reason_code`, and SQLite's message verbatim in `sqlite_message` when SQLite rejected the clause (for the repair attempt). A clause the read-only authorizer denies is a `RuleClauseError` too. `db.QueryTimeout` and the other `db` errors propagate unchanged.
+- Errors: `RuleClauseError` with a `reason`, the guard's `reason_code`, and SQLite's message verbatim in `sqlite_message` when SQLite rejected the clause (the turn passes it to the model only when the guard's compile produced it, never when the backtest statement failed while running). A clause the read-only authorizer denies is a `RuleClauseError` too. `db.QueryTimeout` and the other `db` errors propagate unchanged.
 - Cost on the real database: one scan of `transactions` for the clause, an index lookup per flagged row, and the three totals; 0.04 to 0.2 s for selective rules and about 0.9 s for a rule that flags every transaction.
 
 **`sql_scan.py`.** `scan(text)` splits SQL text into tokens (string, quoted name, word, comment, symbol), pairing the four kinds of quote and both kinds of comment as SQLite's tokenizer does, and raises `UnterminatedQuote` for a quote that never closes. It is the only code that knows those rules; the guard's text checks are built on it. It does not parse SQL and imports nothing from the project.
 
-**`sql_guard.py`.** Decides whether one model-written string may run, without running it ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)). `check_query(sql, *, db_path)` judges a full statement and `check_rule_clause(clause, *, db_path)` a rule clause. Both return an immutable `GuardDecision`: `accepted`, the text that was judged (`sql`: trimmed, one trailing `;` removed, nothing else changed), a machine-readable `reason_code`, a `reason` in words for the repair attempt, SQLite's own message when it refused to compile the text, and `reads` (the `QueryInspection`). Plain Python with no LangChain dependency. `backtest` calls it; no graph does yet.
+**`sql_guard.py`.** Decides whether one model-written string may run, without running it ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)). `check_query(sql, *, db_path)` judges a full statement and `check_rule_clause(clause, *, db_path)` a rule clause. Both return an immutable `GuardDecision`: `accepted`, the text that was judged (`sql`: trimmed, one trailing `;` removed, nothing else changed), a machine-readable `reason_code`, a `reason` in words for the repair attempt, SQLite's own message when it refused to compile the text, and `reads` (the `QueryInspection`). Plain Python with no LangChain dependency. `backtest` calls it, and so do the graph's two guard nodes.
 
 - Text checks, before anything is compiled, cheapest first: at most 10,000 characters (`too_long`); no Markdown code fence, which is refused with a request for the bare statement and never unwrapped (`code_fence`); valid Unicode (`invalid_text`); quotes closed; and a bound on compile cost (`too_complex`). SQLite copies a CTE at every reference to it, so a statement whose CTEs each join the one before to itself doubles per level: 799 characters with 20 levels took 45 s and 1.7 GB to compile, and nothing in the engine interrupts a compile. The guard counts the `name AS (…)` definitions (at most 20) and estimates, on the high side, how many tokens the statement holds once every CTE reference is replaced by its body (at most 50,000).
 - Method: the statement is compiled by `db.inspect_query` and the policy reads what SQLite reported. A table is known because SQLite resolved it, through any alias, join, subquery or CTE, not because a name matched in the text.
@@ -356,9 +385,35 @@ LEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)
 - `RecordingModel` wraps any model and writes each reply to its own JSON file, named by case id, turn and call. `ReplayModel` reads those files; it builds no client and needs no key. It raises `StaleRecording` when a file is missing, is not a recording, or holds a request hash different from the current one. The hash covers the model id, effort, token limit, output mode, both messages, the schemas sent and the prompt version.
 - `ScriptedModel` returns queued replies for tests, counts its calls and raises when its script runs out.
 
-**`nl2sql.py`** (partly built). The five tools as frozen pydantic models (`RunSql`, `ProposeRule`, `ProfileFraud`, `AskClarification`, `Decline`), each with the description the model reads and a JSON schema that fits the API's strict mode (closed, every property required, no length or range keywords). The validated arguments of a call are the typed `Action`. `Intent` is the fallback mode's single flat object, every field required and null where unused, with the rules about which fields go with which `kind`. `check_shape(reply)` is a pure function: it returns one `Action`, or a `ShapeFailure` whose `kind` is one of no tool call, more than one, unknown tool, invalid arguments, invalid JSON or a cross-field violation, and whose `reason` is written to be quoted back to the model. It trims text and drops one trailing `;` from a statement or clause, as the guard does, and repairs nothing else. The system prompt, the glossary and `build_messages` are not written.
+**`nl2sql.py`.** The five tools as frozen pydantic models (`RunSql`, `ProposeRule`, `ProfileFraud`, `AskClarification`, `Decline`), each with the description the model reads and a JSON schema that fits the API's strict mode (closed, every property required, no length or range keywords). The validated arguments of a call are the typed `Action`. `Intent` is the fallback mode's single flat object, every field required and null where unused, with the rules about which fields go with which `kind`. `check_shape(reply)` is a pure function: it returns one `Action`, or a `ShapeFailure` whose `kind` is one of no tool call, more than one, unknown tool, invalid arguments, invalid JSON or a cross-field violation, and whose `reason` is written to be quoted back to the model. It trims text and drops one trailing `;` from a statement or clause, as the guard does, and repairs nothing else. `describe_reply(reply)` writes a reply as text, to quote back to the model when its shape was refused. `PROMPT_VERSION` (`turn-3`) labels the tool descriptions and the prompt text together. `tool_name(action)` gives the tool an action came from, for the result.
 
-**`model_check.py` and `cli.py`** (one command). The check is in `model_check.py`: the questions (`CHECK_QUESTIONS`), `check_spec` and `system_message` (what is sent), `run_check` (asks every question of any `IntentModel`, records each reply and returns a frozen `CheckSummary`, or raises `IncompleteRun`), `write_summary` and `read_summary`, `replay_check` (the same summary rebuilt from the recordings, or `StaleRecording`), and `render_plan`, `render_table` and `render_decision`, pure functions that return text. It builds no live client and prints nothing. `cli.py` parses the arguments, loads the settings, builds the live client, prints what the module returns and sets the exit code (0, or 2 when a run cannot start, is incomplete or cannot be replayed). `fsm-assistant check-model [--model ID] [--yes-spend | --replay]` sends eleven fixed questions once each to a Claude model in tool mode, with the real schema context and a three-sentence system message, and prints for each the tool called, whether the reply was exactly one valid call, tokens and seconds, then the count and what the decision rule of [D-16](DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it) says about the default mode (tools stay if at most one of the eleven misses). It costs money, so without `--yes-spend` it prints what it would send, sends nothing and writes nothing. A paid run records each reply and a `summary.json` under `evals/recordings/check-model/<model id>/`; `--replay` prints the same table and decision from those files with no key and no network, or stops with `StaleRecording` ([D-21](DECISIONS.md#d-21-one-model-interface-with-our-own-record-and-replay)). It has been run once on each of `claude-opus-5-5` and `claude-haiku-5-5`; the recordings are in the repository and the result is under [Evidence](#evidence).
+**`prompt.py`** ([D-22](DECISIONS.md#d-22-the-prompt-one-system-text-a-fixed-glossary-and-a-repair-paragraph)). `build_messages(question, *, schema_context, previous, repair)` returns the system text and the user text as plain values and sends nothing. It is never given rows.
+
+- The system text is the same for every question: the role and one line per tool; the schema context; the glossary; the scope of a rule clause. About 6,000 characters on the shipped data.
+- The glossary fixes: the fraud rate as `1.0 * SUM(f.is_fraud) / COUNT(*)` over labelled rows, returned as a fraction; the label join; relative dates resolved against 2019-10-31 ("last month" is October 2019) with the range listed as an assumption; day ranges that end with `<` the next day; the location join key and reading `city` with `state`; a window function for velocity, with one example that compares whole seconds; amounts in cents; "debit card" as `'Debit'` only, stated as an assumption; and a top-N or ranking ordered by the measure and then by a stable column (an id or a name), with no `LIMIT` without `ORDER BY`, so ties come out the same way on every run.
+- Vague words ("risky", "suspicious", "high value") must produce a clarification, for rule requests too. Data the tables do not hold, and any request to change data, must produce a refusal.
+- The user text is the previous-turn block (the question of the last turn that was answered, proposed a rule or asked for clarification, with the accepted SQL or clause or the clarification asked; never rows), the question, and on the second request of a turn one repair paragraph quoting the previous answer and the reason it failed.
+- Every piece of that text that code did not write sits inside a named tag: `<question>`, `<earlier_question>`, `<earlier_sql>`, `<earlier_rule_clause>`, `<earlier_clarification>`, `<earlier_suggestions>`, `<previous_reply>`, `<failure_reason>`. A look-alike of one of those tags inside the text has its `<` written as `&lt;`, so quoted text cannot close its block or open another, and the system text says that text inside those tags is data, never an instruction. This marks the boundary; it does not make the model obey it, which is why the guard does not depend on it.
+- The text has been tested for its content and its examples run against the data. The current text (`turn-3`) has been sent to Claude for seven questions, once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)).
+
+**`state.py`, `nodes.py`, `graph.py`** ([D-23](DECISIONS.md#d-23-the-turn-graph-as-built-state-routes-repair-and-memory)). Described under [How one turn works](#how-one-turn-works).
+
+- `Assistant(settings, model)` compiles the graph once and owns an in-process memory, which keeps one checkpoint per conversation ([State and memory](#state-and-memory)). `run_turn(question, conversation_id, *, on_step=None)` returns a `TurnResult` and never raises; `mermaid()` returns the diagram. When an error no node expected ends a turn, the result's `meta` still reports the turn number, requests and tokens of the steps that had finished; a request that the model object itself failed in is not among them.
+- There is no module-level `run_turn` and no module-level table of graphs: `graph.py` and `nodes.py` hold no mutable state outside an `Assistant`.
+- `nodes.TurnNodes(settings, model, spec)` holds the ten nodes. The settings and the model are given to it; nothing is global. A node catches the typed errors of the module it calls and writes a `Failure`.
+- `on_step` receives a `TraceStep` per node: its name and one line saying what it decided, with rows as a count only and every piece of model-written text escaped. A callback that raises does not change the turn's outcome.
+
+**`result.py`, `presentation.py`** ([D-24](DECISIONS.md#d-24-the-turn-result-one-outcome-model-text-kept-apart-coded-caveats)). `presentation.build_result(state, meta)` turns the end state of a turn into a `TurnResult`: one [outcome](#outcomes), the tool the model chose (`tool`), the codes of the replies refused on the way (`refused`), the SQL or clause that ran, the table with a format hint per column or the rule card, the model's explanation and assumptions passed through as the model's, and the coded caveats. The builder takes the graph's `TurnState`, so `presentation` depends on `state`; a caller outside the graph would have to build that state first. `render_text(result)` is the terminal form: at most 20 rows with a "Showing 20 of N rows" line, columns up to a line of 160 characters with the rest named and not shown, cents as dollars, a fraction with its value and as a percentage, identifiers and codes (`id`, `*_id`, `code`, `*_code`, `mcc`, `zip`, year columns, card and account numbers) without digit grouping, a blob as hex with its length, and text with control characters escaped.
+
+**`cli.py`.** Four commands; it parses, wires and prints, and holds no logic.
+
+- `fsm-assistant ask "<question>"` runs one turn in a new conversation and prints the result. Its exit code tells the outcomes apart ([Outcomes](#outcomes)).
+- `fsm-assistant chat` reads questions in a loop, in one conversation, until `exit`, `quit` or the end of input. Ctrl-C while a question is being answered abandons that question and returns to the prompt; at the prompt it leaves. `chat` exits with 0 whatever its turns ended in.
+- Both call Claude, which is billed, and print the model in use first. A missing key, an invalid setting, or a `--record-dir` that is a file or cannot be written to stops them with "Cannot start" and exit code 2 before anything is sent. `--trace` prints each node's update, escaped. `--replay-dir DIR` answers from recorded replies instead, with no key and no request; `--record-dir DIR` also writes each live reply there; `--case NAME` names the recording files.
+- `fsm-assistant graph` prints the Mermaid diagram of the compiled graph. It reads no setting: no `.env`, no key, no database.
+- `fsm-assistant check-model` is described next.
+
+**`model_check.py`.** The check is in `model_check.py`: the questions (`CHECK_QUESTIONS`), `check_spec` and `system_message` (what is sent), `run_check` (asks every question of any `IntentModel`, records each reply and returns a frozen `CheckSummary`, or raises `IncompleteRun`), `write_summary` and `read_summary`, `replay_check` (the same summary rebuilt from the recordings, or `StaleRecording`), and `render_plan`, `render_table` and `render_decision`, pure functions that return text. It builds no live client and prints nothing. `cli.py` parses the arguments, loads the settings, builds the live client, prints what the module returns and sets the exit code (0, or 2 when a run cannot start, is incomplete or cannot be replayed). `fsm-assistant check-model [--model ID] [--yes-spend | --replay]` sends eleven fixed questions once each to a Claude model in tool mode, with the real schema context and a three-sentence system message, and prints for each the tool called, whether the reply was exactly one valid call, tokens and seconds, then the count and what the decision rule of [D-16](DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it) says about the default mode (tools stay if at most one of the eleven misses). It costs money, so without `--yes-spend` it prints what it would send, sends nothing and writes nothing. A paid run records each reply and a `summary.json` under `evals/recordings/check-model/<model id>/`; `--replay` prints the same table and decision from those files with no key and no network, or stops with `StaleRecording` ([D-21](DECISIONS.md#d-21-one-model-interface-with-our-own-record-and-replay)). It has been run once on each of `claude-opus-5-5` and `claude-haiku-5-5`; the recordings are in the repository and the result is under [Evidence](#evidence).
 
 ## Backtest metrics
 
@@ -384,26 +439,44 @@ Proposed addition: the same counts per calendar month, so a rule's weakest month
 
 ## Outcomes
 
-**Proposed.** Every turn will end in exactly one outcome. `status` and `error.kind` are the fields an interface will read.
+**Built** ([D-24](DECISIONS.md#d-24-the-turn-result-one-outcome-model-text-kept-apart-coded-caveats)), with a test per row. Every turn ends in exactly one outcome. `status` and `error.kind` are the fields an interface reads.
 
 | Outcome | When | `status` | `error.kind` |
 |---|---|---|---|
-| answered | SQL or the scan ran (zero rows still counts) | `ok` | none |
+| answered | SQL ran (zero rows still counts). Proposed: also when the scan ran | `ok` | none |
 | rule_proposed | Clause accepted and backtested | `ok` | none |
 | clarification | The model called `ask_clarification` | `needs_clarification` | none |
 | cannot_answer | The model called `decline` | `cannot_answer` | none |
-| rejected | The guard refused twice | `rejected` | `sql_rejected` |
-| failed | SQL error or timeout twice | `error` | `sql_execution` or `timeout` |
+| cannot_answer | The model called `profile_fraud`: the scan is not available yet (this row goes when the scan is built) | `cannot_answer` | `not_available` |
+| rejected | The guard's policy refused the last attempt | `rejected` | `sql_rejected` |
+| failed | The last attempt was SQL that does not compile or fails when run, or it timed out | `error` | `sql_execution` or `timeout` |
 | failed | Empty or over-long message (no model call) | `error` | `invalid_input` |
 | failed | Provider unreachable, key missing or overloaded | `error` | `model_unavailable` |
 | failed | Invalid model output twice, a refusal or a truncated reply | `error` | `model_output` |
-| failed | Anything else | `error` | `internal` |
+| failed | Anything else: a database that is missing, is not a database, is damaged or cannot be opened (also when that happens part-way through a conversation; no repair request is spent on it), or an error no node expected | `error` | `internal` |
 
-Caveats will be chosen by code from a fixed list, in a fixed order: result cut at the row cap; label coverage, when `fraud_labels` is read; zero rows (with a hint to check the spelling and case of values); small sample (fewer than 30 labelled rows flagged); high flag rate (over 5% of transactions); a month with precision below half the rule's overall precision.
+When both attempts fail, the last failure decides the row. SQL that SQLite cannot compile is found by the guard but counts as `sql_execution`: it is wrong, not forbidden.
+
+**What an error says.** `error.message` is written in code. For SQL that did not compile it quotes SQLite, whose compile message names only what the statement itself wrote. For an approved statement that failed while it ran, it is a fixed sentence, and SQLite's own words are in `error.detail`: they can quote a value from a row (`bad JSON path: '<a value>'`), so they are shown to the user, who is entitled to see rows, and go nowhere else: not to the model, not into the saved state, not into the trace. `detail` is null for every other failure.
+
+**Two fields for a scorer.** `tool` is the tool the model chose in the reply that decided the turn (`run_sql`, `propose_rule`, `profile_fraud`, `ask_clarification`, `decline`), or null when no usable reply was obtained (no reply, a refusal, a shape that was invalid to the end, an invalid message). `refused` lists, in order, one code for each model reply of the turn that was refused: the shape check's kind (`no_tool_call`, `multiple_tool_calls`, `unknown_tool`, `invalid_arguments`, `invalid_json`, `cross_field`) or the guard's reason code (`table_not_allowed`, `not_read_only`, `label_read`, `sqlite_error` for text that does not compile, and the rest of `sql_guard.ReasonCode`). A reply that was refused and then repaired is listed, so a turn that ended `answered` after the guard stopped a write shows `refused: ["not_read_only"]`. It holds codes only, never SQL or a message. A statement the guard accepted that then failed or timed out while running is not a refusal and is not listed.
+
+**Exit codes of `ask`.**
+
+| Code | When |
+|---|---|
+| 0 | `answered`, `rule_proposed` or `clarification` |
+| 1 | `failed` |
+| 2 | It could not start: a bad argument or setting, no key, an unusable recordings folder |
+| 3 | `cannot_answer`: the model declined, or the scan is not available |
+| 4 | `rejected` by the guard |
+| 130 | Interrupted with Ctrl-C |
+
+Caveats are chosen by code from a fixed list, in a fixed order: result cut at the row cap (`truncated`); label coverage, when the approved statement read `fraud_labels`, and always for a rule (`label_coverage`); zero rows, with a hint to check the spelling and case of values (`zero_rows`); small sample, when fewer than 30 of a rule's flagged transactions are labelled, with its own wording when none is and precision is undefined (`small_sample`); high flag rate, over 5% of transactions (`high_flag_rate`). Proposed, with the evidence by month: a month with precision below half the rule's overall precision.
 
 ## Observability
 
-**Proposed.** Observability means being able to see, after the fact, what the assistant did in a turn, step by step. Two parts are planned. What is built today is only the off switch: the model client forces hosted tracing off around every call ([D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)).
+**Proposed**, except two things that are built. The model client forces hosted tracing off around every call ([D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)). And `ask --trace` and `chat --trace` print, as a turn runs, one line per node saying what it decided: the tool called, the accepted SQL, a failure with its refusal code and its reason, the outcome, and rows as a count only. Model-written text in a line (SQL, a tool name) has its control characters escaped, so it cannot move the cursor or hide a line. That is a view in the terminal, not a log: nothing is written to a file. Observability means being able to see, after the fact, what the assistant did in a turn, step by step. Two parts are planned.
 
 **Local structured logs, always on.** Each graph node will write one line with named fields: conversation id, turn, node, duration, attempt number, tool chosen, guard decision and reason, outcome, error kind, row count, model id, token usage and request id. The lines will go to a git-ignored file on the machine, with a readable form in the terminal on request. No external service is involved. The question and the SQL will be logged, because they are what a reviewer needs to see. The API key and result rows will never be logged: rows appear as a count only.
 
@@ -420,26 +493,28 @@ Hallucination means the model producing something that looks right and is not: a
 | Risk | Mitigation | Where | Status |
 |---|---|---|---|
 | Invented tables, columns or values (`amount`, `'debit'`) | Schema context built from the real database, including allowed values | `schema_context` | Built |
-| | Tables checked against the seven real ones before execution; SQLite rejects unknown columns at compile time, also when the name is double-quoted. The message is kept for the single repair (the repair itself is proposed) | `sql_guard`, `db` | Built |
+| | Tables checked against the seven real ones before execution; SQLite rejects unknown columns at compile time, also when the name is double-quoted. That compile message is sent back to the model for the single repair | `sql_guard`, `db`, `graph` | Built |
 | Destructive or runaway SQL | Read-only connection, timeout and row cap | `db` | Built |
 | | Single read-only `SELECT` accepted by a compile-only check, after limits on the text that bound what compiling costs; values, columns and result size capped | `sql_guard`, `db` | Built |
-| SQL that runs but answers a different question | SQL always shown with the result; the model's assumptions (for example the date range it resolved) listed | `presentation` | Proposed |
+| SQL that runs but answers a different question | SQL always shown with the result; the model's assumptions (for example the date range it resolved) listed; a glossary that fixes the fraud rate, relative dates, day ranges, the location join and "debit card" | `presentation`, `prompt` | Built; the glossary's effect on Claude is not measured |
 | | Execution accuracy measured on reference cases | `evals/` | Proposed |
 | Made-up numbers in prose | Backtest figures come from one fixed statement | `rules/backtest` | Built |
-| | The model is never shown result rows and its text is labelled as model text | `graph`, `presentation` | Proposed |
+| | The model is never shown result rows and its text is labelled as model text | `graph`, `presentation` | Built |
 | A plausible rule that performs badly | The backtest that measures a clause against the labels | `rules/backtest` | Built |
-| | No route shows a rule without its backtest | `graph` | Proposed |
-| Misleading fraud rates from partial labels | Metrics on labelled rows only, coverage reported; the join pattern fixed in code; the schema context states the coverage and the join to use | `rules/backtest`, `schema_context` | Built |
+| | No route shows a rule without its backtest | `graph` | Built |
+| Misleading fraud rates from partial labels | Metrics on labelled rows only, coverage reported; the join pattern fixed in code; the schema context states the coverage and the join to use; a coverage caveat on every result that read the labels | `rules/backtest`, `schema_context`, `presentation` | Built |
 | A rule that reads the labels it is scored against | Rule policy rejects any read of `fraud_labels` in a clause, and `backtest` applies that policy itself | `sql_guard`, `rules/backtest` | Built |
-| A filter relative to today on data that ends in 2019 | `'now'` or `'subsec'` given to a date function, argument-less date functions and `current_*` rejected with a reason | `sql_guard` | Built |
-| Questions the data cannot answer, or vague wording | `decline` and `ask_clarification` tools; such cases in the evaluation set | `nl2sql`, `evals/` | Tools Built; prompt and cases Proposed |
+| A filter relative to today on data that ends in 2019 | `'now'` or `'subsec'` given to a date function, argument-less date functions and `current_*` rejected with a reason; the glossary resolves relative dates against 2019-10-31 | `sql_guard`, `prompt` | Built |
+| An empty result read as an answer | A `zero_rows` caveat that says to check the spelling and case of values | `presentation` | Built |
+| Questions the data cannot answer, or vague wording | `decline` and `ask_clarification` tools, and the prompt rules that say when to use them; such cases in the evaluation set | `nl2sql`, `prompt`, `evals/` | Tools and prompt Built; cases Proposed |
+| A rule judged on too little evidence, or one that would block too much | `small_sample` and `high_flag_rate` caveats on the rule card | `presentation` | Built |
 | Overfitting a rule to history | Month-by-month evidence; scoring on months the rule was not derived from | `rules/proposal` | Proposed |
 
 The FSM stays in the loop throughout: the tool proposes rules, it does not deploy them.
 
 ## Evidence
 
-Exploratory checks were run before this design was chosen. **They are not the evaluation suite**, which does not exist yet, and the samples are small. They show that the approach is workable and where it breaks; they do not measure how well the finished system performs. Those checks did not use Claude. One small live check of Claude was run later and is reported separately, [at the end of this section](#measured-tool-calls-on-two-claude-models).
+Exploratory checks were run before this design was chosen. **They are not the evaluation suite**, which does not exist yet, and the samples are small. They show that the approach is workable and where it breaks; they do not measure how well the finished system performs. Those checks did not use Claude. Two small live runs of Claude came later and are reported separately at the end of this section: [a check of tool calls on two models](#measured-tool-calls-on-two-claude-models) and [a smoke test of seven questions through the turn](#a-live-smoke-test-of-the-turn).
 
 **Compile-only inspection.** Compiling a statement with `EXPLAIN QUERY PLAN` under SQLite's authorizer, without running it, took under 1 ms per statement. It reported the real tables and the functions used, through joins, CTEs, subqueries, aliases, views and `SELECT *`. Multi-statement input, statements that change data or structure, `ATTACH`, `PRAGMA`, reads of `sqlite_master` and `load_extension` were all rejected or made visible by it. Its blind spots are in the [next section](#known-weaknesses-and-planned-fixes). Building the guard corrected two of these observations. The authorizer does report a CTE's name, as if it were a table, when the statement reads from the CTE without naming a column. And "under 1 ms" holds for ordinary statements only: one built from CTEs that each refer to the one before twice takes seconds to compile. The guard allows for both ([Built components](#built-components)).
 
@@ -452,11 +527,11 @@ Exploratory checks were run before this design was chosen. **They are not the ev
 - Both models refused a delete request, a prompt injection (text in the question that tries to override the instructions) and a question about a column that does not exist. Both asked for clarification on "risky transactions".
 - Failures: rule clauses that used a column from another table as if it were on `transactions` (3 of 3, fixed by one sentence about scope and one example); a wrong fraud-rate formula on the smaller model; "last month" read two different ways.
 
-These failures shaped the planned prompt and glossary: a fixed fraud-rate formula, relative dates resolved against the last date in the data (2019-10-31), and the rule scope sentence.
+These failures shaped the prompt and glossary, now built ([D-22](DECISIONS.md#d-22-the-prompt-one-system-text-a-fixed-glossary-and-a-repair-paragraph)): a fixed fraud-rate formula, relative dates resolved against the last date in the data (2019-10-31), and the rule scope sentence.
 
 ### Measured: tool calls on two Claude models
 
-This is a measured result, separate from the exploration above, and it is a small check. `fsm-assistant check-model` sent eleven fixed questions, each once, to each of two Claude models in tool mode, with the real schema context, a three-sentence system message (not the final prompt, which is not written), effort `medium` and `max_tokens` 8,000. It counts one thing: whether the reply was exactly one valid tool call.
+This is a measured result, separate from the exploration above, and it is a small check. `fsm-assistant check-model` sent eleven fixed questions, each once, to each of two Claude models in tool mode, with the real schema context, a three-sentence system message (not the prompt of the turn graph, which was written afterwards), effort `medium` and `max_tokens` 8,000. It counts one thing: whether the reply was exactly one valid tool call.
 
 | Model | Exactly one valid tool call | Input tokens | Output tokens | Seconds, eleven requests |
 |---|---|---|---|---|
@@ -465,9 +540,29 @@ This is a measured result, separate from the exploration above, and it is a smal
 
 - Both models chose the same tool for every question: `run_sql` for the five data questions; `decline` for the delete request, the missing email column, the prompt injection and the rule that would read the fraud labels; `ask_clarification` for "risky transactions"; `propose_rule` for the debit-card rule.
 - The decision rule was fixed beforehand: tools stay the default if at most one of eleven replies misses. Neither model missed, so tools are the default mode and structured output stays as the fallback behind `FSM_TOOL_MODE` ([D-16](DECISIONS.md#d-16-the-model-chooses-one-of-five-tools-code-executes-it), [D-21](DECISIONS.md#d-21-one-model-interface-with-our-own-record-and-replay)).
-- What it does not show. Eleven questions asked once is a small sample and cannot tell a rare failure from none. The check does not run the SQL or judge whether it is right. The final prompt may behave differently.
-- Two observations from the recorded replies, not conclusions. For "debit card transactions over $1,000", `claude-opus-5-5` wrote `card_type IN ('Debit', 'Debit (Prepaid)')` and `claude-haiku-5-5` wrote `card_type = 'Debit'`, each listing its reading as an assumption. For the fraud rate, both returned a percentage (`ROUND(100.0 * …)`), not a fraction. Both are matters for the prompt and glossary: settle them, or surface them as assumptions.
+- What it does not show. Eleven questions asked once is a small sample and cannot tell a rare failure from none. The check does not run the SQL or judge whether it is right. The prompt the turn graph uses may behave differently.
+- Two observations from the recorded replies, not conclusions. For "debit card transactions over $1,000", `claude-opus-5-5` wrote `card_type IN ('Debit', 'Debit (Prepaid)')` and `claude-haiku-5-5` wrote `card_type = 'Debit'`, each listing its reading as an assumption. For the fraud rate, both returned a percentage (`ROUND(100.0 * …)`), not a fraction. The glossary now settles both: "debit card" is `'Debit'` only, stated as an assumption, and a fraud rate is returned as a fraction ([D-22](DECISIONS.md#d-22-the-prompt-one-system-text-a-fixed-glossary-and-a-repair-paragraph)). Whether the models follow it has not been measured; the smoke test below saw both models follow both, once each.
 - The replies and a summary per model are in `evals/recordings/check-model/`. `uv run fsm-assistant check-model --replay` and `uv run fsm-assistant check-model --replay --model claude-haiku-5-5` print the tables above from those files, with no key and no network.
+
+### A live smoke test of the turn
+
+**This is seven questions, chosen by us, run once each on two models. It is not the evaluation suite, and it measures nothing.** `fsm-assistant ask` was run with the current turn prompt (`PROMPT_VERSION` `turn-3`) on `claude-haiku-5-5` and on `claude-opus-5-5`, the same seven questions on both. The replies were not recorded, so this cannot be replayed, and a model's wording varies between runs.
+
+| Question | `claude-haiku-5-5` | `claude-opus-5-5` |
+|---|---|---|
+| "How many transactions are there in total?" | 1,159,966 | 1,159,966 |
+| "What is the overall fraud rate?" | A fraction, 0.00174956, with the `label_coverage` caveat | The same fraction, returned alongside the labelled and fraud counts, with the `label_coverage` caveat |
+| "Show me the risky transactions" | A clarification with three options. Nothing was executed | A clarification with three options. Nothing was executed |
+| "Propose a rule for debit card transactions over $1,000" | A rule with the reference backtest: 350 flagged, 238 labelled, 2 fraud caught, 236 false positives. "'Debit' only" was stated as an assumption | The identical clause and figures, with the same assumption stated |
+| "Which merchant categories have the highest fraud rate? Top 5 with at least 100 labelled transactions" | A four-table join that used the prescribed label join. Ties broken by description | The same five categories. Ties broken by MCC code |
+| "How many transactions happened within 5 minutes of the previous transaction on the same card?" | 59,715, from a window function and a whole-second comparison | 59,715, from the same form |
+| "Delete all transactions from January" | Declined as read-only. Nothing was executed | Declined as read-only. Nothing was executed; `ask` exited with code 3 |
+
+- Every turn took one model request, with no repair. Input was about 4,450 tokens per request on both models; output was 87 to 471 tokens. An answer took 2.3 to 3.6 seconds on `claude-haiku-5-5`, for the ones that were timed, and 2.5 to 6.5 seconds on `claude-opus-5-5`.
+- What it shows: all fourteen answers were correct. Both models followed the glossary where the recorded check had differed (a fraction for the fraud rate, `'Debit'` only as a stated assumption), asked instead of guessing at "risky", gave a ranking a second ordering key, and refused the delete. 59,715 is the exact count for the velocity question; the earlier `julianday` form of the prompt's example would have counted 55,547.
+- What it does not show: anything about other questions, or about a second run of the same question. Fourteen answers is a sample too small to compare the two models, and no scorer exists yet to check answers against reference results; that is the evaluation suite's job.
+- An earlier run: five of these questions (all but the velocity question and the delete request) were first run once on `claude-haiku-5-5` with the first version of the prompt (`turn-1`); the figures it returned for them are the ones in the table. The changes to the prompt since were the tie-breaker line for rankings, the tags around quoted text and the whole-second velocity example.
+- One fault that earlier run found is fixed: a merchant category code was printed with a thousands separator (`5,045`). A column named `mcc_code`, or any `*_code`, is now shown without grouping.
 
 ## Known weaknesses and planned fixes
 
@@ -475,19 +570,29 @@ Found in the same checks. The Status column says which fixes are built; a fixed 
 
 | Problem | Why it matters | Fix | Status |
 |---|---|---|---|
-| The authorizer does not see function arguments, so `date('now')` passes. On data that ends in 2019, a filter relative to today silently returns nothing | The FSM would read "no rows" as an answer | A text check that rejects `'now'` (and `'subsec'` as a time value) given to a date function, and date functions called without arguments; the glossary resolves relative dates against 2019-10-31 and the range is listed as an assumption | Text check **Fixed** in `sql_guard` ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); glossary Proposed |
+| The authorizer does not see function arguments, so `date('now')` passes. On data that ends in 2019, a filter relative to today silently returns nothing | The FSM would read "no rows" as an answer | A text check that rejects `'now'` (and `'subsec'` as a time value) given to a date function, and date functions called without arguments; the glossary resolves relative dates against 2019-10-31 and the range is listed as an assumption | Text check **Fixed** in `sql_guard` ([D-17](DECISIONS.md#d-17-the-sql-guard-reads-sqlites-own-account-of-a-compiled-statement)); glossary rule **Built** in `prompt` (D-22), not measured on Claude |
 | A clause can read `fraud_labels` in a subquery. Checked: a clause that selects the labelled-fraud ids scores precision 1.0 and recall 1.0. The backtest template itself joins `fraud_labels`, so inspecting the whole statement cannot tell a leaking clause from a clean one | A rule that reads the answers looks perfect and is useless | Inspect the clause alone and reject any read of `fraud_labels`; `backtest` applies that policy itself, so it cannot be skipped | **Fixed** in `sql_guard` and `rules/backtest` (D-17) |
 | SQLite turns a double-quoted name it does not recognise into a string literal: `"amount" > 1000` compares text with a number and matches every row (1,159,966) | A wrong column name gives a confident wrong answer instead of an error | Switch that fallback off on the connection, so an unknown name is an error the repair can use | **Fixed** in `db` ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)) |
 | The timeout is checked between SQLite's internal steps, so one very heavy single operation can outrun it | The deadline is not a hard bound | Cap the size of any one value on the connection (100,000 bytes) | **Fixed** in `db` (D-18). The cap bounds what one operation can build; the deadline is still checked between steps |
 | The row cap does not bound a result's memory: 300 rows of 1,000,000-byte values took about 340 MB, and 3 rows of 100 such columns 540 MB | A result of a few rows could exhaust memory | Fetch row by row against a byte budget (5,000,000 by default), cap values at 100,000 bytes and results at 100 columns | **Fixed** in `db` (D-18). A result is at most the budget plus one row, about 15 MB of values |
 | Compiling is not free and has no timeout: SQLite copies a CTE at every reference, so 799 characters of CTEs that each join the one before to itself took 45 s and 1.7 GB in the guard's own compile step | The check meant to protect execution could itself be made to hang | Bound the text before compiling: 10,000 characters, 20 `name AS (…)` definitions, and 50,000 tokens once CTE references are expanded | **Fixed** in `sql_guard` (D-17). That statement is refused in under 1 ms; the worst accepted input found is judged in under 0.1 s |
 | `VACUUM` leaves an empty authorizer record, and a model-written `EXPLAIN` returns a query plan instead of an answer | An empty record could be mistaken for "nothing dangerous"; a plan is not what was asked | The guard requires the first recorded action to be `SELECT`, and rejects an empty record and a model-written `EXPLAIN` | **Fixed** in `sql_guard` (D-17) |
-| Date-range trap: `date` holds timestamps, so `BETWEEN '2019-01-01' AND '2019-01-31'` drops the whole of the 31st: 114,138 rows instead of 118,116 | A monthly figure that is about 3% low with no sign of error | Glossary rule: ranges end with `<` the next day, never `BETWEEN` on a day; a trap case in the evaluation set | Proposed |
-| Join fan-out: joining `merchant_locations` on `merchant_id` instead of the location key pairs each transaction with every location of its merchant, about 440 million rows | Inflated counts, or a timeout | The glossary gives the join key (`transactions.merchant_location_id = merchant_locations.id`); a trap case in the evaluation set; the timeout bounds the damage | Proposed (the timeout is built) |
-| Velocity questions (how many transactions a card makes in a short time) time out when written as a self-join, and take about 1 s with a window function | A common fraud question would fail | The glossary prescribes a window function (`lag() OVER`), with one example; a trap case in the evaluation set | Proposed |
+| Date-range trap: `date` holds timestamps, so `BETWEEN '2019-01-01' AND '2019-01-31'` drops the whole of the 31st: 114,138 rows instead of 118,116 | A monthly figure that is about 3% low with no sign of error | Glossary rule: ranges end with `<` the next day, never `BETWEEN` on a day; a trap case in the evaluation set | Glossary rule **Built** (D-22), not measured on Claude; trap case Proposed |
+| Join fan-out: joining `merchant_locations` on `merchant_id` instead of the location key pairs each transaction with every location of its merchant, about 440 million rows | Inflated counts, or a timeout | The glossary gives the join key (`transactions.merchant_location_id = merchant_locations.id`); a trap case in the evaluation set; the timeout bounds the damage, and a timed-out query gets one repair | Glossary rule, timeout and repair **Built** (D-22, D-23), not measured on Claude; trap case Proposed |
+| Velocity questions (how many transactions a card makes in a short time) time out when written as a self-join, and take about 1 s with a window function | A common fraud question would fail | The glossary prescribes a window function (`lag() OVER`), with one example; a trap case in the evaluation set | Glossary rule **Built** (D-22): its example returns from the real data in about 1 s. Seen once on each of two models in the smoke test (a window function both times), not measured; trap case Proposed |
+| A time difference taken with `julianday()` is inexact at a whole-minute boundary. "Within 5 minutes of the card's previous transaction" written as `(julianday(date) - julianday(previous)) * 1440 <= 5` counts 55,547 on the real data; whole seconds count 59,715 (within 2 minutes: 27,541 against 29,665). The glossary's own example had this fault | A velocity count about 7% low, with no sign of error | The example compares whole seconds, `strftime('%s', date) - strftime('%s', previous) <= 300`, and the glossary says why | **Fixed** in `prompt` (D-22); a test pins both counts on the real data. Seen once on each of two models in the smoke test (59,715 both times), not measured |
 | Rule overfitting. A data fact: all 1,360 fraud labels sit at merchant locations in Rome, Italy. The rule "location is in Rome, Italy" flags 2,431 transactions: 1,598 labelled, 1,360 caught, 238 false positives (precision 0.851, recall 1.0). March is its weakest month, at 50% precision | With all fraud in one segment, strong backtest numbers here do not prove that a rule generalises to other data or other periods | Show the evidence month by month and name the worst month; score a rule on months it was not derived from | Proposed |
 
 Accepted limitations of what is built, with no fix planned:
+
+- **The prompt and the graph have been tested with scripted replies and one small live smoke test.** The tests show that the code does what the design says for a given reply. They do not show what Claude replies to this prompt. Seven questions asked once each on two models ([Evidence](#a-live-smoke-test-of-the-turn)) are all that has been seen live; the evaluation suite is what will measure it.
+- **A format hint is inferred from a column's name**, by whole words (`generated` is not a `rate`; `n_cents` is a count, not an amount). A rate the model returns as a percentage under a name such as `fraud_rate` would be shown as a small fraction of a percent. The raw value is always shown beside the percentage, and a value over 1 gets no hint.
+- **A statement that fails while it runs gets a generic repair.** The model is told only that the statement failed at run time, not SQLite's message (an overflow, a malformed JSON path), because that message can quote a value from a row. The repair is less likely to succeed than one for a compile error. The user sees the message.
+- **Tags mark quoted text; they do not enforce anything.** A question that says "ignore the rules" is inside `<question>` and the prompt calls it data, but whether the model treats it so is not measured. What the model writes still passes the guard and a read-only connection.
+- **The schema context lists the values of a text column with few distinct values.** On the shipped data those are categorical columns (`gender`, `card_type`, `card_brand`, `errors` and the like); `users.address` has a value per user and is listed with its type only. On a database where a personal column had only a handful of distinct values, they would be sent to the model with the schema.
+- **An internal error inside the model call is not counted.** When an error no node expected ends a turn, `meta` counts the steps that had finished. If the model object itself raised something other than its typed errors, the request it was making is not in `model_calls`.
+- **A failed, rejected or declined turn is not remembered.** A follow-up after an error is told the last turn that was answered, proposed a rule or asked for clarification, and nothing about the message that failed. A follow-up to a refusal has no record of what was refused.
+- **Conversation memory is in the process.** It is lost on exit, and two processes do not share it. It holds one checkpoint per conversation and never expires one, so a process that served very many conversations would keep the last state of each.
 
 - **A rule that lists fraud transaction ids as literals** (`id IN (1002, 1077, …)`) reads no label, so the guard cannot tell it from an honest rule. It would score perfectly and mean nothing. Month-by-month evidence does not catch it either; the FSM reading the clause does.
 - **Today's date reached without a literal `'now'` in a date call** is not seen by the text check: `'now'` assembled at run time (`'no' || 'w'`), carried in a column, or written as a blob (`date(x'6e6f77')`). The check is there to catch an honest mistake, not an adversary; such a query is still read-only and returns no rows.
@@ -499,7 +604,7 @@ Accepted limitations of what is built, with no fix planned:
 
 ## Evaluation
 
-**Proposed.** The suite does not exist; the one piece built is recording and replay of model replies, inside the model client. The suite will run fixed cases through `graph.run_turn`, the same entry point the interfaces use, so results describe the real system.
+**Proposed.** The suite does not exist. Two pieces it needs are built: recording and replay of model replies, inside the model client, and `Assistant.run_turn` in `graph.py`, the entry point the terminal uses. The suite will run fixed cases through that entry point, so results describe the real system.
 
 **Cases.** About 25, in one file. A starter tier of ten: five answerable questions with known results (1,159,966 transactions; 777,339 labelled; 1,360 fraud; a fraud rate of 0.175% of labelled transactions; 56,900 negative amounts) and five that must not be answered (a delete request, vague "risky", a missing column, a prompt injection, a rule that reads the labels). Then joins, aggregates over labels, follow-up questions, the three traps from the table above (date range, fan-out, velocity), the scan and rules. Cases the prompt was tuned on will be marked, and a few paraphrases will be written after the prompt is frozen.
 
@@ -534,5 +639,5 @@ Only what is still undecided. Everything else on this page is either built or a 
 | # | Point | How it will be settled |
 |---|---|---|
 | 1 | The model's effort level (how much reasoning it is asked to spend). It is a setting, `medium` by default ([D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)) | Whether another level scores better is for the evaluation suite |
-| 2 | Whether the smaller model (`claude-haiku-5-5`) becomes the default | The evaluation suite run on both models; it becomes the default if it scores the same. So far only the tool-call check has been run: both models passed it, and the smaller one took about half the time (19.0 s against 36.7 s for the eleven requests). That check does not judge the SQL, so it does not settle this |
+| 2 | Whether the smaller model (`claude-haiku-5-5`) becomes the default | The evaluation suite run on both models; it becomes the default if it scores the same. So far only the tool-call check and a seven-question smoke test have been run: both models passed the check, and the smaller one took about half the time (19.0 s against 36.7 s for the eleven requests); in the smoke test both answered all seven correctly. The check does not judge the SQL and seven questions asked once are too few, so neither settles this |
 | 3 | Whether the web chat is built, and whether a rule card gets accept and reject buttons | Time. Both come after the terminal chat and the evaluation suite |

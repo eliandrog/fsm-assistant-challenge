@@ -89,6 +89,11 @@ _UNREADABLE_CODES = frozenset(
     }
 )
 
+# Primary codes that say the file itself cannot be used, whatever the statement.
+_BROKEN_FILE_CODES = frozenset(
+    {sqlite3.SQLITE_NOTADB, sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_CANTOPEN, sqlite3.SQLITE_IOERR}
+)
+
 # Schema-reading pragmas that `schema_context` needs. Every other PRAGMA is
 # denied, including the ones that change connection state (`query_only`).
 _READ_ONLY_PRAGMAS = frozenset({"table_info", "foreign_key_list"})
@@ -143,7 +148,8 @@ class DatabaseAccessError(DbError):
     """The database file exists but cannot be read where it is.
 
     A fault of the environment, never of the statement: the usual cause is a
-    WAL-mode database in a directory that is not writable.
+    WAL-mode database in a directory that is not writable; a file that is
+    not a database, is damaged or cannot be opened is another.
     """
 
 
@@ -158,8 +164,10 @@ class QueryTimeout(DbError):
 class QueryError(DbError):
     """The statement is at fault (syntax error, unknown column, ...).
 
-    `sqlite_message` is SQLite's own message where it has one, kept verbatim
-    so it can be handed back to the model for a repair attempt.
+    `sqlite_message` is SQLite's own message where it has one, kept verbatim.
+    From a compile (`inspect_query`) it names only what the statement wrote.
+    From a run (`run_query`) it can quote a value read from a row, so a
+    caller must not send it to a model or store it.
     """
 
     def __init__(self, sqlite_message: str) -> None:
@@ -463,6 +471,8 @@ def _translate(
             "(the database is in WAL mode, and SQLite creates its -shm and -wal files "
             f"there on the first read). SQLite: {error}."
         )
+    if code in _BROKEN_FILE_CODES:
+        return DatabaseAccessError(f"Cannot read {db_path}. SQLite: {error}.")
     if code == sqlite3.SQLITE_READONLY:
         return ReadOnlyViolation(f"Only read-only queries are allowed; SQLite: {error}.")
     if code == sqlite3.SQLITE_INTERRUPT and timeout_seconds is not None:

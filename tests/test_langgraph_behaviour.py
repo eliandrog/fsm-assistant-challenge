@@ -1,8 +1,8 @@
-"""Two facts about LangGraph that the turn graph will rely on, checked on the installed version.
+"""Two facts about LangGraph that the turn graph relies on, checked on the installed version.
 
 1. A state field annotated with `UntrackedValue` is visible to later nodes
    and returned by `invoke`, but never written to the checkpointer. Query
-   results will live in such a field, so rows are not saved with a
+   results live in such a field, so rows are not saved with a
    conversation.
 2. Every other field persists across invocations on the same `thread_id`. A
    field that belongs to one turn therefore has to be reset by the first
@@ -10,6 +10,9 @@
 
 The graph takes only the question as input (`input_schema`), so an invocation
 cannot overwrite saved state by passing a whole state object.
+
+These use a three-node graph of their own, so a change in the library shows
+here first. The real graph's tests are in test_graph.py.
 """
 
 from typing import Annotated

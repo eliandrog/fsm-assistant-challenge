@@ -78,10 +78,13 @@ LEFT JOIN fraud_labels f ON """ + label_join("f", "flagged") + "\n"
 class RuleClauseError(Exception):
     """The clause cannot be backtested.
 
-    `reason` says why, in words that can be shown or handed back to the
-    model, and `reason_code` is the guard's code for it. `sqlite_message` is
-    SQLite's own message, verbatim, when SQLite rejected the clause (syntax
-    error, unknown column, ...), else `None`. A clause the read-only
+    `reason` says why and `reason_code` is the guard's code for it.
+    `sqlite_message` is SQLite's own message, verbatim, when SQLite rejected
+    the clause (syntax error, unknown column, ...), else `None`. When the
+    guard refused the clause, `reason` can be shown or handed back to the
+    model. When SQLite failed the measurement as it ran, `reason` and
+    `sqlite_message` can quote a value from the data: they are for the user
+    only, never for a model or a saved state. A clause the read-only
     authorizer denied is reported here too, so callers handle one error
     type for everything that is the clause's fault.
     """

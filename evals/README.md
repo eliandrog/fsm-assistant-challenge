@@ -1,6 +1,6 @@
 # evals/
 
-**Status: the evaluation suite is not built. Everything below the next paragraph is proposed; the only files here are the recordings of one small check.** One piece it will use is built elsewhere: recording and replay of model replies, in `src/fsm_assistant/llm.py`.
+**Status: the evaluation suite is not built. Everything below the next paragraph is proposed; the only files here are the recordings of one small check.** Two pieces it will use are built elsewhere: recording and replay of model replies, in `src/fsm_assistant/llm.py`, and the entry point it will run each case through, `Assistant.run_turn` in `src/fsm_assistant/graph.py`.
 
 One thing does write here: `fsm-assistant check-model --yes-spend`, a paid run, records each of its eleven replies and a `summary.json` under `recordings/check-model/<model id>/`. It has been run once on each of two models, so `recordings/check-model/claude-opus-5-5/` and `recordings/check-model/claude-haiku-5-5/` each hold eleven recordings (`q01.turn1.call1.json` to `q11.turn1.call1.json`) and a summary. On both models 11 of 11 replies were exactly one valid tool call, which keeps tools as the default output mode. `uv run fsm-assistant check-model --replay` and `uv run fsm-assistant check-model --replay --model claude-haiku-5-5` re-print each run's table and decision from the files, with no key and no network, and stop with "stale recording" if the files are missing or no longer match the request the code would send. The recordings are committed, not git-ignored.
 

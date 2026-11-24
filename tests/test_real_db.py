@@ -8,8 +8,13 @@ import time
 from pathlib import Path
 
 import pytest
+from conftest import rule_reply, sql_reply
 
 from fsm_assistant import db
+from fsm_assistant.config import Settings, load_settings
+from fsm_assistant.graph import Assistant
+from fsm_assistant.llm import ScriptedModel
+from fsm_assistant.prompt import DATA_LAST_DATE, system_text
 from fsm_assistant.rules import backtest as backtest_module
 from fsm_assistant.rules.backtest import RuleClauseError, backtest
 from fsm_assistant.sql_guard import ReasonCode, check_query, check_rule_clause
@@ -297,3 +302,102 @@ def test_guard_allows_exactly_the_seven_tables(real_db: Path) -> None:
     assert decision.reason.endswith(
         "The tables are: cards, fraud_labels, mcc_codes, merchant_locations, merchants, transactions, users."
     )
+
+
+# --- The turn graph on the real data, with scripted replies carrying known-good SQL ---------
+
+BRIEF_RULE = (
+    "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')"
+)
+LABEL_RULE = "id IN (SELECT CAST(transaction_id AS INTEGER) FROM fraud_labels WHERE is_fraud = 1)"
+FRAUD_RATE = (
+    "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t "
+    "JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)"
+)
+VELOCITY = (
+    "SELECT id, card_id, date FROM (SELECT id, card_id, date, lag(date) OVER "
+    "(PARTITION BY card_id ORDER BY date) AS previous FROM transactions) "
+    "WHERE strftime('%s', date) - strftime('%s', previous) <= 300"
+)
+
+
+@pytest.fixture
+def real_settings(real_db: Path) -> Settings:
+    return load_settings({"FSM_DB_PATH": str(real_db)}, env_file=None)
+
+
+def test_a_turn_counts_the_transactions(real_settings: Settings) -> None:
+    model = ScriptedModel([sql_reply("SELECT count(*) FROM transactions")])
+    assistant = Assistant(real_settings, model)
+    result = assistant.run_turn("How many transactions are there in total?", "real-1")
+    assert result.outcome == "answered"
+    assert result.table is not None
+    assert result.table.rows == ((1_159_966,),)
+    assert result.answer == "count(*): 1,159,966"
+    assert result.sql == "SELECT count(*) FROM transactions"
+    assert result.caveats == ()
+    assert len(model.requests[0].system) < 7000  # it is sent with every request
+
+
+def test_a_turn_shows_the_briefs_rule_with_its_backtest(real_settings: Settings) -> None:
+    model = ScriptedModel([rule_reply(BRIEF_RULE, "Debit only, not prepaid")])
+    result = Assistant(real_settings, model).run_turn("Debit card payments over $1,000", "c1")
+    assert result.outcome == "rule_proposed"
+    assert result.where_clause == BRIEF_RULE
+    card = result.rule
+    assert card is not None
+    assert (card.flagged, card.flagged_labelled, card.true_positives, card.false_positives) == (
+        350,
+        238,
+        2,
+        236,
+    )
+    assert (card.flagged_unlabelled, card.total_fraud) == (112, 1360)
+    assert card.precision == 2 / 238 and card.recall == 2 / 1360
+    assert [caveat.code for caveat in result.caveats] == ["label_coverage"]
+
+
+def test_a_label_reading_clause_is_repaired_or_rejected(real_settings: Settings) -> None:
+    repaired = ScriptedModel([rule_reply(LABEL_RULE), rule_reply(BRIEF_RULE)])
+    result = Assistant(real_settings, repaired).run_turn("A rule that catches fraud", "c1")
+    assert result.outcome == "rule_proposed"
+    assert result.where_clause == BRIEF_RULE
+    assert "fraud_labels" in repaired.requests[1].user
+
+    stubborn = ScriptedModel([rule_reply(LABEL_RULE), rule_reply(LABEL_RULE)])
+    result = Assistant(real_settings, stubborn).run_turn("A rule that catches fraud", "c1")
+    assert (result.outcome, result.status) == ("rejected", "rejected")
+    assert result.error is not None and result.error.kind == "sql_rejected"
+    assert result.rule is None, "the perfect score of a label-reading rule is never shown"
+    assert stubborn.calls == 2
+
+
+def test_a_query_over_the_labels_gets_the_coverage_caveat(real_settings: Settings) -> None:
+    result = Assistant(real_settings, ScriptedModel([sql_reply(FRAUD_RATE)])).run_turn(
+        "What is the overall fraud rate?", "c1"
+    )
+    assert result.outcome == "answered"
+    assert result.table is not None
+    assert result.table.columns[0].format == "fraction"
+    assert result.table.rows[0][0] == pytest.approx(1360 / 777_339)
+    assert result.answer == "fraud_rate: 0.00174956 (0.175%)"
+    assert [caveat.code for caveat in result.caveats] == ["label_coverage"]
+
+
+def test_the_glossarys_last_date_and_velocity_example_hold_on_the_real_data(
+    real_db: Path, real_settings: Settings
+) -> None:
+    assert str(scalar(real_db, "SELECT max(date) FROM transactions")).startswith(DATA_LAST_DATE)
+    assert VELOCITY in system_text(build_schema_context(real_db))
+    result = Assistant(real_settings, ScriptedModel([sql_reply(VELOCITY)])).run_turn(
+        "Cards with two payments within five minutes", "c1"
+    )
+    assert result.outcome == "answered"
+    assert result.table is not None and result.table.truncated
+    assert [caveat.code for caveat in result.caveats] == ["truncated"]
+    assert result.meta.elapsed_ms < 5000
+    # Whole seconds count every pair; a julianday() difference loses some at a minute boundary.
+    pairs, exact = VELOCITY.removeprefix("SELECT id, card_id, date FROM ").split(" WHERE ")
+    assert scalar(real_db, f"SELECT count(*) FROM {pairs} WHERE {exact}") == 59_715
+    inexact = "(julianday(date) - julianday(previous)) * 1440 <= 5"
+    assert scalar(real_db, f"SELECT count(*) FROM {pairs} WHERE {inexact}") == 55_547
