@@ -1197,6 +1197,17 @@
    ]
   },
   {
+   "case_id": "scan-not-for-a-filtered-question",
+   "turn": 1,
+   "reference_sha256": "ab1f818fd6dd0642b4ebe7f7177f3947a851e38110a3dabd7429d7694638c5d8",
+   "rows": [
+    [
+     "Italy",
+     1238
+    ]
+   ]
+  },
+  {
    "case_id": "para-january-casual",
    "turn": 1,
    "reference_sha256": "004decdaf94aea5b71308801a76292afee8fcda62f6a0600843b277c34951f35",

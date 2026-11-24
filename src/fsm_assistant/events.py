@@ -7,8 +7,13 @@ the finished turn. They stay in the process: nothing here writes a file.
 
 An event is built from a node's update and holds nothing read from the
 database: rows appear as a count and column names, a backtest and its
-evidence by month as the time the two statements took, and a failure as its kind, its code and the sentence code wrote for
-it. SQLite's own words for a statement that failed while it ran
+evidence by month as the time the two statements took, the fraud scan as the
+number of segments it listed, the number of statements it ran and the time
+they took, and a failure as its kind, its code and the sentence code wrote for
+it. A scan's segments, figures, headline, notes and suggested questions are
+never read here, and of its statements only the profile is, through
+`TurnResult.sql`: code wrote it and it holds no value of the data, while the
+statements after it name segments. SQLite's own words for a statement that failed while it ran
 (`failure_detail`, `TurnError.detail`) are never read here. No event carries
 a wall-clock time; durations come from a monotonic clock.
 """
@@ -19,6 +24,7 @@ from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant.config import ToolMode
 from fsm_assistant.db import QueryResult
+from fsm_assistant.explore import ScanResult
 from fsm_assistant.llm import ModelCall, ModelReply
 from fsm_assistant.nl2sql import (
     AskClarification,
@@ -98,6 +104,8 @@ class StepEvent(BaseModel):
     columns: tuple[str, ...] | None = None
     truncated: bool | None = None
     query_ms: int | None = None
+    scan_segments: int | None = None  # how many segments the fraud scan listed; never which
+    scan_statements: int | None = None  # how many statements the scan ran; never their text
 
     error_kind: ErrorKind | None = None
     reason_code: str | None = None  # the shape check's or the guard's code for a refused reply
@@ -192,7 +200,7 @@ def step_event(
         values.update(sql=approved_sql, guard="accepted")
     if isinstance(approved_clause, str):
         values.update(where_clause=approved_clause, guard="accepted")
-    if node == "guard_sql" and isinstance(fields.get("reads_labels"), bool):
+    if node in ("guard_sql", "run_scan") and isinstance(fields.get("reads_labels"), bool):
         values["reads_labels"] = fields["reads_labels"]
     result = fields.get("result")
     if isinstance(result, QueryResult):
@@ -207,6 +215,13 @@ def step_event(
         evidence = fields.get("evidence")
         timed = evidence if isinstance(evidence, RuleEvidence) else result
         values["query_ms"] = round(timed.elapsed_seconds * 1000)
+    elif isinstance(result, ScanResult):
+        # Two counts and the time: a segment's name is a value read from the data.
+        values.update(
+            scan_segments=len(result.rows),
+            scan_statements=len(result.statements),
+            query_ms=round(result.elapsed_seconds * 1000),
+        )
     failure = fields.get("failure")
     if isinstance(failure, Failure):
         values.update(
@@ -272,7 +287,8 @@ def turn_event(
         row_count=None if table is None else table.row_count,
         columns=None if table is None else tuple(column.name for column in table.columns),
         truncated=None if table is None else table.truncated,
-        # A backtest always reads the labels; a query does when the guard saw it would.
+        # A backtest always reads the labels; a query does when the guard saw it would,
+        # and the scan says so itself.
         reads_labels=result.rule is not None or (result.sql is not None and labels[-1:] == [True]),
         caveats=tuple(caveat.code for caveat in result.caveats),
         model_id=meta.model_id,
@@ -322,6 +338,11 @@ def describe_step(event: StepEvent) -> str:
     if event.row_count is not None:
         cut = ", cut at the row cap" if event.truncated else ""
         parts.append(f"{event.row_count:,} row(s) in {seconds:.2f} s{cut}")
+    elif event.scan_segments is not None:
+        parts.append(
+            f"scan listed {event.scan_segments:,} segment(s) from "
+            f"{event.scan_statements or 0} statement(s) in {seconds:.2f} s"
+        )
     elif event.query_ms is not None:
         parts.append(f"backtest ran in {seconds:.2f} s")
     if event.error_kind is not None:

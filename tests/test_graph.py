@@ -545,17 +545,6 @@ def test_cannot_answer(settings: Settings) -> None:
     assert (result.answer, result.answer_source) == ("There is no email column.", "model")
 
 
-def test_the_fraud_scan_is_reported_as_not_available(settings: Settings) -> None:
-    model = ScriptedModel([tool_reply("profile_fraud")])
-    result = Assistant(settings, model).run_turn("Where is the fraud?", "c1")
-    assert facts(result) == ("cannot_answer", "cannot_answer", "not_available")
-    assert "not available yet" in result.answer
-    assert result.answer_source == "code"
-    assert len(result.suggestions) == 2
-    assert result.table is None and result.rule is None
-    assert model.calls == 1
-
-
 def test_rejected_when_the_guard_refuses_twice(settings: Settings) -> None:
     result = turn(settings, [sql_reply(FORBIDDEN), sql_reply("SELECT date('now')")])
     assert facts(result) == ("rejected", "rejected", "sql_rejected")
@@ -660,7 +649,7 @@ def test_a_database_that_becomes_unreadable_is_an_internal_failure_with_no_repai
         ([rule_reply(RULE)], "rule_proposed", "propose_rule", []),
         ([tool_reply("ask_clarification")], "clarification", "ask_clarification", []),
         ([tool_reply("decline")], "cannot_answer", "decline", []),
-        ([tool_reply("profile_fraud")], "cannot_answer", "profile_fraud", []),
+        ([tool_reply("profile_fraud")], "answered", "profile_fraud", []),
         ([sql_reply(FORBIDDEN), sql_reply(COUNT)], "answered", "run_sql", ["table_not_allowed"]),
         ([sql_reply("DELETE FROM users"), tool_reply("decline")], "cannot_answer", "decline",
          ["not_read_only"]),
@@ -904,10 +893,9 @@ def test_a_failed_first_turn_leaves_nothing_to_remember(settings: Settings) -> N
     "unusable",
     [
         call_reply("decline", reason="The database is read-only."),
-        tool_reply("profile_fraud"),
         ModelUnavailable("timeout", "no reply"),
     ],
-    ids=["decline", "scan not available", "model unavailable"],
+    ids=["decline", "model unavailable"],
 )
 def test_a_turn_a_follow_up_cannot_build_on_does_not_overwrite_the_memory(
     settings: Settings, unusable: ModelReply | ModelError

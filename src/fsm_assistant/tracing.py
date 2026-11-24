@@ -79,7 +79,8 @@ ALLOWED: dict[RunKind, tuple[frozenset[str], frozenset[str]]] = {
                 "duration_ms", "model_id", "model_ms", "input_tokens", "output_tokens",
                 "response_id", "stop_reason", "reply_tools", "system_prompt_sha256", "tool",
                 "guard", "sql", "where_clause", "reads_labels", "row_count", "columns",
-                "truncated", "query_ms", "error_kind", "reason_code", "repairable",
+                "truncated", "query_ms", "scan_segments", "scan_statements", "error_kind",
+                "reason_code", "repairable",
                 "failure_message", "outcome", "status", "caveats", "remembered",
             }
         ),

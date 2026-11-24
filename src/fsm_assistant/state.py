@@ -3,11 +3,12 @@
 Responsibility: the one object the graph's nodes read and update
 (docs/DECISIONS.md, D-23). Three kinds of field:
 
-- kept across the turns of a conversation: `turn`, `history`, `scan_seen`;
+- kept across the turns of a conversation: `turn`, `history`;
 - belonging to one turn, and reset by its first node: everything from
   `attempt` to `outcome`;
-- never saved: `result`, `evidence` and `response`, which hold rows or
-  figures computed from them, and `failure_detail`, SQLite's message for a statement that failed while it
+- never saved: `result`, `evidence` and `response`, which hold rows, scan
+  segments or figures computed from them, and `failure_detail`, SQLite's
+  message for a statement that failed while it
   ran, which can quote a value. They are marked `UntrackedValue`, so the
   checkpointer never receives them.
 
@@ -21,6 +22,7 @@ from langgraph.channels import UntrackedValue
 from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant.db import QueryResult
+from fsm_assistant.explore import ScanResult
 from fsm_assistant.llm import ModelReply
 from fsm_assistant.nl2sql import (
     Action,
@@ -72,7 +74,6 @@ class TurnState(BaseModel):
 
     turn: int = 0
     history: tuple[PreviousTurn, ...] = ()
-    scan_seen: bool = False
 
     attempt: int = 0  # model replies obtained this turn
     model_calls: int = 0  # requests made this turn
@@ -87,7 +88,7 @@ class TurnState(BaseModel):
     refused: tuple[RefusalCode, ...] = ()  # the refusals of earlier attempts of this turn
     outcome: Outcome | None = None
 
-    result: Annotated[QueryResult | BacktestResult | None, UntrackedValue] = None
+    result: Annotated[QueryResult | BacktestResult | ScanResult | None, UntrackedValue] = None
     # A rule's backtest with its monthly rows; `result` is then its overall part.
     evidence: Annotated[RuleEvidence | None, UntrackedValue] = None
     failure_detail: Annotated[str | None, UntrackedValue] = None

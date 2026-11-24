@@ -81,6 +81,7 @@ Fact = Literal[
     "caveat_high_flag_rate",
     "caveat_weak_month",
     "caveat_period_drop",
+    "caveat_single_segment",
 ]
 # A part of the system a case needs; the runner skips the case without it.
 Feature = Literal["scan"]

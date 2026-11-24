@@ -17,7 +17,7 @@ from fsm_assistant.evals.cases import (
     suite_digest,
 )
 from fsm_assistant.model_check import CHECK_QUESTIONS
-from fsm_assistant.prompt import system_text
+from fsm_assistant.prompt import SCAN_RESULT_UNSEEN, system_text
 
 ANSWERED = """
 [[case]]
@@ -268,7 +268,7 @@ def test_the_suite_digest_follows_the_files(tmp_path: Path) -> None:
 
 def test_the_shipped_suite_loads() -> None:
     suite = load_suite()
-    assert len(suite.cases) == 124
+    assert len(suite.cases) == 128
     assert set(Counter(case.tier for case in suite.cases)) == set(TIERS)
     assert all(
         (suite.pin(case, number) is not None) == (turn.sql is not None)
@@ -291,7 +291,7 @@ def test_tiers_have_the_documented_sizes() -> None:
         "adversarial": 13,
         "rules": 15,
         "rule_policy": 7,
-        "scan": 2,
+        "scan": 6,
         "paraphrases": 8,
     }
 
@@ -308,8 +308,14 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
     # rule as a count, Rome in Georgia, and the wording of the scan's tool.
     # Then the two cases that failed in the first recorded run and had a
     # prompt line written for them afterwards, and the case that asks for the
-    # brief's debit rule a second time, for its month table.
+    # brief's debit rule a second time, for its month table. Then two that
+    # came with the scan: the scan tool's own wording with a filter added, and
+    # the follow-up that the text said after a scan turn was written for.
     suite = load_suite()
+    written_with_the_scan = {
+        "scan-not-for-a-filtered-question",
+        "scan-then-that-without-naming-it",
+    }
     fixed_after_the_first_run = {
         "unanswerable-outside-date-range",
         "adversarial-relative-to-today",
@@ -329,11 +335,18 @@ def test_the_cases_the_prompt_was_written_against_are_the_tuned_ones() -> None:
     tuned = {case.id for case in suite.cases if case.tuned}
     check = {case.id for case in suite.cases if case.turns[0].question in CHECK_QUESTIONS}
     assert len(check) == 11
-    assert tuned == check | from_the_prompt | fixed_after_the_first_run | repeats_a_tuned_rule
-    assert len(tuned) == 23
+    assert tuned == (
+        check
+        | from_the_prompt
+        | fixed_after_the_first_run
+        | repeats_a_tuned_rule
+        | written_with_the_scan
+    )
+    assert len(tuned) == 25
     assert suite.case("evidence-brief-rule-by-month").turns[0].clause == (
         suite.case("rule-brief-example").turns[0].clause
     )
+    assert "ask which segment they mean" in SCAN_RESULT_UNSEEN
     text = system_text("").lower()
     for word in (
         "risky", "suspicious", "high value", "last month", "within 5 minutes", "'ga'",
@@ -392,10 +405,12 @@ def test_no_question_is_asked_twice_except_as_a_marked_repeat() -> None:
 
 
 def test_scan_cases_are_marked_and_nothing_else_is() -> None:
+    # One case of the tier is there because it must not use the scan.
     suite = load_suite()
-    assert {case.id for case in suite.cases if case.requires == "scan"} == {
-        case.id for case in suite.cases if case.tier == "scan"
-    }
+    in_tier = {case.id for case in suite.cases if case.tier == "scan"}
+    needing = {case.id for case in suite.cases if case.requires == "scan"}
+    assert in_tier - needing == {"scan-not-for-a-filtered-question"} and needing <= in_tier
+    assert len(needing) == 5
 
 
 def test_a_paraphrase_expects_what_its_original_expects() -> None:

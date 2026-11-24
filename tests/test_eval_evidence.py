@@ -3,7 +3,9 @@
 The real-database part runs every reference of every case: the guard must
 accept it, it must return its pinned result (or, for a rule, the counts in
 the case), and a turn that behaved exactly as the reference does must pass
-every scorer. It is skipped when data/data.db is missing.
+every scorer. A scan turn has no reference: the real scan is run, with a
+scripted reply that asks for it, and scored against the case. It is skipped
+when data/data.db is missing.
 """
 
 import time
@@ -11,9 +13,10 @@ from functools import cache
 from pathlib import Path
 
 import pytest
+from conftest import call_reply
 
 from fsm_assistant import db
-from fsm_assistant.config import DEFAULT_QUERY_TIMEOUT_SECONDS, DEFAULT_ROW_CAP
+from fsm_assistant.config import DEFAULT_QUERY_TIMEOUT_SECONDS, DEFAULT_ROW_CAP, load_settings
 from fsm_assistant.evals.cases import (
     Case,
     PinnedResult,
@@ -35,6 +38,7 @@ from fsm_assistant.evals.evidence import (
     verify_rule_reference,
     write_pins,
 )
+from fsm_assistant.evals.runner import observe
 from fsm_assistant.evals.scorers import (
     FailureReason,
     MonthMetrics,
@@ -42,6 +46,8 @@ from fsm_assistant.evals.scorers import (
     RuleMetrics,
     Score,
 )
+from fsm_assistant.graph import Assistant
+from fsm_assistant.llm import ScriptedModel
 from fsm_assistant.rules import backtest as backtest_module
 from fsm_assistant.rules.proposal import RuleEvidence, rule_evidence
 
@@ -500,7 +506,9 @@ def ideal_observation(turn: Turn, pin: PinnedResult | None, path: Path) -> Obser
             weakest_month=None if weakest is None else weakest.month,
         )
     if turn.action == "profile_fraud":
-        return Observation(outcome="answered", action="profile_fraud", rows=((*turn.scan_top, 1360),))
+        settings = load_settings({"FSM_DB_PATH": str(path)}, env_file=None)
+        model = ScriptedModel([call_reply("profile_fraud")])
+        return observe(Assistant(settings, model).run_turn(turn.question, "scan"))
     return Observation(outcome="clarification" if turn.outcome == "clarification" else "cannot_answer")
 
 

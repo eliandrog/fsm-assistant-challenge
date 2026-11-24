@@ -258,7 +258,7 @@ def test_facts_are_read_from_the_observation() -> None:
             model_calls=2,
             caveats=(
                 "label_coverage", "high_flag_rate", "small_sample", "zero_rows", "truncated",
-                "weak_month", "period_drop", "new",
+                "weak_month", "period_drop", "single_segment", "new",
             ),
         )
     ) == {
@@ -270,6 +270,7 @@ def test_facts_are_read_from_the_observation() -> None:
         "caveat_small_sample",
         "caveat_zero_rows",
         "caveat_truncated",
+        "caveat_single_segment",
     }
 
 

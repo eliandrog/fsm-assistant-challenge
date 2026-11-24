@@ -28,7 +28,6 @@ ErrorKind = Literal[
     "invalid_input",
     "model_unavailable",
     "model_output",
-    "not_available",
     "internal",
 ]
 # Why one model reply of a turn was refused: the shape check's kind or the
@@ -43,6 +42,7 @@ CaveatCode = Literal[
     "high_flag_rate",
     "weak_month",
     "period_drop",
+    "single_segment",
 ]
 # How a column's values are meant to be shown. `usd_cents` values are integer
 # cents; `fraction` values lie between 0 and 1; `identifier` integers are
@@ -199,9 +199,10 @@ class TurnMeta(BaseModel):
 class TurnResult(BaseModel):
     """The reply to one message.
 
-    `explanation`, `assumptions` and `suggestions` are always the model's
-    text. `answer` is the line to show first; `answer_source` says whether
-    code or the model wrote it.
+    `explanation` and `assumptions` are always the model's text, and so are
+    `suggestions`, except after the fraud scan, whose follow-up questions
+    code writes. `notes` are written by code. `answer` is the line to show
+    first; `answer_source` says whether code or the model wrote it.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -217,7 +218,7 @@ class TurnResult(BaseModel):
     # One code per model reply of this turn that the shape check or the guard
     # refused, in order, a reply that was then repaired included.
     refused: tuple[RefusalCode, ...]
-    sql: str | None  # the statement that ran
+    sql: str | None  # the statement that ran; for the scan, its profile statement
     where_clause: str | None  # the rule clause that was backtested
     table: TableResult | None
     rule: RuleCard | None
@@ -226,3 +227,5 @@ class TurnResult(BaseModel):
     suggestions: tuple[str, ...]
     caveats: tuple[Caveat, ...]
     meta: TurnMeta
+    # What the fraud scan found besides its table: scope, floor, residual check.
+    notes: tuple[str, ...] = ()
