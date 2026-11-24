@@ -1,0 +1,54 @@
+tier = "result_edges"
+
+[[case]]
+id = "edges-many-rows"
+tests = "A listing of 18,654 rows: the reply must say the result is cut at the row cap, not present the first page as the whole answer"
+tags = ["row-cap", "caveat", "listing"]
+tuned = false
+[[case.turn]]
+question = "List every transaction that had an error: its id, its date and the error."
+outcome = "answered"
+expect_truncated = true
+require = ["caveat_truncated"]
+
+[[case]]
+id = "edges-zero-rows"
+tests = "A listing that is rightly empty (no prepaid debit transaction is over $1,135.92): an empty result is the answer, with the zero-rows caveat"
+tags = ["zero-rows", "caveat", "listing", "join", "cards", "cents"]
+tuned = false
+[[case.turn]]
+question = "List the transactions over $2,000 that were made with prepaid debit cards: the transaction id and the amount in dollars."
+outcome = "answered"
+sql = """
+SELECT t.id, t.amount_usd_cents / 100.0
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 200000
+"""
+require = ["caveat_zero_rows"]
+
+[[case]]
+id = "edges-fraud-share-of-all"
+tests = "The denominator trap: 'of all transactions' still means labelled rows only, since an unlabelled transaction is not known to be legitimate; the coverage caveat and a stated assumption are required, and a percentage is accepted because one was asked for"
+tags = ["labels", "rate", "fraction", "coverage", "trap:denominator", "percentage"]
+tuned = false
+[[case.turn]]
+question = "What percentage of all transactions are fraud?"
+outcome = "answered"
+scale = "fraction_or_percent"
+sql = "SELECT 1.0 * sum(f.is_fraud) / count(*) FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)"
+require = ["caveat_label_coverage", "assumptions_stated"]
+
+[[case]]
+id = "edges-explicit-percentage"
+tests = "A percentage asked for in so many words: the fraction the prompt prescribes passes, and so does the same number times 100; a rounded figure does not"
+tags = ["labels", "rate", "fraction", "percentage"]
+tuned = false
+[[case.turn]]
+question = "What percentage of the labelled swipe transactions are fraud? Give the figure as a percentage."
+outcome = "answered"
+scale = "fraction_or_percent"
+sql = """
+SELECT 1.0 * sum(f.is_fraud) / count(*)
+FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)
+WHERE t.transaction_type = 'Swipe Transaction'
+"""

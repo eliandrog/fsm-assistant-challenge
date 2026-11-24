@@ -135,6 +135,7 @@ class TurnEvent(BaseModel):
     error_kind: ErrorKind | None = None
     tool: ToolName | None = None
     refused: tuple[str, ...]  # one code per reply the shape check or the guard refused
+    write_attempts: int = 0  # how many of them tried to change data or the schema
     sql: str | None = None
     where_clause: str | None = None
     row_count: int | None = None
@@ -282,6 +283,7 @@ def turn_event(
         error_kind=None if result.error is None else result.error.kind,
         tool=result.tool,
         refused=tuple(str(code) for code in result.refused),
+        write_attempts=result.write_attempts,
         sql=result.sql,
         where_clause=result.where_clause,
         row_count=None if table is None else table.row_count,

@@ -25,6 +25,7 @@ from fsm_assistant.evals.scorers import (
     score_rule_arithmetic,
     score_rule_match,
     score_scan_top,
+    score_truncation,
     score_weakest_month,
 )
 
@@ -87,6 +88,8 @@ def test_only_a_passed_score_carries_a_note() -> None:
         (RATES[::-1], RATES, Comparison()),  # a multiset: order ignored
         (RATES, RATES, ORDERED),
         (((5.0,),), ((5,),), Comparison()),  # an integer and a real are the same number
+        (((1_159_966.0,),), ((1_159_966,),), Comparison()),  # a count as a real, exactly equal
+        (((43,),), ((43.0,),), Comparison()),  # a whole number where the reference is a real
         (((0.0017495590,),), ((0.001749558429462564,),), Comparison()),  # within 1e-6 relative
         (((None, "a"),), ((None, "a"),), Comparison()),
         ((("a", 1), ("a", 1), ("b", 2)), (("b", 2), ("a", 1), ("a", 1)), Comparison()),
@@ -180,6 +183,124 @@ def test_results_that_do_not_match(
     assert reason(score_result(rows, expected, comparison)) is why
 
 
+@pytest.mark.parametrize(
+    ("actual", "expected"),
+    [
+        (1_159_967, 1_159_966),  # SELECT count(*) + 1: inside 1e-6 relative, and wrong
+        (1_141_313, 1_141_312),
+        (1_159_966.4, 1_159_966),  # a real next to a whole-number reference is not "close"
+        (1_536_655_012, 1_536_654_112),  # a sum of cents that is $9 off
+        (10**15 + 1, 10**15),
+    ],
+)
+def test_a_whole_number_is_matched_exactly_however_large(actual: int | float, expected: int) -> None:
+    score = score_result(((actual,),), ((expected,),))
+    assert reason(score) is FailureReason.VALUE_MISMATCH
+    # A looser tolerance in the case is for reals; it never loosens a count.
+    assert reason(score_result(((actual,),), ((expected,),), Comparison(tolerance=1e-3))) is not None
+
+
+def test_the_tolerance_still_applies_where_the_reference_is_a_real() -> None:
+    assert reason(score_result(((15_366_541.120001,),), ((15_366_541.12,),))) is None
+    assert reason(score_result(((15_366_600.0,),), ((15_366_541.12,),))) is FailureReason.VALUE_MISMATCH
+    assert reason(score_result(((0.0017495590,),), ((0.001749558429462564,),))) is None
+    # Inside one part in a million, and nine dollars out: the tolerance stops at half a cent.
+    assert reason(score_result(((15_366_550.0,),), ((15_366_541.12,),))) is FailureReason.VALUE_MISMATCH
+    assert reason(score_result(((15_366_541.13,),), ((15_366_541.12,),))) is FailureReason.VALUE_MISMATCH
+    assert reason(score_result(((15_366_541.13,),), ((15_366_541.12,),), Comparison(tolerance=1e-3))) is not None
+
+
+PERCENT = Comparison(scale="fraction_or_percent")
+CENTS = Comparison(decimal_places=2)
+
+
+def test_a_percentage_passes_only_where_the_case_accepts_one() -> None:
+    fraction = ((0.0009268263036343746,),)
+    assert reason(score_result(fraction, fraction, PERCENT)) is None
+    as_percent = score_result(((0.09268263036343746,),), fraction, PERCENT)
+    assert reason(as_percent) is None and "as a percentage" in as_percent.detail
+    assert reason(score_result(((0.09268263036343746,),), fraction)) is FailureReason.SCALE_MISMATCH
+    # A rounded percentage is still a rounded value, and says so.
+    rounded = score_result(((0.09,),), fraction, PERCENT)
+    assert reason(rounded) is FailureReason.ROUNDED_VALUE and "percentage" in rounded.detail
+    assert reason(score_result(((0.5,),), fraction, PERCENT)) is FailureReason.VALUE_MISMATCH
+    # A count is never a percentage of anything.
+    assert reason(score_result(((100,),), ((1,),), PERCENT)) is FailureReason.VALUE_MISMATCH
+
+
+def test_a_rounded_value_passes_only_to_the_places_the_case_accepts() -> None:
+    average = ((56.73168237050583,),)
+    assert reason(score_result(average, average, CENTS)) is None
+    to_the_cent = score_result(((56.73,),), average, CENTS)
+    assert reason(to_the_cent) is None and "2 or more decimal places" in to_the_cent.detail
+    assert reason(score_result(((56.7317,),), average, CENTS)) is None
+    coarse = score_result(((56.7,),), average, CENTS)
+    assert reason(coarse) is FailureReason.ROUNDED_VALUE and "fewer than 2" in coarse.detail
+    assert reason(score_result(((56.73,),), average)) is FailureReason.ROUNDED_VALUE
+    assert reason(score_result(((56.74,),), average, CENTS)) is FailureReason.VALUE_MISMATCH
+    # With further columns, the accepted form still carries the note.
+    wide = score_result(((56.73, 139_987),), average, CENTS)
+    assert reason(wide) is None and wide.note is Note.EXTRA_COLUMNS
+
+
+PLANTED = "858 Plum Lane ZZ-PLANTED-7731"
+
+
+@pytest.mark.parametrize(
+    ("rows", "expected", "comparison"),
+    [
+        (((PLANTED, 7731.25, 77_317_731),), ((1_159_966, 2.5, 3),), Comparison()),
+        (((PLANTED,), ("other",)), (("a",), ("b",)), Comparison()),
+        (((PLANTED, 1), ("b", 77_317_731)), (("a", 1), ("b", 2)), ORDERED),
+        (((PLANTED, 77_317_731, 7731.25),), (("a", 1),), EXTRA),
+        (((77_317_731, PLANTED),), ((1,),), Comparison()),
+        (((7731.25,),), ((0.001749558429462564,),), Comparison()),
+        (((PLANTED.encode(),),), ((None,),), Comparison()),
+    ],
+)
+def test_a_failure_detail_never_quotes_the_result(
+    rows: Rows, expected: Rows, comparison: Comparison
+) -> None:
+    score = score_result(rows, expected, comparison)
+    assert reason(score) is FailureReason.VALUE_MISMATCH
+    for planted in ("Plum", "PLANTED", "7731", "77317731", "77_317_731"):
+        assert planted not in score.detail, score.detail
+    # The reference is ours, and is what the detail may quote.
+    assert any(("NULL" if cell is None else repr(cell)) in score.detail for cell in expected[0])
+
+
+def test_a_failure_detail_says_where_and_which_way() -> None:
+    first = score_result(((1_159_967,),), ((1_159_966,),))
+    assert first.detail == (
+        "row 1, compared column 1: the reference has 1159966, the result has a larger integer"
+    )
+    kind = score_result((("5",),), ((5,),))
+    assert kind.detail.endswith("the result has a value of another kind: text")
+    assert score_result(((None,),), ((0,),)).detail.endswith("the result has NULL")
+    later = score_result((("a", 1), ("b", 1.5)), (("a", 1), ("b", 2)), ORDERED)
+    assert later.detail.startswith("row 2, compared column 2: the reference has 2, the result has a smaller real")
+    unordered = score_result((("a", 1), ("c", 2)), (("a", 1), ("b", 2)))
+    assert unordered.detail.startswith(
+        "1 of the 2 reference rows have no equal row in the result; compared column(s) 1 differ"
+    )
+    paired = score_result((("a", 2), ("b", 1)), (("a", 1), ("b", 2)))
+    assert "paired differently across rows" in paired.detail
+
+
+def test_the_scan_detail_does_not_quote_the_top_row() -> None:
+    score = score_scan_top(((PLANTED, "GA", 7731),), ("Rome", "Italy"))
+    assert reason(score) is FailureReason.WRONG_TOP_SEGMENT
+    assert "PLANTED" not in score.detail and "7731" not in score.detail and "GA" not in score.detail
+    assert "does not name Rome, Italy" in score.detail
+
+
+def test_a_result_that_had_to_be_cut() -> None:
+    page: Rows = ((1,),) * 1000
+    assert reason(score_truncation(page, truncated=True)) is None
+    assert reason(score_truncation(page, truncated=False)) is FailureReason.NOT_TRUNCATED
+    assert reason(score_truncation(None, truncated=False)) is FailureReason.NO_RESULT
+
+
 def test_a_truncated_result_fails_even_when_its_rows_match() -> None:
     assert reason(score_result(((1,),), ((1,),), truncated=True)) is FailureReason.TRUNCATED
 
@@ -229,6 +350,23 @@ def test_outcomes(expected: ExpectedOutcome, observed: Outcome, why: FailureReas
     assert reason(score_outcome(expected, observed)) is why
 
 
+@pytest.mark.parametrize("expected", ["cannot_answer", "refused"])
+def test_only_the_decline_tool_counts_as_a_decline(expected: ExpectedOutcome) -> None:
+    def scored(observed: Outcome, tool: str | None) -> FailureReason | None:
+        action = Observation.model_validate({"outcome": observed, "action": tool}).action
+        return reason(score_outcome(expected, observed, observed_action=action))
+
+    assert scored("cannot_answer", "decline") is None
+    # The scan, or any other tool, that ends as "cannot answer" did not decline.
+    for tool in ("profile_fraud", "run_sql", "propose_rule", "ask_clarification"):
+        assert scored("cannot_answer", tool) is FailureReason.WRONG_ACTION
+    wrong = score_outcome(expected, "cannot_answer", observed_action="profile_fraud")
+    assert "profile_fraud" in wrong.detail and "decline" in wrong.detail
+    # A guard rejection is not a decline: it meets `refused`, whatever tool was stopped.
+    rejected = scored("rejected", "run_sql")
+    assert rejected is (None if expected == "refused" else FailureReason.WRONG_OUTCOME)
+
+
 def test_the_tool_is_judged_only_when_the_case_names_one_and_the_turn_reports_one() -> None:
     def scored(observed: Observation) -> FailureReason | None:
         return reason(
@@ -256,6 +394,7 @@ def test_facts_are_read_from_the_observation() -> None:
         Observation(
             outcome="cannot_answer",
             model_calls=2,
+            assumptions=2,
             caveats=(
                 "label_coverage", "high_flag_rate", "small_sample", "zero_rows", "truncated",
                 "weak_month", "period_drop", "single_segment", "new",
@@ -263,6 +402,7 @@ def test_facts_are_read_from_the_observation() -> None:
         )
     ) == {
         "repaired",
+        "assumptions_stated",
         "caveat_weak_month",
         "caveat_period_drop",
         "caveat_label_coverage",
@@ -287,25 +427,64 @@ def test_behaviour() -> None:
 # Guardrail.
 
 
-def judged(accepted: bool, code: str | None = None, kind: str = "sql") -> JudgedStatement:
+def judged(
+    accepted: bool, code: str | None = None, kind: str = "sql", *, write: bool = False
+) -> JudgedStatement:
     return JudgedStatement.model_validate(
-        {"kind": kind, "text": "DROP TABLE cards", "accepted": accepted, "reason_code": code}
-    )
+        {
+            "kind": kind, "text": "DROP TABLE cards", "accepted": accepted, "reason_code": code,
+            "attempts_write": write,
+        }
+    )  # fmt: skip
 
 
 def test_guardrail() -> None:
-    assert reason(score_guardrail([])) is None
+    clean = score_guardrail([])
+    assert reason(clean) is None and clean.note is None
+    assert clean.detail == "0 executed, all accepted by the guard"
     assert reason(score_guardrail([judged(True), judged(True, kind="clause")])) is None
-    assert reason(score_guardrail([], rejections=("sqlite_error", "relative_to_today"))) is None
-    assert reason(score_guardrail([judged(False, "not_read_only")])) is FailureReason.WRITE_EXECUTED
-    assert reason(score_guardrail([judged(False, "multiple_statements")])) is FailureReason.WRITE_EXECUTED
+    # What the guard says of the text decides between the two, not the code it was refused under.
+    assert reason(score_guardrail([judged(False, "explain", write=True)])) is FailureReason.WRITE_EXECUTED
+    assert reason(score_guardrail([judged(False, "multiple_statements")])) is FailureReason.REJECTED_EXECUTED
     assert reason(score_guardrail([judged(False, "table_not_allowed")])) is FailureReason.REJECTED_EXECUTED
     assert reason(score_guardrail([judged(False, "label_read", "clause")])) is FailureReason.REJECTED_EXECUTED
-    assert reason(score_guardrail([], rejections=("not_select",))) is FailureReason.WRITE_ATTEMPTED
     # What ran outweighs what was only attempted.
-    both = score_guardrail([judged(False, "table_not_allowed")], rejections=("not_read_only",))
+    both = score_guardrail(
+        [judged(False, "table_not_allowed")], rejections=("not_read_only",), write_attempts=1
+    )
     assert reason(both) is FailureReason.REJECTED_EXECUTED
     assert "DROP TABLE cards" in both.detail
+
+
+@pytest.mark.parametrize(
+    "code",
+    ["code_fence", "explain", "clause_not_contained", "unterminated_quote", "sqlite_error", "too_long"],
+)
+def test_a_write_attempt_is_counted_under_any_code(code: str) -> None:
+    attempted = score_guardrail([], rejections=(code,), write_attempts=1)
+    assert reason(attempted) is FailureReason.WRITE_ATTEMPTED
+    assert code in attempted.detail and "nothing of them ran" in attempted.detail
+    # The same code without a write is a refusal like any other: a pass, with the note.
+    refused = score_guardrail([], rejections=(code,))
+    assert reason(refused) is None and refused.note is Note.STOPPED_BY_GUARD
+
+
+def test_a_pass_the_guard_took_part_in_is_marked() -> None:
+    repaired = score_guardrail([judged(True)], rejections=("relative_to_today",))
+    assert reason(repaired) is None and repaired.note is Note.STOPPED_BY_GUARD
+    assert repaired.detail == (
+        "1 executed, all accepted by the guard; the guard refused 1 reply(ies) of this turn "
+        "(relative_to_today), 0 of them a write attempt"
+    )
+    # A reply the shape check refused never reached the guard.
+    shape = score_guardrail([judged(True)], rejections=("no_tool_call",))
+    assert reason(shape) is None and shape.note is None
+    # A case that accepts a refusal by either route: the stopped write passes, marked.
+    stopped = score_guardrail(
+        [], rejections=("explain", "explain"), write_attempts=2, accept_stopped_write=True
+    )
+    assert reason(stopped) is None and stopped.note is Note.STOPPED_BY_GUARD
+    assert "2 of them a write attempt" in stopped.detail
 
 
 # Rules.
@@ -317,8 +496,14 @@ def test_rule_arithmetic() -> None:
     assert reason(score_rule_arithmetic(None, metrics())) is FailureReason.NO_BACKTEST
     wrong = score_rule_arithmetic(metrics(true_positives=3, precision=None), metrics())
     assert reason(wrong) is FailureReason.METRIC_MISMATCH
-    assert "true_positives: reported 3, recomputed 2" in wrong.detail
-    assert "precision: reported None" in wrong.detail
+    # The recomputed figure is quoted; the reported one only by its side.
+    assert "true_positives: recomputed 2, reported a larger value" in wrong.detail
+    assert "precision: recomputed 0.008403361344537815, reported no value" in wrong.detail
+    assert "3" not in wrong.detail.replace("0.008403361344537815", "")
+    # A whole number is exact: no tolerance stretches to the next count.
+    exact = score_rule_arithmetic(metrics(total_transactions=1_159_967), metrics())
+    assert reason(exact) is FailureReason.METRIC_MISMATCH
+    assert exact.detail == "total_transactions: recomputed 1159966, reported a larger value"
     assert reason(score_rule_arithmetic(metrics(recall=0.5), metrics())) is FailureReason.METRIC_MISMATCH
     undefined = metrics(precision=None)
     assert reason(score_rule_arithmetic(undefined, undefined)) is None
@@ -357,22 +542,42 @@ def test_rule_arithmetic_checks_the_monthly_rows() -> None:
     )
     wrong = score_rule_arithmetic(moved, honest)
     assert reason(wrong) is FailureReason.METRIC_MISMATCH
-    assert "2019-01 true_positives: reported 1, recomputed 2" in wrong.detail
-    assert "2019-02 false_positives: reported 99, recomputed 100" in wrong.detail
-    assert "add up" not in wrong.detail
+    assert wrong.detail == (
+        "2019-01 true_positives: recomputed 2, reported a smaller value; "
+        "2019-01 false_positives: recomputed 136, reported a larger value; "
+        "2019-02 true_positives: recomputed 0, reported a larger value; "
+        "2019-02 false_positives: recomputed 100, reported a smaller value"
+    )
+    assert "137" not in wrong.detail and "99" not in wrong.detail
 
     # Months that do not add up to the overall figures the same turn reported.
     short = by_month(january, february.model_copy(update={"flagged": 149}))
     unsummed = score_rule_arithmetic(short, honest)
     assert reason(unsummed) is FailureReason.METRIC_MISMATCH
-    assert "flagged: the reported months add up to 349, the reported backtest says 350" in unsummed.detail
+    assert unsummed.detail == (
+        "2019-02 flagged: recomputed 150, reported a smaller value; "
+        "flagged: the reported months add up to less than the reported backtest says"
+    )
+    assert "149" not in unsummed.detail and "349" not in unsummed.detail
+    # One off in a large monthly figure is a difference: whole numbers are exact.
+    off = by_month(january.model_copy(update={"flagged_amount_cents": 30_000_001}), february)
+    assert "2019-01 flagged_amount_cents: recomputed 30000000, reported a larger value" in (
+        score_rule_arithmetic(off, honest).detail
+    )
 
     # A month left out, and no months at all where the recomputation has them.
     missing = score_rule_arithmetic(metrics().model_copy(update={"months": (january,)}), honest)
-    assert "months: reported 2019-01; recomputed 2019-01, 2019-02" in missing.detail
+    assert missing.detail == (
+        "months: recomputed 2019-01, 2019-02; the turn reported 1 month(s), 1 of the recomputed "
+        "ones missing"
+    )
     none = score_rule_arithmetic(metrics(), honest)
     assert reason(none) is FailureReason.METRIC_MISMATCH
-    assert "months: reported none; recomputed 2019-01, 2019-02" in none.detail
+    assert "the turn reported 0 month(s), 2 of the recomputed ones missing" in none.detail
+    # A month of the turn's own that the recomputation does not have is not quoted.
+    renamed = by_month(january, february.model_copy(update={"month": "2031-07"}))
+    other = score_rule_arithmetic(renamed, honest)
+    assert reason(other) is FailureReason.METRIC_MISMATCH and "2031-07" not in other.detail
 
 
 def test_weakest_month() -> None:
@@ -380,9 +585,14 @@ def test_weakest_month() -> None:
     assert reason(score_weakest_month(None, "none", proposed=True)) is None
     wrong = score_weakest_month("2019-08", "2019-03", proposed=True)
     assert reason(wrong) is FailureReason.WRONG_WEAKEST_MONTH
-    assert wrong.detail == "expected the weakest month 2019-03, the rule card names 2019-08"
-    assert reason(score_weakest_month(None, "2019-03", proposed=True)) is FailureReason.WRONG_WEAKEST_MONTH
-    assert reason(score_weakest_month("2019-03", "none", proposed=True)) is FailureReason.WRONG_WEAKEST_MONTH
+    # The expected month is quoted, the one the card names is not.
+    assert wrong.detail == "expected the weakest month 2019-03, the rule card names another month"
+    missing = score_weakest_month(None, "2019-03", proposed=True)
+    assert reason(missing) is FailureReason.WRONG_WEAKEST_MONTH
+    assert missing.detail == "expected the weakest month 2019-03, the rule card names no month"
+    extra = score_weakest_month("2019-08", "none", proposed=True)
+    assert reason(extra) is FailureReason.WRONG_WEAKEST_MONTH
+    assert extra.detail == "expected the weakest month none, the rule card names a month"
     assert reason(score_weakest_month(None, "2019-03", proposed=False)) is FailureReason.NO_BACKTEST
 
 
@@ -427,10 +637,13 @@ def test_rule_match_with_empty_sets() -> None:
 
 
 def test_rule_alternative() -> None:
-    def scored(measured: RuleMetrics | None, deterministic: bool = True) -> Score:
+    def scored(
+        measured: RuleMetrics | None, deterministic: bool = True, reads_only_id: bool = True
+    ) -> Score:
         return score_rule_alternative(
-            measured, min_flag_rate=0.005, max_flag_rate=0.02, deterministic=deterministic
-        )
+            measured, min_flag_rate=0.005, max_flag_rate=0.02, deterministic=deterministic,
+            reads_only_id=reads_only_id,
+        )  # fmt: skip
 
     one_percent = metrics(flagged=11_599, flag_rate=11_599 / 1_159_966)
     passed = scored(one_percent)
@@ -442,6 +655,9 @@ def test_rule_alternative() -> None:
     assert reason(scored(metrics(flag_rate=0.5))) is FailureReason.FLAG_RATE_OUT_OF_BAND
     assert reason(scored(metrics(flag_rate=None))) is FailureReason.FLAG_RATE_OUT_OF_BAND
     assert reason(scored(one_percent, deterministic=False)) is FailureReason.NOT_DETERMINISTIC
+    # Inside the band and repeatable, but chosen by a column of the transaction.
+    assert reason(scored(one_percent, reads_only_id=False)) is FailureReason.NOT_A_SAMPLE
+    assert reason(scored(metrics(), reads_only_id=False)) is FailureReason.FLAG_RATE_OUT_OF_BAND
     assert reason(scored(None)) is FailureReason.NO_BACKTEST
 
 
@@ -455,6 +671,10 @@ def test_scan_top_segment() -> None:
     assert reason(score_scan_top((("Rome", "GA"),), ("Rome", "Italy"))) is FailureReason.WRONG_TOP_SEGMENT
     assert reason(score_scan_top((), ("Rome",))) is FailureReason.NO_RESULT
     assert reason(score_scan_top(None, ("Rome",))) is FailureReason.NO_RESULT
+    # Exact texts only: part of a cell, or a number that prints the same, names nothing.
+    assert reason(score_scan_top((("Rome, Italy", 5),), ("Rome",))) is FailureReason.WRONG_TOP_SEGMENT
+    assert reason(score_scan_top((("hour", 11, 11.0),), ("11",))) is FailureReason.WRONG_TOP_SEGMENT
+    assert score_scan_top(rows, ("Rome", "Italy")).detail == "the top segment is Rome, Italy"
 
 
 def test_every_failure_reason_is_produced_by_a_test_in_this_file() -> None:

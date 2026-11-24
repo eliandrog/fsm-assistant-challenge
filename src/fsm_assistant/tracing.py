@@ -66,9 +66,9 @@ ALLOWED: dict[RunKind, tuple[frozenset[str], frozenset[str]]] = {
         frozenset({"question", "question_chars"}),
         frozenset(
             {
-                "outcome", "status", "error_kind", "tool", "refused", "sql", "where_clause",
-                "row_count", "columns", "truncated", "reads_labels", "caveats", "attempts",
-                "model_calls", "input_tokens", "output_tokens", "steps", "elapsed_ms",
+                "outcome", "status", "error_kind", "tool", "refused", "write_attempts", "sql",
+                "where_clause", "row_count", "columns", "truncated", "reads_labels", "caveats",
+                "attempts", "model_calls", "input_tokens", "output_tokens", "steps", "elapsed_ms",
             }
         ),
     ),

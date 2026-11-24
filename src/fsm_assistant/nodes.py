@@ -114,6 +114,7 @@ class TurnNodes:
         refused = state.refused
         if earlier is not None and earlier.refusal is not None:
             refused = (*refused, earlier.refusal)
+        write_attempts = state.write_attempts + (earlier is not None and earlier.write_attempt)
         cleared = update(
             action=None,
             approved_sql=None,
@@ -121,6 +122,7 @@ class TurnNodes:
             reads_labels=False,
             failure=None,
             refused=refused,
+            write_attempts=write_attempts,
             result=None,
             evidence=None,
             failure_detail=None,
@@ -246,6 +248,7 @@ class TurnNodes:
                     NOT_A_READ,
                     about_rule=False,
                     refusal=ReasonCode.NOT_READ_ONLY,
+                    write_attempt=True,
                 )
             )
         except db.DbError as error:
@@ -292,6 +295,7 @@ class TurnNodes:
                     NOT_A_READ,
                     about_rule=True,
                     refusal=error.reason_code,
+                    write_attempt=error.reason_code is ReasonCode.NOT_READ_ONLY,
                 )
             )
         except db.QueryTimeout:
@@ -391,12 +395,14 @@ def _failed(
     *,
     about_rule: bool,
     refusal: RefusalCode | None = None,
+    write_attempt: bool = False,
 ) -> Failure:
     return Failure(
         kind=kind,
         message=message,
         repair=Repair(previous_answer=previous_answer, reason=reason, about_rule=about_rule),
         refusal=refusal,
+        write_attempt=write_attempt,
     )
 
 
@@ -407,10 +413,11 @@ def _refused(decision: GuardDecision, subject: str, *, about_rule: bool) -> Fail
         return _failed(
             "sql_execution", f"The {subject} is not valid SQL. {reason}", decision.sql, reason,
             about_rule=about_rule, refusal=decision.reason_code,
+            write_attempt=decision.attempts_write,
         )  # fmt: skip
     return _failed(
         "sql_rejected", f"The {subject} was not allowed to run. {reason}", decision.sql, reason,
-        about_rule=about_rule, refusal=decision.reason_code,
+        about_rule=about_rule, refusal=decision.reason_code, write_attempt=decision.attempts_write,
     )  # fmt: skip
 
 

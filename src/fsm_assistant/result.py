@@ -218,6 +218,9 @@ class TurnResult(BaseModel):
     # One code per model reply of this turn that the shape check or the guard
     # refused, in order, a reply that was then repaired included.
     refused: tuple[RefusalCode, ...]
+    # How many of those refused replies tried to change data or the schema,
+    # whatever code they were refused under. A count, never any text.
+    write_attempts: int
     sql: str | None  # the statement that ran; for the scan, its profile statement
     where_clause: str | None  # the rule clause that was backtested
     table: TableResult | None

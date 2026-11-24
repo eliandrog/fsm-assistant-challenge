@@ -1,0 +1,45 @@
+tier = "debatable"
+
+[[case]]
+id = "debatable-velocity-strict"
+tests = "'Less than 2 minutes', with the boundary spelled out: a gap of exactly 120 seconds is excluded (18,209), where 'within 2 minutes' includes it (29,665)"
+tags = ["trap:velocity", "window", "boundary"]
+tuned = true
+[[case.turn]]
+question = "How many transactions happened less than 2 minutes after the previous transaction on the same card? A gap of exactly 2 minutes does not count."
+outcome = "answered"
+sql = """
+SELECT count(*)
+FROM (
+  SELECT date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous
+  FROM transactions
+)
+WHERE strftime('%s', date) - strftime('%s', previous) < 120
+"""
+
+[[case]]
+id = "debatable-average-rounded"
+tests = "An average asked for in dollars: the unrounded value passes, and so does the value rounded to the cent or finer, since a cent is the unit of a dollar amount"
+tags = ["average", "cents", "rounding"]
+tuned = false
+[[case.turn]]
+question = "What is the average amount in dollars of an online transaction?"
+outcome = "answered"
+decimal_places = 2
+sql = "SELECT avg(amount_usd_cents) / 100.0 FROM transactions WHERE transaction_type = 'Online Transaction'"
+
+[[case]]
+id = "debatable-credit-limit-card-types"
+tests = "'Credit limit' could mean every card with a limit over $20,000 or credit cards only: asking which passes, and so does the literal reading (every card type) with an assumption stated"
+tags = ["join", "cards", "sum", "cents", "clarification", "two-readings"]
+tuned = false
+[[case.turn]]
+question = "How much was spent in total, in dollars, on cards whose credit limit is above $20,000?"
+outcome = "answered"
+or_clarification = true
+sql = """
+SELECT sum(t.amount_usd_cents) / 100.0
+FROM transactions t JOIN cards c ON c.id = t.card_id
+WHERE c.credit_limit_usd_cents > 2000000
+"""
+require = ["assumptions_stated"]

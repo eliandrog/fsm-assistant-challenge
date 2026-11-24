@@ -7,10 +7,13 @@ fixture database. Nothing is sent anywhere.
 import ast
 import logging
 import shutil
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 import pytest
 from conftest import call_reply, rule_reply, sql_reply, tool_reply
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import ChannelVersions, Checkpoint, CheckpointMetadata
 
 from fsm_assistant import db, graph, nodes, sql_guard, state
 from fsm_assistant.config import Settings, load_settings
@@ -214,8 +217,7 @@ def test_no_result_row_is_saved_or_sent_to_the_model(settings: Settings) -> None
     assert "result" not in snapshot
     assert "evidence" not in snapshot
     assert "response" not in snapshot
-    saver = assistant.saver
-    stored = repr((saver.storage, saver.writes, saver.blobs))
+    stored = kept(assistant)
     assert "approved_sql" in stored, "the search below looks in the right place"
     assert ROW_MARKER not in stored
     assert "flagged" not in stored, "nor a backtest"
@@ -243,12 +245,12 @@ def test_no_figure_of_a_rules_evidence_is_saved_sent_or_traced(settings: Setting
     untracked = {"result", "evidence", "response", "failure_detail"}
     assert untracked <= set(TurnState.model_fields)
     assert not untracked & set(saved(assistant, "c1"))
-    kept = "\n".join(handed) + repr((assistant.saver.storage, assistant.saver.writes, assistant.saver.blobs))
+    stored = "\n".join(handed) + kept(assistant)
     sent = "\n".join(request.system + request.user for request in model.requests)
     traced = "\n".join(step.summary for step in steps)
-    assert "id = 1002" in kept and "id = 1002" in model.requests[1].user and "id = 1002" in traced
+    assert "id = 1002" in stored and "id = 1002" in model.requests[1].user and "id = 1002" in traced
     for name in ("2019-02", "weakest_month", "true_positives", "total_fraud", "stability", "lift"):
-        assert name not in kept, name
+        assert name not in stored, name
     for text in (sent, traced):
         for name in ("weakest_month", "true_positives", "total_fraud", "min_precision"):
             assert name not in text, name
@@ -257,23 +259,79 @@ def test_no_figure_of_a_rules_evidence_is_saved_sent_or_traced(settings: Setting
     assert "2019-02" not in model.requests[1].user
 
 
+# What LangGraph writes beside the state: a clock time, ids and channel versions. Each is
+# made from a clock or random digits, so a short figure occurs in one by chance. A search
+# for a leak leaves them out by name and reads everything else.
+CHECKPOINT_BOOKKEEPING = frozenset({"ts", "id", "channel_versions", "versions_seen"})
+CONFIG_BOOKKEEPING = frozenset({"checkpoint_id", "checkpoint_map"})
+
+
+def _own_config(config: RunnableConfig) -> dict[str, object]:
+    configurable: Mapping[str, object] = config.get("configurable", {})
+    own = {
+        key: value
+        for key, value in configurable.items()
+        if key not in CONFIG_BOOKKEEPING and not key.startswith("__pregel_")
+    }
+    return {**config, "configurable": own}
+
+
+def _state_part(checkpoint: Mapping[str, object]) -> dict[str, object]:
+    return {key: value for key, value in checkpoint.items() if key not in CHECKPOINT_BOOKKEEPING}
+
+
 def everything_saved(assistant: Assistant) -> list[str]:
     """Record all the saver is ever handed, so a value it kept only for a while still shows."""
     handed: list[str] = []
     saver = assistant.saver
     real_put, real_put_writes = saver.put, saver.put_writes
 
-    def put(*args: object, **kwargs: object) -> object:
-        handed.append(repr((args, kwargs)))
-        return real_put(*args, **kwargs)  # type: ignore[arg-type]  # passed through as given
+    def put(
+        config: RunnableConfig,
+        checkpoint: Checkpoint,
+        metadata: CheckpointMetadata,
+        new_versions: ChannelVersions,
+    ) -> RunnableConfig:
+        handed.append(repr((_own_config(config), _state_part(checkpoint), metadata)))
+        return real_put(config, checkpoint, metadata, new_versions)
 
-    def put_writes(*args: object, **kwargs: object) -> None:
-        handed.append(repr((args, kwargs)))
-        real_put_writes(*args, **kwargs)  # type: ignore[arg-type]  # passed through as given
+    def put_writes(
+        config: RunnableConfig,
+        writes: Sequence[tuple[str, object]],
+        task_id: str,
+        task_path: str = "",
+    ) -> None:
+        handed.append(repr((_own_config(config), writes, task_path)))
+        real_put_writes(config, writes, task_id, task_path)
 
     setattr(saver, "put", put)
     setattr(saver, "put_writes", put_writes)
     return handed
+
+
+def kept(assistant: Assistant) -> str:
+    """All the saver holds now, as text to search: each value as stored and as read back.
+
+    A number is stored as bytes, so only the value read back shows its digits.
+    """
+    saver = assistant.saver
+    read = saver.serde.loads_typed
+    checkpoints = [
+        (thread, namespace, _state_part(read(checkpoint)), read(metadata))
+        for thread, spaces in saver.storage.items()
+        for namespace, by_id in spaces.items()
+        for checkpoint, metadata, _ in by_id.values()
+    ]
+    writes = [
+        (thread, namespace, channel, value, read(value), path)
+        for (thread, namespace, _), by_task in saver.writes.items()
+        for _, channel, value, path in by_task.values()
+    ]
+    blobs = [
+        (thread, namespace, channel, blob, None if blob[0] == "empty" else read(blob))
+        for (thread, namespace, channel, _), blob in saver.blobs.items()
+    ]
+    return repr((checkpoints, writes, blobs))
 
 
 @pytest.mark.parametrize(
@@ -307,15 +365,13 @@ def test_a_value_quoted_by_a_run_time_error_is_never_saved_sent_or_traced(
     assert model.calls == 3
     repair = model.requests[1].user
     assert RUN_TIME_REASON in repair, "the model is told a fixed reason"
-    saver = assistant.saver
-    kept = repr((saver.storage, saver.writes, saver.blobs))
     assert handed and "approved_sql" in "".join(handed), "the search looks in the right place"
     searched = {
         # The user text only: the schema context in the system text lists the values of a
         # column with few distinct ones, which on a two-user fixture includes the addresses.
         "a model request": "".join(request.user for request in model.requests),
         "the saver, at any time": "".join(handed),
-        "the saver, at the end": kept,
+        "the saver, at the end": kept(assistant),
         "the trace": "".join(step.summary for step in steps),
         "the result, apart from the detail": result.model_dump_json(
             exclude={"error": {"detail"}}
@@ -674,6 +730,44 @@ def test_the_result_names_the_tool_chosen_and_each_refusal(
     assert result.outcome == outcome
     assert result.tool == tool
     assert list(result.refused) == refused
+
+
+FENCED_DELETE = "```sql\nDELETE FROM transactions\n```"
+
+
+@pytest.mark.parametrize(
+    ("replies", "refused", "write_attempts"),
+    [
+        ([sql_reply(COUNT)], [], 0),
+        ([sql_reply(FORBIDDEN), sql_reply(COUNT)], ["table_not_allowed"], 0),
+        ([sql_reply(UNKNOWN_COLUMN), sql_reply(UNKNOWN_COLUMN)], ["sqlite_error", "sqlite_error"], 0),
+        ([sql_reply("DELETE FROM cards"), tool_reply("decline")], ["not_read_only"], 1),
+        # A write refused under a code that does not say "write".
+        ([sql_reply(FENCED_DELETE), tool_reply("decline")], ["code_fence"], 1),
+        ([sql_reply(FENCED_DELETE), sql_reply("EXPLAIN DELETE FROM cards")], ["code_fence", "explain"], 2),
+        ([sql_reply("DELETE FROM nosuchtable"), sql_reply(COUNT)], ["sqlite_error"], 1),
+        (
+            [rule_reply("1=1); DELETE FROM cards; --"), rule_reply("id > 1")],
+            ["clause_not_contained"],
+            1,
+        ),
+    ],
+)
+def test_the_result_counts_the_refused_replies_that_tried_to_write(
+    settings: Settings, replies: Script, refused: list[str], write_attempts: int
+) -> None:
+    result = turn(settings, replies)
+    assert list(result.refused) == refused
+    assert result.write_attempts == write_attempts
+
+
+def test_write_attempts_belong_to_one_turn(settings: Settings) -> None:
+    model = ScriptedModel([sql_reply(FENCED_DELETE), sql_reply(FENCED_DELETE), sql_reply(COUNT)])
+    assistant = Assistant(settings, model)
+    assert assistant.run_turn("Delete everything", "c1").write_attempts == 2
+    assert saved(assistant, "c1")["write_attempts"] == 1  # the first; the second is in the failure
+    assert assistant.run_turn("How many?", "c1").write_attempts == 0
+    assert saved(assistant, "c1")["write_attempts"] == 0
 
 
 def test_refusals_belong_to_one_turn(settings: Settings) -> None:

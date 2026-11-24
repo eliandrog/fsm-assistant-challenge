@@ -17,6 +17,7 @@ from scan_fixtures import (
     AMEX_PREPAID,
     AQUILA,
     BACKGROUND,
+    FIRST_TRANSACTION_ID,
     MAIN,
     MASTERCARD_DEBIT,
     ROME_GA,
@@ -25,7 +26,7 @@ from scan_fixtures import (
     Group,
     build,
 )
-from test_graph import everything_saved, saved
+from test_graph import everything_saved, kept, saved
 
 from fsm_assistant import applog, cli, db, explore, nodes
 from fsm_assistant.applog import LOG_FILE
@@ -279,8 +280,13 @@ def test_naming_the_segment_in_the_follow_up_gives_the_rule(settings: Settings) 
     assert "Rome, Italy" in question and "Rome" not in before
 
 
-def test_no_segment_name_or_row_value_is_saved_sent_or_traced(settings: Settings) -> None:
-    model = ScriptedModel([SCAN, sql_reply(COUNT), SCAN, rule_reply("amount_usd_cents > 100000")])
+SHOWN_FIGURES = ("of 189", "79.4%", "3.2 times", "labelled frauds")
+NEVER_KEPT = (*SEGMENT_NAMES, *ROW_MARKERS, *SHOWN_FIGURES)
+
+
+def scan_conversation(settings: Settings) -> tuple[TurnResult, ScriptedModel, dict[str, str]]:
+    """Five turns, three of them scans: the first result, the model, and every place to search."""
+    model = ScriptedModel([SCAN, sql_reply(COUNT), SCAN, rule_reply("amount_usd_cents > 100000"), SCAN])
     assistant = Assistant(settings, model)
     handed = everything_saved(assistant)
     steps: list[TraceStep] = []
@@ -289,29 +295,70 @@ def test_no_segment_name_or_row_value_is_saved_sent_or_traced(settings: Settings
     assistant.run_turn("How many transactions is that?", "c1", on_step=steps.append)
     assistant.run_turn("Scan again", "c1", on_step=steps.append)
     assistant.run_turn("A rule for payments over $1,000", "c1", on_step=steps.append)
+    assistant.run_turn("And scan once more", "c1", on_step=steps.append)
 
-    shown = first.model_dump_json()
-    assert all(name in shown for name in SEGMENT_NAMES), "the user is shown the segments"
     snapshot = saved(assistant, "c1")
     assert "result" not in snapshot and "response" not in snapshot
-    saver = assistant.saver
     searched = {
         # The user text only: the schema context in the system text lists the values of a
         # column with few distinct ones, which on a small fixture includes the states.
         "a model request": "".join(request.user for request in model.requests),
         "the saver, at any time": "".join(handed),
-        "the saver, at the end": repr((saver.storage, saver.writes, saver.blobs)),
+        "the saver, at the end": kept(assistant),
         "the trace": "".join(step.summary for step in steps),
     }
-    assert "scan_dimensions" in searched["the saver, at any time"], "the search looks in the right place"
-    assert "profile_fraud" in searched["a model request"]
-    figures = ("of 189", "79.4%", "3.2 times", "labelled frauds")
-    assert all(figure in shown for figure in figures), "the user is shown the figures"
-    for value in (*SEGMENT_NAMES, *ROW_MARKERS, *figures):
-        for place, text in searched.items():
-            assert value not in text, f"{value!r} reached {place}"
+    return first, model, searched
+
+
+def reached(searched: dict[str, str]) -> list[tuple[str, str]]:
+    """Each value of the data found in a place it may not reach, with the place."""
+    return [(value, place) for value in NEVER_KEPT for place, text in searched.items() if value in text]
+
+
+def test_no_segment_name_or_row_value_is_saved_sent_or_traced(settings: Settings) -> None:
+    first, model, searched = scan_conversation(settings)
+
+    shown = first.model_dump_json()
+    assert all(name in shown for name in SEGMENT_NAMES), "the user is shown the segments"
+    assert all(figure in shown for figure in SHOWN_FIGURES), "the user is shown the figures"
+    for place in ("the saver, at any time", "the saver, at the end"):
+        assert "scan_dimensions" in searched[place], "the search looks in the right place"
+    assert "profile_fraud" in searched["a model request"] and model.calls == 5
+    assert reached(searched) == []
     for marker in ROW_MARKERS:
         assert marker not in shown, f"{marker!r} is a value of a row, and the scan shows aggregates"
+
+
+@pytest.mark.parametrize(
+    ("field", "planted", "found"),
+    [
+        ("approved_sql", "SELECT 1 WHERE 'Rome' = 'Rome'", "Rome"),
+        ("approved_clause", "1 Marker Street", "Marker"),
+        ("write_attempts", 5411, "5411"),
+        ("write_attempts", FIRST_TRANSACTION_ID, "88000"),
+    ],
+    ids=["a segment in text", "a row's text", "a segment's code as a number", "a row's id as a number"],
+)
+def test_a_value_of_the_data_in_a_saved_field_is_found(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch, field: str, planted: str | int, found: str
+) -> None:
+    real = nodes.TurnNodes.run_scan
+
+    def leaky(self: nodes.TurnNodes, state: TurnState) -> dict[str, object]:
+        return {**real(self, state), field: planted}
+
+    monkeypatch.setattr(nodes.TurnNodes, "run_scan", leaky)
+    found_in = {place for value, place in reached(scan_conversation(settings)[2]) if value == found}
+    assert {"the saver, at any time", "the saver, at the end"} <= found_in, "the test above can fail"
+
+
+def test_the_text_searched_in_the_saver_holds_nothing_made_by_chance(settings: Settings) -> None:
+    # A checkpoint id, a clock time or a channel version in the text would hold any short
+    # figure once in a while, and the search would then report a leak that is not one.
+    once, again = scan_conversation(settings)[2], scan_conversation(settings)[2]
+    for place in ("the saver, at any time", "the saver, at the end"):
+        assert once[place] == again[place]
+        assert not re.search(r"[0-9a-f]{8}-[0-9a-f]{4}-|\d{4}-\d\d-\d\dT|\d\.\d{9}", once[place])
 
 
 # --- Events, the hosted trace and the log -----------------------------------------------------

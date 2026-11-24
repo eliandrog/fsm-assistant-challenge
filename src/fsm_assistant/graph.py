@@ -384,6 +384,7 @@ class Assistant:
             answer_source="code",
             tool=None,
             refused=(),
+            write_attempts=0,
             sql=None,
             where_clause=None,
             table=None,

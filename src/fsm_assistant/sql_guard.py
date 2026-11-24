@@ -42,6 +42,13 @@ the query policy; plus no read of `fraud_labels` (a rule scored against the
 labels must not read them) and no function in `RULE_DENIED_FUNCTIONS`.
 `rules.backtest.backtest` applies this policy itself before it measures.
 
+A rejection also says whether the text tried to change data or the schema
+(`GuardDecision.attempts_write`), whatever code it was rejected under: a
+`DELETE` inside a code fence is refused as a fence, and is still a write
+attempt. When SQLite compiled the text, its own account decides. When the
+text never compiled, `names_a_write` reads it for a write keyword where a
+statement can start.
+
 Database faults (missing file, unreadable directory) are not decisions and
 propagate as `db.DbError`. The row limit is not checked here: `db` caps the
 rows it fetches (docs/DECISIONS.md, D-08).
@@ -52,6 +59,7 @@ form (`date(x'6e6f77')`) are not seen. A rule that lists fraud transaction
 ids as literals reads no label and cannot be told from an honest rule.
 """
 
+import re
 from collections import Counter
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -123,6 +131,23 @@ _PARAMETER_CHARACTERS = frozenset("?:@$#")
 
 _FENCE = "```"
 
+# Words that open a statement which changes data, the schema or the
+# connection. REPLACE is one only before INTO, since replace() is a function;
+# END is left out, since it also closes a CASE.
+_WRITE_WORDS = frozenset(
+    {
+        "insert", "update", "delete", "drop", "create", "alter", "truncate", "attach", "detach",
+        "pragma", "vacuum", "reindex", "analyze", "begin", "commit", "rollback", "savepoint",
+        "release",
+    }
+)  # fmt: skip
+# After one of these a statement can start: a separator, a parenthesis (a
+# CTE body, a subquery, the end of a WITH list or of the backtest template),
+# or EXPLAIN [QUERY PLAN].
+_STATEMENT_SYMBOLS = frozenset(";()")
+_STATEMENT_WORDS = frozenset({"explain", "plan"})
+_FENCE_LINE = re.compile(re.escape(_FENCE) + r"[A-Za-z]*")
+
 # Limits for the catalogue query, which is ours, not model-written.
 _CATALOGUE_ROW_CAP = 1000
 _CATALOGUE_TIMEOUT_SECONDS = 60.0
@@ -161,9 +186,13 @@ class GuardDecision(BaseModel):
     reason: str | None = None  # None exactly when accepted
     sqlite_message: str | None = None  # SQLite's own words, when it refused to compile the text
     reads: db.QueryInspection | None = None  # None when the text did not compile
+    # The rejected text tried to change data or the schema, under whatever code.
+    attempts_write: bool = False
 
     @model_validator(mode="after")
     def _rejections_carry_a_reason(self) -> Self:
+        if self.accepted and self.attempts_write:
+            raise ValueError("an accepted text is a read: it cannot be a write attempt")
         if self.accepted == (self.reason_code is None) == (self.reason is None):
             return self
         raise ValueError("a decision has a reason code and a reason exactly when it is rejected")
@@ -227,6 +256,46 @@ def normalise(sql: str) -> str:
     return text[:-1].rstrip() if text.endswith(";") else text
 
 
+def names_a_write(text: str) -> bool:
+    """Whether `text` holds a write keyword where a statement can start.
+
+    Read from the words alone, with strings, quoted names and comments set
+    aside: INSERT, UPDATE, DELETE, REPLACE INTO, a schema change, a
+    transaction word, ATTACH, PRAGMA or VACUUM at the start, after `;`, after
+    a parenthesis, after EXPLAIN, or inside a Markdown fence. Text after an
+    unclosed quote is not read, and no more than the first
+    `MAX_STATEMENT_CHARACTERS` characters are, so the cost stays bounded. It
+    can be wrong both ways on text that is not SQL, so the guard asks it
+    only about text SQLite did not compile.
+    """
+    previous: Token | None = None
+    after_replace = False
+    try:
+        for token in scan(_FENCE_LINE.sub(";", text[:MAX_STATEMENT_CHARACTERS])):
+            if token.kind == "comment":
+                continue
+            if after_replace and _is_word(token, "into"):
+                return True
+            after_replace = False
+            if token.kind == "word" and _can_start_statement(previous):
+                word = token.text.lower()
+                if word in _WRITE_WORDS:
+                    return True
+                after_replace = word == "replace"
+            previous = token
+    except UnterminatedQuote:
+        pass
+    return False
+
+
+def _can_start_statement(previous: Token | None) -> bool:
+    if previous is None:
+        return True
+    if previous.kind == "symbol":
+        return previous.text in _STATEMENT_SYMBOLS
+    return previous.kind == "word" and previous.text.lower() in _STATEMENT_WORDS
+
+
 def _decide(
     text: str,
     rejection: _Rejection | None,
@@ -234,6 +303,12 @@ def _decide(
     sqlite_message: str | None = None,
 ) -> GuardDecision:
     code, reason = rejection or (None, None)
+    if code in (ReasonCode.NOT_READ_ONLY, ReasonCode.NOT_SELECT):
+        attempts_write = True  # SQLite's own account: something other than a read
+    elif code is None or reads is not None:
+        attempts_write = False  # accepted, or compiled as one read-only SELECT
+    else:
+        attempts_write = names_a_write(text)
     return GuardDecision(
         accepted=rejection is None,
         sql=text,
@@ -241,6 +316,7 @@ def _decide(
         reason=reason,
         sqlite_message=sqlite_message,
         reads=reads,
+        attempts_write=attempts_write,
     )
 
 

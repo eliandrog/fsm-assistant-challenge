@@ -9,14 +9,26 @@ A case passes when every score of every turn passed. Results are counts per
 tier, per tag and per split (tuned or held-out), always with the number of
 cases behind them; no percentage is printed, because a tier holds only a handful of cases.
 
-Two counts sit inside the others and are always shown next to them. "With
+Three counts sit inside the others and are always shown next to them. "With
 extra columns" is the part of the passed cases whose result was correct but
-carried columns after the expected ones. "Known limitation" is the part of
-the failed cases the suite marks as a known limitation of the system: they
-are failures and stay in every total. A marked case that passes is listed
-too, since its note is then out of date.
+carried columns after the expected ones. "Stopped by guard" is the part of
+the passed cases in which the guard refused a reply of the model on the way:
+the turn ended well because code stopped something, which a clean pass does
+not need. "Known limitation" is the part of the failed cases the suite marks
+as a known limitation of the system: they are failures and stay in every
+total. A marked case that passes is listed too, since its note is then out
+of date.
+
+`Operations` is how the turns went and what they cost: repairs, refusals by
+code, write attempts, seconds per turn, tokens and an estimated cost. The
+cost comes from the token counts and `PRICES_USD_PER_MILLION`, constants
+written when this code was, with no lookup: check them before relying on it.
+
+A repeated run (`summarise_repeats`) is counted per case as how many of its
+repetitions passed, and per tier as the cases that passed all, some or none.
 """
 
+import math
 from collections import Counter
 from collections.abc import Callable, Iterable, Sequence
 from typing import Literal
@@ -24,17 +36,43 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict
 
 from fsm_assistant.evals.cases import TIERS, Case, Feature, Tier
-from fsm_assistant.evals.scorers import FailureReason, Note, Score, ScorerName
+from fsm_assistant.evals.scorers import GUARD_CODES, FailureReason, Note, Score, ScorerName
 
 Split = Literal["tuned", "held_out"]
-Source = Literal["live", "replay"]
+# `rescored`: recorded replies scored again offline, to rebuild a record.
+Source = Literal["live", "replay", "rescored"]
+RefusedBy = Literal["guard", "shape_check"]
+
+# US dollars per million tokens, input then output. Constants written with
+# this code and never looked up: a price may have changed since.
+PRICES_USD_PER_MILLION: dict[str, tuple[float, float]] = {
+    "claude-haiku-5-5": (0.10, 0.50),
+    "claude-opus-5-5": (4.00, 20.00),
+}
+PRICE_NOTE = (
+    "Prices are constants written in the code when it was built, not looked up; "
+    "they may be out of date."
+)
+_SOURCE_TEXT: dict[Source, str] = {
+    "live": "live model calls",
+    "replay": "recorded replies, replayed",
+    "rescored": "recorded replies, scored again offline",
+}
 
 
 class TurnScore(BaseModel):
+    """One turn's scores, with what the turn took. The defaults are a turn nothing is known of."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     turn: int  # counted from 1
     scores: tuple[Score, ...]
+    model_calls: int = 1
+    refused: tuple[str, ...] = ()  # one code per refused reply
+    write_attempts: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    seconds: float = 0.0
 
     @property
     def passed(self) -> bool:
@@ -65,8 +103,15 @@ class CaseResult(BaseModel):
 
     @property
     def with_extra_columns(self) -> bool:
+        return self._passed_with(Note.EXTRA_COLUMNS)
+
+    @property
+    def stopped_by_guard(self) -> bool:
+        return self._passed_with(Note.STOPPED_BY_GUARD)
+
+    def _passed_with(self, note: Note) -> bool:
         return self.passed and any(
-            score.note is Note.EXTRA_COLUMNS for turn in self.turns for score in turn.scores
+            score.note is note for turn in self.turns for score in turn.scores
         )
 
 
@@ -93,6 +138,7 @@ class Tally(BaseModel):
     failed: int
     skipped: int
     with_extra_columns: int = 0  # of `passed`
+    stopped_by_guard: int = 0  # of `passed`
     known_limitation: int = 0  # of `failed`
 
 
@@ -137,10 +183,50 @@ class ParaphrasePair(BaseModel):
     paraphrase_passed: bool | None
 
 
+class RefusalCount(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    code: str
+    by: RefusedBy
+    count: int
+
+
+class Cost(BaseModel):
+    """An estimate in US dollars, from the token counts and the price table."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    input_usd_per_million: float
+    output_usd_per_million: float
+    run_usd: float
+    per_turn_usd: float | None  # one turn is one question; None when no turn ran
+
+
+class Operations(BaseModel):
+    """How the turns of a run went and what they took. Counted in turns, not cases."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    turns: int
+    model_requests: int
+    repairs: int  # turns that needed a second model request
+    refusals: tuple[RefusalCount, ...]  # refused replies by code
+    write_attempts: int  # refused replies that tried to change data or the schema
+    seconds_p50: float | None  # nearest-rank percentiles of the seconds per turn
+    seconds_p95: float | None
+    seconds_max: float | None
+    input_tokens: int
+    output_tokens: int
+    input_tokens_per_turn: float | None
+    output_tokens_per_turn: float | None
+    cost: Cost | None  # None when the model has no price in the table
+
+
 class Summary(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     info: RunInfo
+    operations: Operations
     overall: Tally
     by_tier: tuple[Tally, ...]
     by_split: tuple[Tally, ...]
@@ -150,6 +236,44 @@ class Summary(BaseModel):
     failures: tuple[Failure, ...]
     known_limitations: tuple[KnownLimitation, ...]
     paraphrases: tuple[ParaphrasePair, ...]
+
+
+class RepeatCase(BaseModel):
+    """One case of a repeated run: how many of its repetitions passed."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    case_id: str
+    tier: Tier
+    tuned: bool
+    repetitions: int
+    passed: int
+
+
+class RepeatTally(BaseModel):
+    """Cases by how their repetitions went: every one passed, some did, none did."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    name: str
+    cases: int
+    passed_all: int
+    passed_some: int
+    passed_none: int
+
+
+class RepeatSummary(BaseModel):
+    """A run in which every case was sent `repetitions` times, each as its own conversation."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    info: RunInfo
+    repetitions: int
+    operations: Operations  # over every repetition
+    overall: RepeatTally
+    by_tier: tuple[RepeatTally, ...]
+    by_split: tuple[RepeatTally, ...]
+    cases: tuple[RepeatCase, ...]
 
 
 def skip_reason(case: Case, available: frozenset[Feature]) -> str | None:
@@ -200,6 +324,7 @@ def summarise(results: Sequence[CaseResult], info: RunInfo) -> Summary:
     scorers = sorted({score.scorer for score in scores})
     return Summary(
         info=info,
+        operations=operations(results, info.model_id),
         overall=_tally("all", results),
         by_tier=tuple(
             _tally(tier, [result for result in results if result.tier == tier])
@@ -220,6 +345,10 @@ def summarise(results: Sequence[CaseResult], info: RunInfo) -> Summary:
                 skipped=0,
                 with_extra_columns=sum(
                     score.scorer == scorer and score.note is Note.EXTRA_COLUMNS for score in scores
+                ),
+                stopped_by_guard=sum(
+                    score.scorer == scorer and score.note is Note.STOPPED_BY_GUARD
+                    for score in scores
                 ),
             )
             for scorer in scorers
@@ -254,8 +383,194 @@ def summarise(results: Sequence[CaseResult], info: RunInfo) -> Summary:
     )
 
 
-def render_json(summary: Summary) -> str:
+def operations(results: Sequence[CaseResult], model_id: str) -> Operations:
+    """The turns of `results` added up, with the cost estimate for `model_id`."""
+    turns = [turn for result in results for turn in result.turns]
+    seconds = sorted(turn.seconds for turn in turns)
+    refused = Counter(code for turn in turns for code in turn.refused)
+    tokens_in = sum(turn.input_tokens for turn in turns)
+    tokens_out = sum(turn.output_tokens for turn in turns)
+    price = PRICES_USD_PER_MILLION.get(model_id)
+    cost: Cost | None = None
+    if price is not None:
+        run_usd = (tokens_in * price[0] + tokens_out * price[1]) / 1_000_000
+        cost = Cost(
+            input_usd_per_million=price[0],
+            output_usd_per_million=price[1],
+            run_usd=round(run_usd, 6),
+            per_turn_usd=round(run_usd / len(turns), 6) if turns else None,
+        )
+    return Operations(
+        turns=len(turns),
+        model_requests=sum(turn.model_calls for turn in turns),
+        repairs=sum(turn.model_calls > 1 for turn in turns),
+        refusals=tuple(
+            RefusalCount(
+                code=code, by="guard" if code in GUARD_CODES else "shape_check", count=count
+            )
+            for code, count in sorted(refused.items(), key=lambda item: (-item[1], item[0]))
+        ),
+        write_attempts=sum(turn.write_attempts for turn in turns),
+        seconds_p50=_percentile(seconds, 50),
+        seconds_p95=_percentile(seconds, 95),
+        seconds_max=seconds[-1] if seconds else None,
+        input_tokens=tokens_in,
+        output_tokens=tokens_out,
+        input_tokens_per_turn=round(tokens_in / len(turns), 1) if turns else None,
+        output_tokens_per_turn=round(tokens_out / len(turns), 1) if turns else None,
+        cost=cost,
+    )
+
+
+def summarise_repeats(
+    repetitions: Sequence[Sequence[CaseResult]], info: RunInfo
+) -> RepeatSummary:
+    """Count, per case, how many repetitions passed.
+
+    A case counts when it ran in every repetition; one that was skipped, or
+    is missing from a repetition, is left out.
+    """
+    by_id = [
+        {result.case_id: result for result in results if result.skipped is None}
+        for results in repetitions
+    ]
+    cases = tuple(
+        RepeatCase(
+            case_id=first.case_id,
+            tier=first.tier,
+            tuned=first.tuned,
+            repetitions=len(by_id),
+            passed=sum(results[first.case_id].passed for results in by_id),
+        )
+        for first in (repetitions[0] if repetitions else ())
+        if all(first.case_id in results for results in by_id)
+    )
+    counted = {case.case_id for case in cases}
+    return RepeatSummary(
+        info=info,
+        repetitions=len(by_id),
+        operations=operations(
+            [
+                result
+                for results in by_id
+                for result in results.values()
+                if result.case_id in counted
+            ],
+            info.model_id,
+        ),
+        overall=_repeat_tally("all", cases),
+        by_tier=tuple(
+            _repeat_tally(tier, [case for case in cases if case.tier == tier])
+            for tier in TIERS
+            if any(case.tier == tier for case in cases)
+        ),
+        by_split=(
+            _repeat_tally("tuned", [case for case in cases if case.tuned]),
+            _repeat_tally("held_out", [case for case in cases if not case.tuned]),
+        ),
+        cases=cases,
+    )
+
+
+def render_json(summary: Summary | RepeatSummary) -> str:
     return summary.model_dump_json(indent=2) + "\n"
+
+
+def render_repeat_markdown(summary: RepeatSummary) -> str:
+    """A repeated run as Markdown: counts of cases, never a rate."""
+    info, overall, times = summary.info, summary.overall, summary.repetitions
+    return "\n".join(
+        [
+            "# Evaluation run, repeated",
+            "",
+            f"- Model: `{info.model_id}`, effort `{info.effort}`, output mode `{info.tool_mode}`, "
+            f"prompt `{info.prompt_version}`",
+            f"- Source of the model replies: {_SOURCE_TEXT[info.source]}",
+            f"- Schema context `{info.schema_context_sha256[:12]}`, cases `{info.suite_sha256[:12]}`",
+            f"- Every case was sent {times} times, each time as a new conversation.",
+            "",
+            f"**{overall.passed_all} of {overall.cases} cases passed all {times} repetitions**; "
+            f"{overall.passed_some} passed some and {overall.passed_none} passed none. "
+            f"{times} repetitions show whether a result is stable; they are still a small "
+            "sample, not a rate.",
+            "",
+            "## By tier",
+            "",
+            *_repeat_table("Tier", summary.by_tier, times),
+            "",
+            "## Tuned and held-out",
+            "",
+            *_repeat_table("Split", summary.by_split, times),
+            "",
+            "## Cases that did not pass every repetition",
+            "",
+            *(
+                [
+                    "| Case | Tier | Passed |",
+                    "|---|---|---|",
+                    *(
+                        f"| {case.case_id} | {case.tier} | {case.passed} of {case.repetitions} |"
+                        for case in summary.cases
+                        if case.passed < case.repetitions
+                    ),
+                ]
+                if overall.passed_all < overall.cases
+                else ["None."]
+            ),
+            "",
+            *operations_markdown(summary.operations),
+            "",
+            "## Every case",
+            "",
+            "| Case | Tier | Split | Passed |",
+            "|---|---|---|---|",
+            *(
+                f"| {case.case_id} | {case.tier} | {'tuned' if case.tuned else 'held_out'} "
+                f"| {case.passed} of {case.repetitions} |"
+                for case in summary.cases
+            ),
+        ]
+    ) + "\n"
+
+
+def operations_lines(item: Operations) -> list[str]:
+    """Repairs, refusals, write attempts, seconds, tokens and cost, as plain lines."""
+    refusals = ", ".join(f"{entry.code} {entry.count}" for entry in item.refusals) or "none"
+    lines = [
+        f"Repairs (turns that needed a second model request): {item.repairs} of {item.turns} "
+        f"turns; {item.model_requests} model requests.",
+        f"Refused replies by code: {refusals}.",
+        f"Write attempts stopped by the guard: {item.write_attempts}.",
+    ]
+    if (
+        item.seconds_p50 is not None
+        and item.seconds_p95 is not None
+        and item.seconds_max is not None
+    ):
+        lines.append(
+            f"Seconds per turn: p50 {item.seconds_p50:.2f}, p95 {item.seconds_p95:.2f}, "
+            f"max {item.seconds_max:.2f}."
+        )
+    if item.input_tokens_per_turn is not None and item.output_tokens_per_turn is not None:
+        lines.append(
+            f"Tokens: {item.input_tokens:,} in and {item.output_tokens:,} out; per turn "
+            f"{item.input_tokens_per_turn:,.0f} in and {item.output_tokens_per_turn:,.0f} out."
+        )
+    lines.append(_cost_text(item.cost))
+    return lines
+
+
+def operations_markdown(item: Operations) -> list[str]:
+    return [
+        "## Repairs, refusals and cost",
+        "",
+        "Counted in turns. A repair is a turn that needed its second model request. A refused "
+        "reply was stopped by the guard or by the check of the reply's shape; a write attempt "
+        "is a refused reply that tried to change data or the schema, under whatever code. "
+        "Seconds are per turn, model time included; percentiles are nearest-rank.",
+        "",
+        *(f"- {line}" for line in operations_lines(item)),
+    ]
 
 
 def render_markdown(summary: Summary) -> str:
@@ -266,7 +581,7 @@ def render_markdown(summary: Summary) -> str:
         "",
         f"- Model: `{info.model_id}`, effort `{info.effort}`, output mode `{info.tool_mode}`, "
         f"prompt `{info.prompt_version}`",
-        f"- Source of the model replies: {'recorded replies, replayed' if info.source == 'replay' else 'live model calls'}",
+        f"- Source of the model replies: {_SOURCE_TEXT[info.source]}",
         f"- Schema context `{info.schema_context_sha256[:12]}`, cases `{info.suite_sha256[:12]}`",
         "",
         f"**{overall.passed} of {overall.cases - overall.skipped} cases passed** "
@@ -279,7 +594,8 @@ def render_markdown(summary: Summary) -> str:
         "## By tier",
         "",
         '"With extra columns" is a part of Passed: the expected columns were correct and '
-        'further columns followed them. "Known limitation" is a part of Failed.',
+        'further columns followed them. "Stopped by guard" is a part of Passed too: the guard '
+        'refused a reply of the model during the case. "Known limitation" is a part of Failed.',
         "",
         *_table("Tier", summary.by_tier),
         "",
@@ -313,6 +629,7 @@ def render_markdown(summary: Summary) -> str:
         ]
     else:
         lines.append("No score failed.")
+    lines += ["", *operations_markdown(summary.operations)]
     lines += ["", "## Known limitations", ""]
     if summary.known_limitations:
         lines += [
@@ -364,6 +681,8 @@ def breakdown_lines(summary: Summary, *, bullet: str = "") -> list[str]:
     lines = [
         f"{bullet}Correct, with extra columns: {overall.with_extra_columns} "
         f"(counted in the {overall.passed} passed)",
+        f"{bullet}Passed after the guard refused a reply: {overall.stopped_by_guard} "
+        f"(counted in the {overall.passed} passed)",
         f"{bullet}Failed, known limitation: {overall.known_limitation} "
         f"(counted in the {overall.failed} failed)",
     ]
@@ -387,6 +706,7 @@ def _tally(name: str, results: Iterable[CaseResult]) -> Tally:
         failed=len(group) - passed - skipped,
         skipped=skipped,
         with_extra_columns=sum(result.with_extra_columns for result in group),
+        stopped_by_guard=sum(result.stopped_by_guard for result in group),
         known_limitation=sum(
             result.failed and result.known_limitation is not None for result in group
         ),
@@ -416,14 +736,56 @@ def _verdict_text(passed: bool | None) -> str:
 
 def _table(heading: str, tallies: Sequence[Tally]) -> list[str]:
     return [
-        f"| {heading} | Cases | Passed | With extra columns | Failed | Known limitation | Skipped |",
-        "|---|---|---|---|---|---|---|",
+        f"| {heading} | Cases | Passed | With extra columns | Stopped by guard | Failed "
+        "| Known limitation | Skipped |",
+        "|---|---|---|---|---|---|---|---|",
         *(
             f"| {tally.name} | {tally.cases} | {tally.passed} | {tally.with_extra_columns} "
-            f"| {tally.failed} | {tally.known_limitation} | {tally.skipped} |"
+            f"| {tally.stopped_by_guard} | {tally.failed} | {tally.known_limitation} "
+            f"| {tally.skipped} |"
             for tally in tallies
         ),
     ]
+
+
+def _repeat_tally(name: str, cases: Sequence[RepeatCase]) -> RepeatTally:
+    return RepeatTally(
+        name=name,
+        cases=len(cases),
+        passed_all=sum(case.passed == case.repetitions for case in cases),
+        passed_some=sum(0 < case.passed < case.repetitions for case in cases),
+        passed_none=sum(case.passed == 0 for case in cases),
+    )
+
+
+def _repeat_table(heading: str, tallies: Sequence[RepeatTally], times: int) -> list[str]:
+    return [
+        f"| {heading} | Cases | Passed all {times} | Passed some | Passed none |",
+        "|---|---|---|---|---|",
+        *(
+            f"| {tally.name} | {tally.cases} | {tally.passed_all} | {tally.passed_some} "
+            f"| {tally.passed_none} |"
+            for tally in tallies
+        ),
+    ]
+
+
+def _percentile(ordered: Sequence[float], percent: int) -> float | None:
+    """The nearest-rank percentile of values already in ascending order."""
+    if not ordered:
+        return None
+    return ordered[max(math.ceil(percent / 100 * len(ordered)), 1) - 1]
+
+
+def _cost_text(cost: Cost | None) -> str:
+    if cost is None:
+        return f"Estimated cost: no price is written in the code for this model. {PRICE_NOTE}"
+    per_turn = "" if cost.per_turn_usd is None else f", ${cost.per_turn_usd:.5f} per question"
+    return (
+        f"Estimated cost: ${cost.run_usd:.4f} for these turns{per_turn}, at "
+        f"${cost.input_usd_per_million:g} per million input tokens and "
+        f"${cost.output_usd_per_million:g} per million output tokens. {PRICE_NOTE}"
+    )
 
 
 def _cell(text: str) -> str:

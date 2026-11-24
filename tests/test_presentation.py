@@ -93,6 +93,7 @@ def shown(
         answer_source="code",
         tool="run_sql",
         refused=(),
+        write_attempts=0,
         sql=None,
         where_clause=None,
         table=table,

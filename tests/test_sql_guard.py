@@ -11,7 +11,14 @@ from fsm_assistant import db
 from fsm_assistant.rules import backtest as backtest_module
 from fsm_assistant.rules.backtest import backtest
 from fsm_assistant import sql_guard
-from fsm_assistant.sql_guard import GuardDecision, ReasonCode, check_query, check_rule_clause, normalise
+from fsm_assistant.sql_guard import (
+    GuardDecision,
+    ReasonCode,
+    check_query,
+    check_rule_clause,
+    names_a_write,
+    normalise,
+)
 
 BRIEF_RULE = "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')"
 # Never finishes if it is run.
@@ -612,3 +619,139 @@ def test_information_functions_are_allowed_nowhere_and_state_functions_only_in_q
     for name in ("sqlite_version", "sqlite_source_id"):
         assert check_query(f"SELECT {name}()", db_path=fixture_db).reason_code is ReasonCode.FUNCTION_NOT_ALLOWED
         assert check_rule_clause(f"{name}() <> ''", db_path=fixture_db).reason_code is ReasonCode.FUNCTION_NOT_ALLOWED
+
+
+# Write attempts: reported with any rejection, whatever its reason code.
+
+FENCED_DELETE = "```sql\nDELETE FROM transactions\n```"
+WRITES: list[tuple[str, ReasonCode]] = [
+    ("DELETE FROM transactions", ReasonCode.NOT_READ_ONLY),
+    ("UPDATE cards SET card_on_dark_web = 1", ReasonCode.NOT_READ_ONLY),
+    ("WITH x AS (SELECT 1) DELETE FROM transactions", ReasonCode.NOT_READ_ONLY),
+    ("VACUUM", ReasonCode.NOT_SELECT),
+    ("PRAGMA writable_schema = 1", ReasonCode.NOT_READ_ONLY),
+    ("ATTACH DATABASE 'x.db' AS x", ReasonCode.NOT_READ_ONLY),
+    ("SELECT count(*) FROM cards; DROP TABLE cards;", ReasonCode.MULTIPLE_STATEMENTS),
+    ("BEGIN; DELETE FROM transactions; COMMIT", ReasonCode.MULTIPLE_STATEMENTS),
+    # The codes under which a write used to pass for an ordinary refusal.
+    (FENCED_DELETE, ReasonCode.CODE_FENCE),
+    ("Here it is:\n```\nDROP TABLE cards\n```", ReasonCode.CODE_FENCE),
+    ("EXPLAIN DELETE FROM transactions", ReasonCode.EXPLAIN),
+    ("EXPLAIN QUERY PLAN UPDATE cards SET has_chip = 0", ReasonCode.EXPLAIN),
+    ("DELETE FROM transactions WHERE errors = 'x", ReasonCode.UNTERMINATED_QUOTE),
+    ("DELETE FROM nosuchtable", ReasonCode.SQLITE_ERROR),
+    ("DELETE FROM sqlite_master", ReasonCode.SQLITE_ERROR),
+    ("TRUNCATE TABLE transactions", ReasonCode.SQLITE_ERROR),
+    ("WITH d AS (DELETE FROM transactions RETURNING *) SELECT * FROM d", ReasonCode.SQLITE_ERROR),
+    ("/* tidy up */ REPLACE INTO fraud_labels VALUES ('1', 1)", ReasonCode.NOT_READ_ONLY),
+    ("DELETE FROM transactions WHERE id IN (" + ", ".join(["1"] * 6000) + ")", ReasonCode.TOO_LONG),
+]
+NOT_WRITES: list[tuple[str, ReasonCode]] = [
+    ("SELECT 1; SELECT 2", ReasonCode.MULTIPLE_STATEMENTS),
+    ("EXPLAIN SELECT 1", ReasonCode.EXPLAIN),
+    ("```sql\nSELECT count(*) FROM cards\n```", ReasonCode.CODE_FENCE),
+    ("SELECT name FROM sqlite_master", ReasonCode.TABLE_NOT_ALLOWED),
+    ("SELECT nope FROM cards", ReasonCode.SQLITE_ERROR),
+    ("SELECT count(*) FROM transactions WHERE date >= date('now')", ReasonCode.RELATIVE_TO_TODAY),
+    # Write words that are data, a function or a comment, not a statement.
+    ("SELECT 'DELETE FROM transactions' FROM nosuchtable", ReasonCode.SQLITE_ERROR),
+    ("SELECT replace(errors, 'Bad', 'x'), nope FROM transactions", ReasonCode.SQLITE_ERROR),
+    ("SELECT nope FROM cards -- then DROP TABLE cards", ReasonCode.SQLITE_ERROR),
+    ("SELECT nope /* ; DELETE FROM cards */ FROM cards", ReasonCode.SQLITE_ERROR),
+    ("SELECT \"delete\" FROM cards", ReasonCode.SQLITE_ERROR),
+    ("SELECT CASE WHEN (id > 1) THEN (1) END, nope FROM cards", ReasonCode.SQLITE_ERROR),
+    ("SELECT load_extension('x')", ReasonCode.FUNCTION_NOT_ALLOWED),
+]
+
+
+@pytest.mark.parametrize(("sql", "code"), WRITES, ids=[code.value for _, code in WRITES])
+def test_a_rejected_write_is_reported_as_one_under_any_code(
+    fixture_db: Path, sql: str, code: ReasonCode
+) -> None:
+    decision = check_query(sql, db_path=fixture_db)
+    assert (decision.accepted, decision.reason_code) == (False, code)
+    assert decision.attempts_write
+
+
+@pytest.mark.parametrize(("sql", "code"), NOT_WRITES, ids=[code.value for _, code in NOT_WRITES])
+def test_a_rejected_read_is_not_a_write_attempt(fixture_db: Path, sql: str, code: ReasonCode) -> None:
+    decision = check_query(sql, db_path=fixture_db)
+    assert (decision.accepted, decision.reason_code) == (False, code)
+    assert not decision.attempts_write
+
+
+RULE_WRITES: list[tuple[str, ReasonCode]] = [
+    ("1=1); DELETE FROM transactions; --", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("1=1; DROP TABLE cards", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("id IN (SELECT id FROM transactions); DELETE FROM cards", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("1=1) DELETE FROM transactions WHERE (1=1", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("(DELETE FROM transactions)", ReasonCode.SQLITE_ERROR),
+    ("```\nid > 1; UPDATE cards SET has_chip = 0\n```", ReasonCode.CODE_FENCE),
+]
+RULE_NOT_WRITES: list[tuple[str, ReasonCode]] = [
+    ("1=1) UNION SELECT 1 --", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("id > 1 -- a comment", ReasonCode.CLAUSE_NOT_CONTAINED),
+    ("id IN (SELECT transaction_id FROM fraud_labels)", ReasonCode.LABEL_READ),
+    ("abs(random()) % 100 = 0", ReasonCode.NOT_DETERMINISTIC),
+    ("amount > 1000", ReasonCode.SQLITE_ERROR),
+    ("errors = 'DELETE FROM cards' AND nope = 1", ReasonCode.SQLITE_ERROR),
+]
+
+
+@pytest.mark.parametrize(("clause", "code"), RULE_WRITES)
+def test_a_rejected_clause_that_writes_is_reported_as_one(
+    fixture_db: Path, clause: str, code: ReasonCode
+) -> None:
+    decision = check_rule_clause(clause, db_path=fixture_db)
+    assert decision.reason_code is code and decision.attempts_write
+
+
+@pytest.mark.parametrize(("clause", "code"), RULE_NOT_WRITES)
+def test_a_rejected_clause_that_only_reads_is_not_a_write_attempt(
+    fixture_db: Path, clause: str, code: ReasonCode
+) -> None:
+    decision = check_rule_clause(clause, db_path=fixture_db)
+    assert decision.reason_code is code and not decision.attempts_write
+
+
+def test_an_accepted_text_is_never_a_write_attempt(fixture_db: Path) -> None:
+    for sql in ACCEPTED_QUERIES.values():
+        assert not check_query(sql, db_path=fixture_db).attempts_write
+    for clause in ACCEPTED_RULES:
+        assert not check_rule_clause(clause, db_path=fixture_db).attempts_write
+    # Text SQLite compiled as one read is a read, whatever words it holds.
+    compiled = check_query("SELECT (replace(errors, 'a', 'b')) FROM transactions", db_path=fixture_db)
+    assert compiled.accepted and names_a_write("(REPLACE INTO t VALUES (1))")
+    with pytest.raises(ValidationError, match="cannot be a write attempt"):
+        GuardDecision(accepted=True, sql="SELECT 1", attempts_write=True)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("delete from transactions", True),
+        ("  \n-- first a comment\nDrop Table cards", True),
+        ("SELECT 1; vacuum", True),
+        ("WITH a AS (SELECT 1), b AS (SELECT 2) INSERT INTO cards SELECT * FROM a", True),
+        ("EXPLAIN QUERY PLAN delete from cards", True),
+        ("x IN (1, 2)) ; create table t(x)", True),
+        ("replace into cards values (1)", True),
+        ("SELECT replace(a, 'x', 'y') FROM t", False),
+        ("SELECT (replace(a, 'x', 'y')) FROM t", False),
+        ("SELECT a FROM t WHERE note = 'please delete; drop table t'", False),
+        ("SELECT [delete], `update` FROM t", False),
+        ("SELECT CASE WHEN (a) THEN (b) END FROM t", False),
+        ("SELECT pragma_table_info.name FROM pragma_table_info('cards')", False),
+        ("SELECT 'unclosed ; delete from t", False),
+        ("", False),
+    ],
+)
+def test_a_write_keyword_counts_only_where_a_statement_can_start(text: str, expected: bool) -> None:
+    assert names_a_write(text) is expected
+
+
+def test_the_write_check_reads_a_bounded_part_of_the_text() -> None:
+    padding = "SELECT " + ", ".join(["1"] * 400_000)
+    started = time.monotonic()
+    assert not names_a_write(padding + "; DELETE FROM transactions")
+    assert time.monotonic() - started < 0.25
