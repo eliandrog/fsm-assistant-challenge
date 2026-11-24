@@ -46,7 +46,7 @@ The brief's example rule, run as written, fails on the column name; with the nam
 - **City names are not unique.** There are also towns named Rome in two US states: `state = 'GA'` (8 locations, 24 transactions) and `state = 'NY'` (9 locations, 66 transactions), with no labelled fraud. Always read `city` together with `state`.
 - **The location join key.** Join locations with `transactions.merchant_location_id = merchant_locations.id`. Joining `merchant_locations` on `merchant_id` instead pairs each transaction with every location of its merchant: 440,543,445 rows instead of 1,159,966.
 - **`date` holds timestamps, which makes day ranges a trap.** `date BETWEEN '2019-01-01' AND '2019-01-31'` compares text, and `'2019-01-31 00:00:00'` sorts after `'2019-01-31'`, so the whole of the 31st is dropped: 114,138 rows instead of January's 118,116 (the 31st has 3,978). Write a range as `date >= '2019-01-01' AND date < '2019-02-01'`.
-- **The data ends on 2019-10-31.** A filter relative to today, such as `date('now', '-30 day')`, runs without error and matches nothing.
+- **The data ends on 2019-10-31.** A filter relative to today, such as `date('now', '-30 day')`, runs without error and matches nothing. The SQL guard rejects such a query with a reason.
 - **Money is in cents** everywhere (`amount_usd_cents`, `credit_limit_usd_cents`, `yearly_income_usd_cents`, …). Divide by 100 for display only.
 - **Negative amounts.** 56,900 transactions have a negative `amount_usd_cents` (minimum −50,000). Their meaning (likely refunds) is not documented.
 - **`errors` is usually NULL.** 1,141,312 transactions have no error; otherwise one of seven fixed values (see `schema.sql`).
@@ -60,7 +60,7 @@ The brief's example rule, run as written, fails on the column name; with the nam
 - Always open it read-only: `sqlite3 'file:data/data.db?mode=ro'`. In the application only `db.py` opens it ([D-06](DECISIONS.md#d-06-read-only-is-enforced-in-three-engine-level-layers)).
 - The database is in WAL mode, and that shows even when reading. Checked on a copy, with SQLite 3.51:
   - Connecting with `mode=ro` creates nothing. The first query creates `data.db-shm` (32,768 bytes) and an empty `data.db-wal` when they are absent, and closing the connection leaves them there. Both are git-ignored. `data.db` itself is byte-identical afterwards (same SHA-256), also after rejected write attempts.
-  - If those files are absent and the directory is not writable, a `mode=ro` connection cannot read the database ("attempt to write a readonly database").
+  - If those files are absent and the directory is not writable, a `mode=ro` connection cannot read the database: every statement fails with "attempt to write a readonly database" (extended code `SQLITE_READONLY_DIRECTORY`). **So the directory holding `data.db` must be writable**, at least for the first query. `db.py` reports this case as `DatabaseAccessError` with that instruction, not as a problem with the SQL ([D-18](DECISIONS.md#d-18-connection-hardening-unknown-quoted-names-are-errors-and-values-are-capped-in-size)).
   - `mode=ro&immutable=1` reads without creating either file, but it ignores the WAL and takes no locks, so it is only correct while nothing writes to the database. The application does not use it.
   - `mode=ro` alone still lets a connection `ATTACH` and write another file, or create temp tables; `db.py` blocks those with an authorizer.
 - The test suite removes any sidecar file it caused to be created and checks that `data.db` is unchanged.

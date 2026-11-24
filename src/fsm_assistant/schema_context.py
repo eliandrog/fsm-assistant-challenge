@@ -13,6 +13,7 @@ evaluation runs are comparable. It is built once per database path and
 cached: building it scans the large tables a few times.
 """
 
+from collections.abc import Callable
 from functools import cache
 from pathlib import Path
 from typing import Any
@@ -34,7 +35,12 @@ _TIMEOUT_SECONDS = 60.0
 # types. Casting the integer side lets SQLite use the index on
 # fraud_labels.transaction_id in every join shape; without the cast a LEFT
 # JOIN or EXISTS from transactions scans all labels for each transaction.
-LABEL_JOIN = "fraud_labels.transaction_id = CAST(transactions.id AS TEXT)"
+def label_join(labels: str, transactions: str) -> str:
+    """The label join condition, for the given table names or aliases."""
+    return f"{labels}.transaction_id = CAST({transactions}.id AS TEXT)"
+
+
+LABEL_JOIN = label_join("fraud_labels", "transactions")
 
 
 @cache
@@ -110,15 +116,15 @@ def build_schema_context(db_path: Path) -> str:
     return "\n".join(lines) + "\n"
 
 
-def _notes(query: Any) -> list[str]:
+def _notes(query: Callable[[str], db.QueryResult]) -> list[str]:
     """The facts a model most often gets wrong, with figures read live."""
     transactions, negative, first_date, last_date = query(
         "SELECT count(*), sum(amount_usd_cents < 0), min(date), max(date) "
         "FROM transactions"
     ).rows[0]
     labelled, fraud = query(
-        "SELECT count(*), sum(f.is_fraud) FROM transactions t "
-        "JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)"
+        "SELECT count(*), sum(fraud_labels.is_fraud) FROM transactions "
+        f"JOIN fraud_labels ON {LABEL_JOIN}"
     ).rows[0]
     return [
         "Money: every *_usd_cents column is an integer number of US cents. "

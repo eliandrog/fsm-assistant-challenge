@@ -24,28 +24,31 @@ labelled transactions only; the unlabelled part of the flagged set is
 reported separately so the caveat can be shown. A ratio whose denominator is
 zero is `None`, never 0.
 
-Containment. The clause is untrusted text placed inside our template.
-Writes are already impossible (`db` enforces read-only in the engine); what
-this module adds is that the clause cannot change *what is measured* by
-breaking out of its parentheses. `check_clause` rejects statement
-separators, comments, bind parameters and any parenthesis that would close
-the template's own, all outside quoted text. Whether the tables and columns
-a clause names are allowed is not decided here: that is `sql_guard`'s job
-(not built yet), which is expected to run before `backtest`.
+Policy. The clause is untrusted text placed inside our template, and a rule
+that reads `fraud_labels` scores perfectly and means nothing. So `backtest`
+asks `sql_guard.check_rule_clause` first and measures only a clause it
+accepted: one that cannot break out of the template's parentheses, compiles
+as one WHERE expression, and reads neither the labels nor anything outside
+the data. A rejection is raised as `RuleClauseError` with the guard's reason
+code and reason. Writes are impossible either way (`db` enforces read-only
+in the engine).
 """
 
 from dataclasses import dataclass
 from pathlib import Path
 
 from fsm_assistant import db
+from fsm_assistant.schema_context import label_join
+from fsm_assistant.sql_guard import ReasonCode, check_rule_clause
 
 # The clause is wrapped in parentheses and followed by a newline. With the
-# checks in `check_clause` this makes it one boolean expression: it cannot
+# guard's containment check this makes it one boolean expression: it cannot
 # add a UNION, GROUP BY or LIMIT to the CTE, or end the statement early.
 #
-# The label join is the cast form prescribed by D-10, which uses the index on
-# fraud_labels.transaction_id; the uncast LEFT JOIN compares every flagged
-# row with every label. One row comes back even when nothing is flagged.
+# The label join is the cast form prescribed by D-10 (`label_join`), which
+# uses the index on fraud_labels.transaction_id; the uncast LEFT JOIN compares
+# every flagged row with every label. One row comes back even when nothing is
+# flagged.
 # Dataset totals come from fraud_labels alone: every label belongs to exactly
 # one transaction (checked by an integration test).
 _TEMPLATE = """\
@@ -68,34 +71,26 @@ SELECT
   (SELECT count(is_fraud) FROM fraud_labels) AS total_labelled,
   (SELECT coalesce(sum(is_fraud = 1), 0) FROM fraud_labels) AS total_fraud
 FROM flagged
-LEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)
-"""
-
-# The clause exactly as it would be written after WHERE. Compiled (EXPLAIN
-# does not run it) to reject text that is only valid inside our parentheses,
-# such as a bare `SELECT 1`, which there would become a scalar subquery.
-_BARE_CHECK = "EXPLAIN SELECT 1 FROM transactions WHERE {clause}\n"
-
-# Opening quote character -> closing one, as SQLite's tokenizer pairs them:
-# strings, and the three ways to quote an identifier.
-_QUOTES = {"'": "'", '"': '"', "`": "`", "[": "]"}
-
-# Characters that start a bind parameter in SQLite. Nothing is ever bound to
-# a clause, and a `$name(...)` parameter can hide parentheses from a scan.
-_PARAMETER_CHARACTERS = frozenset("?:@$#")
+LEFT JOIN fraud_labels f ON """ + label_join("f", "flagged") + "\n"
 
 
 class RuleClauseError(Exception):
     """The clause cannot be backtested.
 
     `reason` says why, in words that can be shown or handed back to the
-    model. `sqlite_message` is SQLite's own message, verbatim, when SQLite
-    rejected the clause (syntax error, unknown column, ...), else `None`.
+    model, and `reason_code` is the guard's code for it. `sqlite_message` is
+    SQLite's own message, verbatim, when SQLite rejected the clause (syntax
+    error, unknown column, ...), else `None`. A clause the read-only
+    authorizer denied is reported here too, so callers handle one error
+    type for everything that is the clause's fault.
     """
 
-    def __init__(self, reason: str, sqlite_message: str | None = None) -> None:
+    def __init__(
+        self, reason: str, reason_code: ReasonCode, sqlite_message: str | None = None
+    ) -> None:
         super().__init__(reason)
         self.reason = reason
+        self.reason_code = reason_code
         self.sqlite_message = sqlite_message
 
 
@@ -154,92 +149,49 @@ class BacktestResult:
 def backtest(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestResult:
     """Measure the rule `clause` over every transaction in the database.
 
-    Raises `RuleClauseError` when the clause is rejected by `check_clause`
-    or by SQLite (then with `sqlite_message`). `db.QueryTimeout` and the
-    other `db` errors propagate unchanged.
+    The clause is judged by `sql_guard.check_rule_clause` first (trimmed,
+    one trailing `;` dropped) and measured only if accepted. Raises
+    `RuleClauseError` when the guard rejects it, or when SQLite or the
+    read-only authorizer stops the measurement itself. `db.QueryTimeout`
+    and the other `db` errors propagate unchanged.
     """
-    clause = check_clause(clause)
+    decision = check_rule_clause(clause, db_path=db_path)
+    if decision.reason_code is not None:
+        raise RuleClauseError(
+            decision.reason or "", decision.reason_code, decision.sqlite_message
+        )
+    return _backtest_unchecked(decision.sql, db_path=db_path, timeout_seconds=timeout_seconds)
 
-    def run(template: str) -> db.QueryResult:
-        try:
-            return db.run_query(
-                template.format(clause=clause),
-                db_path=db_path,
-                row_cap=1,
-                timeout_seconds=timeout_seconds,
-            )
-        except db.QueryError as error:
-            raise RuleClauseError(
-                f"SQLite rejected the clause: {error.sqlite_message}",
-                sqlite_message=error.sqlite_message,
-            ) from error
 
-    run(_BARE_CHECK)
-    result = run(_TEMPLATE)
+def _backtest_unchecked(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestResult:
+    """Run the template with `clause` as it is. No policy is applied.
+
+    For `backtest`, after the guard has accepted the clause, and for tests
+    that show what an unguarded clause would score. Nothing else may call it.
+    """
+    try:
+        result = db.run_query(
+            _TEMPLATE.format(clause=clause),
+            db_path=db_path,
+            row_cap=1,
+            timeout_seconds=timeout_seconds,
+        )
+    except db.QueryError as error:
+        raise RuleClauseError(
+            f"SQLite rejected the clause: {error.sqlite_message}",
+            ReasonCode.SQLITE_ERROR,
+            error.sqlite_message,
+        ) from error
+    except db.ReadOnlyViolation as error:
+        raise RuleClauseError(
+            f"The clause is not a read-only expression. {error}", ReasonCode.NOT_READ_ONLY
+        ) from error
     # By column name, so the template and the result type cannot drift apart.
     return BacktestResult(
         clause=clause,
         elapsed_seconds=result.elapsed_seconds,
         **dict(zip(result.columns, result.rows[0], strict=True)),
     )
-
-
-def check_clause(clause: str) -> str:
-    """Return `clause` stripped, or raise `RuleClauseError` if it could escape the template.
-
-    A lexical scan that follows SQLite's quoting rules, so a `;` or `)`
-    inside a string literal is left alone. It does not check that the clause
-    is valid SQL (SQLite does that when the template is compiled) or which
-    tables it reads (`sql_guard`'s job).
-    """
-    text = clause.strip()
-    if not text:
-        raise RuleClauseError("The clause is empty.")
-    if "\x00" in text:
-        raise RuleClauseError("The clause contains a NUL character.")
-
-    depth = 0
-    position = 0
-    while position < len(text):
-        character = text[position]
-        if character in _QUOTES:
-            position = _end_of_quoted(text, position)
-            continue
-        if character == ";":
-            raise RuleClauseError("The clause contains ';': it must be one expression, not a statement.")
-        if text.startswith(("--", "/*"), position):
-            raise RuleClauseError(
-                "The clause contains a SQL comment ('--' or '/*'), which could hide the rest "
-                "of the query. Write a space between two minus signs."
-            )
-        if character in _PARAMETER_CHARACTERS:
-            raise RuleClauseError(f"The clause contains {character!r}: bind parameters are not allowed.")
-        if character == "(":
-            depth += 1
-        elif character == ")":
-            depth -= 1
-            if depth < 0:
-                raise RuleClauseError("The clause has a ')' with no matching '('.")
-        position += 1
-    if depth:
-        raise RuleClauseError("The clause has a '(' with no matching ')'.")
-    return text
-
-
-def _end_of_quoted(text: str, start: int) -> int:
-    """Index just past the quoted text that opens at `start`."""
-    close = _QUOTES[text[start]]
-    position = start + 1
-    while True:
-        position = text.find(close, position)
-        if position == -1:
-            raise RuleClauseError(f"The clause has an unterminated {text[start]} quote.")
-        position += 1
-        # A doubled quote is an escaped quote, except in [bracket] names.
-        if close != "]" and text.startswith(close, position):
-            position += 1
-            continue
-        return position
 
 
 def _ratio(numerator: int, denominator: int) -> float | None:
