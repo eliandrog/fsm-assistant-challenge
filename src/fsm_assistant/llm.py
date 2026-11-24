@@ -14,6 +14,10 @@ Four implementations:
 - `ReplayModel`: reads those files; needs no key and makes no request.
 - `ScriptedModel`: returns queued replies, for tests.
 
+`TappedModel` wraps any of them and notes each request of the turn in
+progress as a `ModelCall` (what was sent, what came back, how long it took),
+which is what a hosted trace shows of the model (D-27).
+
 A reply is tied to the request that produced it by `request_hash`, which
 covers the model settings, both messages, the schemas offered and the prompt
 version. Replay refuses a recording whose hash differs (D-21).
@@ -22,7 +26,10 @@ version. Replay refuses a recording whose hash differs (D-21).
 import hashlib
 import json
 import re
-from collections.abc import Sequence
+import time
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Literal, Protocol
 
@@ -392,6 +399,65 @@ class ScriptedModel:
         if isinstance(step, ModelError):
             raise step
         return step
+
+
+class ModelCall(BaseModel):
+    """One request to the model and what came back. It stays in the process."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    request: ModelRequest
+    duration_ms: int
+    reply: ModelReply | None  # None when no reply came back
+    error: str | None = None  # the class and kind of what was raised, never its text
+
+    @property
+    def system_sha256(self) -> str:
+        return hashlib.sha256(self.request.system.encode("utf-8", "surrogatepass")).hexdigest()
+
+
+# The model requests of the turn running in this context.
+_CALLS: ContextVar[list[ModelCall] | None] = ContextVar("fsm_assistant_model_calls", default=None)
+
+
+@contextmanager
+def model_calls() -> Iterator[list[ModelCall]]:
+    """Collect the requests a `TappedModel` makes inside the block, in order."""
+    calls: list[ModelCall] = []
+    token = _CALLS.set(calls)
+    try:
+        yield calls
+    finally:
+        _CALLS.reset(token)
+
+
+class TappedModel:
+    """Passes requests on and notes each one for the turn in progress."""
+
+    def __init__(self, inner: IntentModel) -> None:
+        self._inner = inner
+
+    def complete(self, request: ModelRequest) -> ModelReply:
+        started = time.monotonic()
+        reply: ModelReply | None = None
+        error: str | None = None
+        try:
+            reply = self._inner.complete(request)
+            return reply
+        except ModelOutputError as raised:
+            reply, error = raised.reply, f"ModelOutputError: {raised.kind}"
+            raise
+        except Exception as raised:
+            kind = getattr(raised, "kind", None)
+            error = type(raised).__name__ + (f": {kind}" if isinstance(kind, str) else "")
+            raise
+        finally:
+            calls = _CALLS.get()
+            if calls is not None:
+                elapsed = round((time.monotonic() - started) * 1000)
+                calls.append(
+                    ModelCall(request=request, duration_ms=elapsed, reply=reply, error=error)
+                )
 
 
 def recording_path(directory: Path, case_id: str, turn: int, call: int) -> Path:

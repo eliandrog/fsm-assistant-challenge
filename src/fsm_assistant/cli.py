@@ -14,6 +14,12 @@ given; its `--replay` re-prints a recorded run with no key and no request.
 the same rule: nothing is sent without `--yes-spend`, and `--replay` re-runs
 a recorded run offline.
 
+A command that reads the settings also sets up logging (`applog.py`): a file
+in the log directory and, with `--verbose`, the terminal's error stream.
+`ask`, `chat` and a live `eval` send a filtered trace of each turn to
+LangSmith when the settings switch that on (`tracing.py`), and say in one
+line whether they do.
+
 Exit codes. 0: the command did its job; for `ask`, the turn was answered,
 proposed a rule or asked for clarification. 1: the turn failed. 2: the
 command could not start (a bad argument or setting, no key, an unusable
@@ -27,16 +33,20 @@ its record says, or a selected case has no recording.
 """
 
 import argparse
+import logging
 import os
+import sys
 import uuid
 from collections.abc import Sequence
 from pathlib import Path
+from typing import Literal
 
-from fsm_assistant import config, model_check
+from fsm_assistant import applog, config, model_check, tracing
 from fsm_assistant.config import ConfigError, Settings, load_settings
 from fsm_assistant.evals import command as eval_command
 from fsm_assistant.evals.cases import TIERS
 from fsm_assistant.evals.runner import Selection
+from fsm_assistant.events import Label
 from fsm_assistant.graph import Assistant, TraceStep
 from fsm_assistant.llm import (
     ClaudeModel,
@@ -51,6 +61,8 @@ from fsm_assistant.llm import (
 from fsm_assistant.nl2sql import model_spec
 from fsm_assistant.presentation import render_text, safe_text
 from fsm_assistant.result import Status
+
+logger = logging.getLogger(__name__)
 
 EXIT_WORDS = frozenset({"exit", "quit"})
 
@@ -149,6 +161,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     split.add_argument("--held-out", action="store_true", help="only held-out cases")
     split.add_argument("--tuned", action="store_true", help="only tuned cases")
     evaluate.add_argument("--limit", type=int, metavar="N", help="at most the first N cases")
+    for command in (ask, chat, check, evaluate):
+        command.add_argument(
+            "--verbose", action="store_true", help="also print the log lines to stderr"
+        )
     arguments = parser.parse_args(argv)
     if arguments.command == "eval":
         if arguments.yes_spend and (arguments.replay or arguments.list):
@@ -168,13 +184,17 @@ def main(argv: Sequence[str] | None = None) -> int:
                     split="held_out" if arguments.held_out else "tuned" if arguments.tuned else None,
                     limit=arguments.limit,
                 ),
-            )
+            ),
+            verbose=arguments.verbose,
         )
     if arguments.command == "check-model":
         if arguments.yes_spend and arguments.replay:
             check.error("--yes-spend and --replay cannot be used together")
         return _check_model(
-            model=arguments.model, spend=arguments.yes_spend, replay=arguments.replay
+            model=arguments.model,
+            spend=arguments.yes_spend,
+            replay=arguments.replay,
+            verbose=arguments.verbose,
         )
     if arguments.command in ("ask", "chat"):
         if arguments.replay_dir and arguments.record_dir:
@@ -185,6 +205,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             replay_dir=arguments.replay_dir,
             record_dir=arguments.record_dir,
             case=arguments.case,
+            verbose=arguments.verbose,
         )
     if arguments.command == "graph":
         # The diagram depends on no setting, so none is read: no `.env`, no key.
@@ -202,10 +223,12 @@ def _converse(
     replay_dir: Path | None,
     record_dir: Path | None,
     case: str,
+    verbose: bool,
 ) -> int:
     """One question (`ask`) or, when `question` is None, a loop of them (`chat`)."""
+    command: Literal["ask", "chat"] = "ask" if question is not None else "chat"
     try:
-        settings = load_settings()
+        settings = _start(command, verbose)
         spec = model_spec(settings)
         model: IntentModel
         if replay_dir is not None:
@@ -218,9 +241,31 @@ def _converse(
                 _writable_directory(record_dir)
             print(f"Model: {spec.model}, live. Each question is billed to ANTHROPIC_API_KEY.")
     except (ModelUnavailable, ValueError) as error:  # ValueError: a bad setting or case name
+        if isinstance(error, ModelUnavailable):
+            logger.error("%s cannot start: no model client (%s)", command, error.kind)
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
-    assistant = Assistant(settings, model)
+    live = replay_dir is None
+    tracer = _tracer(settings, verbose) if live else None
+    print(tracing.describe(tracer, settings, live=live))
+    logger.info(
+        "%s started: model=%s prompt=%s tool_mode=%s replies=%s tracing=%s",
+        command,
+        spec.model,
+        spec.prompt_version,
+        spec.tool_mode,
+        "live" if live else "recorded",
+        "off" if tracer is None else tracer.target.describe(),
+    )
+    assistant = Assistant(settings, model, label=Label(command=command), tracer=tracer)
+    try:
+        return _turns(assistant, question, trace)
+    finally:
+        if tracer is not None:
+            tracer.close()
+
+
+def _turns(assistant: Assistant, question: str | None, trace: bool) -> int:
     conversation = uuid.uuid4().hex
     on_step = _print_step if trace else None
     if question is not None:
@@ -243,6 +288,31 @@ def _converse(
                 print("\nInterrupted. That question was not answered.")
             print()
     return 0
+
+
+def _start(command: str, verbose: bool) -> Settings:
+    """Load the settings and set up logging. A bad setting is logged, then raised."""
+    try:
+        settings = load_settings()
+    except ConfigError as error:
+        applog.configure(directory=config.DEFAULT_LOG_DIR, to_terminal=verbose)
+        logger.error("%s cannot start: invalid setting: %s", command, error)
+        raise
+    applog.configure(
+        directory=settings.log_dir if settings.log_file else None,
+        level=settings.log_level,
+        to_terminal=verbose,
+    )
+    return settings
+
+
+def _tracer(settings: Settings, verbose: bool) -> tracing.Tracer | None:
+    # With --verbose the log already shows a tracing warning on the terminal.
+    return tracing.start(settings, None if verbose else _to_stderr)
+
+
+def _to_stderr(message: str) -> None:
+    print(message, file=sys.stderr)
 
 
 def _writable_directory(directory: Path) -> None:
@@ -273,22 +343,35 @@ def _live_model(spec: ModelSpec, settings: Settings) -> IntentModel:
     return ClaudeModel.from_settings(spec, settings)
 
 
-def _evaluate(options: eval_command.Options) -> int:
+def _evaluate(options: eval_command.Options, *, verbose: bool) -> int:
     try:
-        settings = load_settings()
+        settings = _start("eval", verbose)
     except ConfigError as error:
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
-    return EXIT_BY_FINISH[eval_command.execute(options, settings, print, live_model=_live_model)]
+    logger.info(
+        "eval started: model=%s replay=%s spend=%s",
+        options.model or settings.anthropic_model, options.replay, options.spend,
+    )  # fmt: skip
+    finish = eval_command.execute(
+        options,
+        settings,
+        print,
+        live_model=_live_model,
+        tracer_for=lambda settings: _tracer(settings, verbose),
+    )
+    logger.info("eval finished: %s", finish)
+    return EXIT_BY_FINISH[finish]
 
 
-def _check_model(*, model: str | None, spend: bool, replay: bool) -> int:
+def _check_model(*, model: str | None, spend: bool, replay: bool, verbose: bool) -> int:
     try:
-        settings = load_settings()
+        settings = _start("check-model", verbose)
     except ConfigError as error:
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
     spec = model_check.check_spec(settings, model)
+    logger.info("check-model started: model=%s replay=%s spend=%s", spec.model, replay, spend)
     if replay:
         return _replay(spec, settings)
     count = len(model_check.CHECK_QUESTIONS)

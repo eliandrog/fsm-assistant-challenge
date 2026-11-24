@@ -29,8 +29,9 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-17 | The SQL guard reads SQLite's own account of a compiled statement | Accepted; refined by D-19 |
 | D-18 | Connection hardening: unknown quoted names are errors, and values are capped in size | Accepted |
 | D-19 | Pydantic models at every structured boundary, and strict type checking | Accepted |
-| D-20 | Model settings, key handling, and hosted tracing off | Accepted |
+| D-20 | Model settings, key handling, and hosted tracing off | Accepted; refined by D-27 |
 | D-21 | One model interface, with our own record and replay | Accepted |
+| D-27 | Logs for errors and health; LangSmith for traces, opt-in and built from an allow-list | Accepted |
 
 ## Template
 
@@ -469,7 +470,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-20: Model settings, key handling, and hosted tracing off
 
-**Status:** Accepted. Builds D-14.
+**Status:** Accepted. Builds D-14. Refined by D-27: opt-in hosted tracing now exists, and the forced-off switch described here also covers the whole graph run.
 
 **Context:** D-14 chose Claude and left the request settings to the task that builds the client. The wrapper library (`langchain-anthropic`) has defaults that would break the design or send data somewhere unexpected. Checked in the installed source (1.7.12): it retries a failed request twice; when `max_tokens` is not given it takes the model's maximum (128,000); it reads the API address from `ANTHROPIC_API_URL` or `ANTHROPIC_BASE_URL`, and then from a LangSmith gateway setting, before falling back to Anthropic's; and LangChain sends every call to LangSmith, a hosted tracing service, when `LANGSMITH_TRACING` or `LANGCHAIN_TRACING_V2` is `true` in the environment. The key is a secret that must not reach a log, an error message or a recorded file.
 
@@ -777,3 +778,58 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 - In the one run recorded on `turn-4` (`claude-haiku-5-5`, each case asked once), both cases were declined as the lines ask, and no other case failed except the known limitation. That shows the lines had their effect once, on the two cases they were written for, and no more. Whether they cost anything elsewhere is not tested: the suite has no case about a period only partly outside the range, where a decline would be wrong.
 - The first run's recorded replies no longer matched the request the code makes, so they could not be replayed, and they have been replaced by the `turn-4` run's. Its report and `run.json` are kept in `evals/results/history/turn-3-claude-haiku-5-5/`.
 - The system text is about 550 characters longer, about 130 tokens on every request.
+
+## D-27: Logs for errors and health; LangSmith for traces, opt-in and built from an allow-list
+
+**Status:** Accepted. Refines D-20. Builds the "Observability" section of `ARCHITECTURE.md`.
+
+**Context:** Until now the only record of a turn was what `--trace` printed while it ran. Two things were missing: a way to check afterwards whether the assistant was healthy (did turns fail, could it reach the model and the database), and a way to look at one turn step by step. The second is what LangSmith does, and the project's libraries can send to it. The invariant that governs both is D-23's: nothing read from the database is saved or sent anywhere except to the user's own screen.
+
+Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `langgraph` 1.2.24) and LangSmith's documentation:
+
+- LangChain traces a run when LangSmith's `tracing_context` says so, or else when `LANGSMITH_TRACING` or `LANGCHAIN_TRACING_V2` is `true` in the process environment (`langsmith/utils.py`, `tracing_is_enabled`; `langchain_core/tracers/context.py`). D-20 wrapped the model call in `tracing_context(enabled=False)` but not the graph run. With those variables and a LangSmith key in the process environment, LangGraph traced the whole turn: run with a recording client in place of the real one, it made 26 run operations for one answered question.
+- What it sends for a graph run is each node's input and output, which is the turn state and each update. On this graph that includes the result rows: the `execute_sql`, `present` and `remember` runs, the routing runs between them and the root run all carried them, written out as the text form of the state object. A filter given to the client (`hide_inputs`, `hide_outputs`, an anonymizer) receives that text, so keeping rows out would mean cutting them out of a string.
+- The client also adds to every run the platform, the Python and library versions, the output of `git describe` and every `LANGSMITH_*` and `LANGCHAIN_*` environment variable that does not look like a key, unless `omit_traced_runtime_info` is set (`langsmith/client.py`, `_insert_runtime_env`; `langsmith/env/_runtime_env.py`).
+- A trace's destination is a project, or an agent and one of its environments (`LANGSMITH_AGENT_ID` with `LANGSMITH_AGENT_ENVIRONMENT`: `langsmith/address.py`). LangSmith's quick start now sets up the second. Naming both a project and an agent is an error in the client.
+- LangSmith groups the traces of a conversation by the metadata key `session_id` (or `thread_id`), which must be on every run. It reads token counts from `usage_metadata` in the outputs of a run of type `llm`, and the model from the metadata `ls_provider` and `ls_model_name`.
+- `Client.batch_ingest_runs` sends finished runs in one request, synchronously, and reports a failure to a callback instead of raising.
+
+**Decision:**
+
+- **Two tools with two jobs.** The application log says whether the system is healthy and what went wrong. LangSmith shows what one turn did, step by step. Neither repeats the other.
+- **The application log** (`applog.py`): Python's `logging`, plain lines (time, level, logger, message), a rotating file `logs/app.log` (git-ignored; 2 MB, three older files). Always on; `FSM_LOG_FILE=off` writes no file, `FSM_LOG_DIR` moves it, `FSM_LOG_LEVEL` sets the level (default `INFO`) and `--verbose` also prints the lines to stderr. It is set up once, by the command that starts; library code only gets loggers.
+  - `INFO`: a command started (model id, prompt version, tracing on or off and where to); a turn finished (conversation id, turn number, outcome, error kind, model requests, elapsed milliseconds); a trace was queued, with its id.
+  - `WARNING`: a turn needed a repair; tracing could not be set up; a trace could not be sent.
+  - `ERROR`: a turn ended `failed`; the model provider or the database could not be reached; a fault no node expected; a command could not start.
+  - Never: the question, the SQL, a row, a cell value, a key, or the text of an exception. An exception's message can quote a value from the data (the run-time SQLite message of D-23) or a key, so a fault is logged as the class of the exception and the file, line and function that raised it. No traceback text is written.
+- **Hosted tracing is opt-in and off by default.** It is on only when this project's settings hold `LANGSMITH_TRACING=true` and a `LANGSMITH_API_KEY`. The variable names are LangSmith's own, so one `.env` serves; they are read into `Settings` and never exported to the process environment. The key is a `SecretStr`, read only by `tracing.py`.
+- **The libraries' own tracing is off, always.** The graph run is now wrapped in `tracing_context(enabled=False)` as the model call already was, so stray variables in the process environment trace nothing.
+- **A trace is built from an allow-list, not filtered from the state.** `events.py` describes each node's update and the finished turn as frozen models that hold rows as a count and column names. `tracing.build_runs` makes every run from those events, and a `TraceRun` cannot be constructed with an input, output or metadata key that is not on the list (`tracing.ALLOWED`; the list is in `ARCHITECTURE.md`). The `--trace` line is printed from the same events.
+- **What is sent when tracing is on:** the question; the user message of each model request (the question, the previous-turn block, the repair paragraph); the model's reply (its text and its tool call, so the SQL or clause, the explanation and the assumptions it wrote); the accepted SQL or clause; the tool chosen, the guard's verdict and reason codes, the failure sentence code wrote (not for an internal failure or an unreachable provider, whose sentence repeats a local path or the provider's error); row count, column names, the truncated flag, whether labels were read, caveat codes; outcome and status; model id, prompt version, output mode, token counts, the provider's message id; and durations.
+- **What is never sent:** result rows, cell values, any figure of a backtest, SQLite's run-time message, the answer text, either key, and anything about the machine.
+- **The system prompt goes as its version and SHA-256 unless `FSM_TRACE_SYSTEM_PROMPT=full`.** Its schema context is computed from the data. On the real database that is row counts, the values of eight low-cardinality columns, NULL counts, the date range and the label counts, which are aggregates and category names. On a small database the same rule can list values that identify a person, so sending the text is a choice the owner makes, not the default.
+- **Destination.** `LANGSMITH_AGENT_ID` with `LANGSMITH_AGENT_ENVIRONMENT`, or `LANGSMITH_PROJECT`; with neither, the project `fsm-assistant`. Half an agent address, or an agent with a project, leaves tracing off with a warning. The address is `LANGSMITH_ENDPOINT`, default `https://api.smith.langchain.com`. The Anthropic call is not routed through LangSmith.
+- **Shape.** One trace per turn, named by the command and the turn; a child run per node step in order; the model call as an `llm` run with token usage under its step; `session_id` set to the conversation id on every run; tags for the command, model, prompt version, output mode and, in an evaluation run, the case id.
+- **Sending cannot fail or slow a turn.** The trace is built after the result exists and queued; a daemon thread owned by `tracing.py` posts one request per turn with a 3-second connect and 10-second read timeout. Any failure is a logged warning, printed once on the terminal. Commands wait at most 5 seconds for pending traces when they end.
+- **Which runs trace.** `ask`, `chat` and `eval --yes-spend`. A replay never does and builds no client. `check-model` does not: it runs no turn.
+- **Dependency.** `langsmith` was already installed through `langchain-core` and imported by `llm.py`. It is now declared in `pyproject.toml` (`>=0.16,<0.17`), because `tracing.py` uses its client directly; no package was added to the lock file. `langsmith` is imported by `llm.py` (the forced-off switch) and `tracing.py` only.
+
+**Alternatives:**
+
+- **Tracing on by default.** Data would leave the machine without the owner having asked.
+- **LangGraph's own tracing with a filter on the client.** It is the least code, and it is what the state looks like on the way out that rules it out: the rows arrive at the filter inside one string, so the filter would be a pattern that removes what it recognises. A new state field would be sent until someone remembered to exclude it. Building from an allow-list fails the other way: a new field is not sent until someone adds it.
+- **A local step-by-step log** (one JSON line per node and per turn, mirroring the trace) and **a command that computes metrics from it.** Considered and dropped: they duplicate LangSmith, and a second tracing system has to be kept in step with the first.
+- **Putting the question and the SQL in the log.** They are in the trace, for whoever has switched tracing on. A log file is copied around more freely than a trace is shared, and the lines are more useful short.
+- **Tracebacks in the log.** Useful for diagnosis, but a traceback ends with the exception's message, and source lines are no help without it. The class and the place raised are enough to find the code.
+- **The client's own background sender.** It starts threads that outlive the code that made them and fetches server settings on its own. One thread owned by this package, sending one request per turn, is easier to bound and to test.
+- **OpenTelemetry.** The vendor-neutral choice, and LangSmith accepts it. Not now: it adds an exporter and a collector to configure for one process on one machine, and the same allow-list would still have to be written. The events are the place to attach it later.
+
+**Consequences:**
+
+- With tracing off, which is the default, nothing leaves the machine except the model call, and that now holds whatever the process environment says.
+- A reader without a LangSmith account sees `--trace` and the log, and no stored record of a turn's steps.
+- Run times in a trace are laid out from the measured durations, ending when the turn ended. A step's time runs from the end of the step before it, so it includes the graph's routing.
+- A trace is sent when its turn ends. A turn interrupted with Ctrl-C leaves no trace and no "turn finished" line.
+- The trace's model run is written in LangSmith's documented message format by this code, not by LangChain. How LangSmith displays it, and whether it prices the tokens, has not been seen: no trace has been sent yet.
+- No test can reach LangSmith: tests hand the tracer a recording sink, or give the real client a fake HTTP session, and network connections are refused for the whole test process.
+- The online metrics in the README are still proposed. Nothing aggregates traces or log lines.

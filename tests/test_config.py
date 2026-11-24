@@ -177,3 +177,61 @@ def test_env_file_with_a_byte_order_mark(tmp_path: Path) -> None:
     settings = load(env_file=env_file)
     assert settings.row_cap == 25
     assert settings.anthropic_model == "from-file"
+
+
+def test_logging_and_tracing_defaults() -> None:
+    settings = load()
+    assert (settings.log_file, settings.log_level) == (True, "INFO")
+    assert settings.log_dir == config.DEFAULT_LOG_DIR and settings.log_dir.is_absolute()
+    assert settings.langsmith_tracing is False and settings.langsmith_api_key is None
+    assert settings.langsmith_endpoint == "https://api.smith.langchain.com"
+    assert settings.langsmith_project is None and settings.langsmith_agent_id is None
+    assert settings.langsmith_agent_environment is None
+    assert settings.trace_system_prompt == "hash"
+
+
+def test_logging_and_tracing_settings_are_read_from_their_variables() -> None:
+    settings = load(
+        {
+            "FSM_LOG_FILE": "OFF",
+            "FSM_LOG_DIR": "var/log",
+            "FSM_LOG_LEVEL": "debug",
+            "LANGSMITH_TRACING": "True",
+            "LANGSMITH_API_KEY": "lsv2_not-a-real-key",
+            "LANGSMITH_ENDPOINT": "https://eu.api.smith.langchain.com/",
+            "LANGSMITH_PROJECT": "mine",
+            "LANGSMITH_AGENT_ID": "fsm",
+            "LANGSMITH_AGENT_ENVIRONMENT": "local",
+            "FSM_TRACE_SYSTEM_PROMPT": "full",
+            # Names of LangChain's that are not this project's settings.
+            "LANGCHAIN_TRACING_V2": "true",
+            "LANGCHAIN_API_KEY": "another",
+        }
+    )
+    assert (settings.log_file, settings.log_level) == (False, "DEBUG")
+    assert settings.log_dir == config.PROJECT_ROOT / "var" / "log"
+    assert settings.langsmith_tracing is True
+    assert settings.langsmith_endpoint == "https://eu.api.smith.langchain.com"
+    assert (settings.langsmith_project, settings.trace_system_prompt) == ("mine", "full")
+    assert (settings.langsmith_agent_id, settings.langsmith_agent_environment) == ("fsm", "local")
+    assert settings.langsmith_api_key is not None
+    assert settings.langsmith_api_key.get_secret_value() == "lsv2_not-a-real-key"
+    assert "lsv2_not-a-real-key" not in repr(settings) + repr(settings.model_dump())
+    assert "another" not in repr(settings)
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("FSM_LOG_FILE", "yes", "FSM_LOG_FILE must be on or off, got 'yes'"),
+        ("FSM_LOG_LEVEL", "LOUD", "FSM_LOG_LEVEL must be one of"),
+        ("LANGSMITH_TRACING", "1", "LANGSMITH_TRACING must be true or false, got '1'"),
+        ("LANGSMITH_ENDPOINT", "smith.example", "LANGSMITH_ENDPOINT must start with https://"),
+        ("FSM_TRACE_SYSTEM_PROMPT", "all", "FSM_TRACE_SYSTEM_PROMPT must be one of"),
+    ],
+)
+def test_invalid_logging_and_tracing_values_name_the_variable(
+    name: str, value: str, message: str
+) -> None:
+    with pytest.raises(ConfigError, match=message):
+        load({name: value})

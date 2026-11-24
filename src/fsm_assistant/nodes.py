@@ -21,6 +21,8 @@ its place in the failure and in the repair; the message itself goes to
 The settings and the model are given to `TurnNodes`; nothing is global.
 """
 
+import logging
+
 from fsm_assistant import db
 from fsm_assistant.config import Settings
 from fsm_assistant.llm import (
@@ -61,6 +63,8 @@ from fsm_assistant.state import (
 )
 
 type Update = dict[str, object]
+
+logger = logging.getLogger(__name__)
 
 # What stands in for SQLite's message when an approved statement fails while
 # it runs. Fixed text: the message itself can quote a value from the data.
@@ -376,4 +380,5 @@ def _refused(decision: GuardDecision, subject: str, *, about_rule: bool) -> Fail
 
 def _environment(error: db.DbError) -> Failure:
     """The database could not be used at all: no reply from the model can fix that."""
+    logger.error("the database could not be read: %s", type(error).__name__)
     return Failure(kind="internal", message=f"The database could not be read. {error}")

@@ -106,6 +106,16 @@ def test_env_example_names_every_variable_and_holds_no_secret() -> None:
         "FSM_ROW_CAP",
         "FSM_QUERY_TIMEOUT_SECONDS",
         "FSM_MAX_RESULT_BYTES",
+        "FSM_LOG_LEVEL",
+        "FSM_LOG_DIR",
+        "FSM_LOG_FILE",
+        "LANGSMITH_TRACING",
+        "LANGSMITH_API_KEY",
+        "LANGSMITH_ENDPOINT",
+        "LANGSMITH_AGENT_ID",
+        "LANGSMITH_AGENT_ENVIRONMENT",
+        "LANGSMITH_PROJECT",
+        "FSM_TRACE_SYSTEM_PROMPT",
     } == values.keys()
     assert all(value == "" for value in values.values())
     assert load_settings({}, config.PROJECT_ROOT / ".env.example") == load()

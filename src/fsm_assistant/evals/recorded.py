@@ -58,6 +58,7 @@ from fsm_assistant.llm import (
 from fsm_assistant.model_check import LibraryVersions
 from fsm_assistant.nl2sql import model_spec
 from fsm_assistant.schema_context import build_schema_context
+from fsm_assistant.tracing import Tracer
 
 RUN_RECORDINGS_DIR = PROJECT_ROOT / "evals" / "recordings" / "runs"
 RUN_FILE = "run.json"
@@ -239,6 +240,7 @@ def record_run(
     on_case: Callable[[CaseRun], None] | None = None,
     cases_directory: Path = DEFAULT_CASES_DIRECTORY,
     pins_file: Path = DEFAULT_PINS_FILE,
+    tracer: Tracer | None = None,
 ) -> LiveRun:
     """Run `cases` on `client`, recording every reply and merging the results into `run.json`.
 
@@ -270,7 +272,7 @@ def record_run(
             watched = None
         else:
             watched = _Watched(RecordingModel(client, directory, case.id))
-            run = run_case(case, suite, settings, watched)
+            run = run_case(case, suite, settings, watched, tracer=tracer)
             if watched.unavailable in _STOP_AFTER:
                 stopped_by = watched.unavailable
                 break

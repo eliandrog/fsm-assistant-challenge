@@ -269,6 +269,7 @@ source = { editable = "." }
 dependencies = [
     { name = "langchain-anthropic" },
     { name = "langgraph" },
+    { name = "langsmith" },
     { name = "pydantic" },
 ]
 
@@ -282,6 +283,7 @@ dev = [
 requires-dist = [
     { name = "langchain-anthropic", specifier = ">=1.7,<2" },
     { name = "langgraph", specifier = ">=1.2,<1.3" },
+    { name = "langsmith", specifier = ">=0.16,<0.17" },
     { name = "pydantic", specifier = ">=2,<3" },
 ]
 

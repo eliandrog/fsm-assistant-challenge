@@ -16,3 +16,6 @@ __pycache__/
 # SQLite sidecar files
 data/*.db-shm
 data/*.db-wal
+
+# Local logs of turns (docs/DECISIONS.md, D-27)
+logs/
