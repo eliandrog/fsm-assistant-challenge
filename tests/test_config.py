@@ -1,0 +1,143 @@
+"""config: defaults, environment overrides, .env parsing, validation."""
+
+from dataclasses import FrozenInstanceError
+from pathlib import Path
+
+import pytest
+
+from fsm_assistant import config
+from fsm_assistant.config import ConfigError, load_settings, parse_env_file
+
+
+def load(environ=None, env_file=None):
+    """load_settings isolated from the developer's real environment and .env."""
+    return load_settings(environ or {}, env_file)
+
+
+def test_defaults():
+    settings = load()
+    assert settings.db_path == config.PROJECT_ROOT / "data" / "data.db"
+    assert settings.db_path.is_absolute()
+    assert settings.ollama_host == "http://localhost:11434"
+    assert settings.ollama_model is None
+    assert settings.row_cap == config.DEFAULT_ROW_CAP
+    assert settings.query_timeout_seconds == config.DEFAULT_QUERY_TIMEOUT_SECONDS
+
+
+def test_project_root_is_the_repository():
+    assert (config.PROJECT_ROOT / "pyproject.toml").is_file()
+
+
+def test_environment_overrides():
+    settings = load(
+        {
+            "FSM_DB_PATH": "/tmp/other.db",
+            "OLLAMA_HOST": "http://example:1234/",
+            "OLLAMA_MODEL": "qwen3:14b",
+            "FSM_ROW_CAP": "50",
+            "FSM_QUERY_TIMEOUT_SECONDS": "2.5",
+        }
+    )
+    assert settings.db_path == Path("/tmp/other.db")
+    assert settings.ollama_host == "http://example:1234"
+    assert settings.ollama_model == "qwen3:14b"
+    assert settings.row_cap == 50
+    assert settings.query_timeout_seconds == 2.5
+
+
+def test_relative_db_path_is_resolved_against_the_project_not_the_cwd(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    assert load({"FSM_DB_PATH": "data/copy.db"}).db_path == config.PROJECT_ROOT / "data/copy.db"
+    assert load().db_path == config.PROJECT_ROOT / "data" / "data.db"
+
+
+def test_empty_values_count_as_unset():
+    settings = load({"FSM_DB_PATH": "", "OLLAMA_MODEL": "  ", "FSM_ROW_CAP": ""})
+    assert settings.db_path == config.DEFAULT_DB_PATH
+    assert settings.ollama_model is None
+    assert settings.row_cap == config.DEFAULT_ROW_CAP
+
+
+def test_settings_are_immutable():
+    with pytest.raises(FrozenInstanceError):
+        load().row_cap = 5
+
+
+def test_missing_model_fails_only_when_a_model_is_requested():
+    settings = load()  # loading without OLLAMA_MODEL is fine
+    with pytest.raises(ConfigError, match="OLLAMA_MODEL"):
+        settings.require_model()
+    assert load({"OLLAMA_MODEL": "qwen3:14b"}).require_model() == "qwen3:14b"
+
+
+def test_missing_db_file_is_not_an_error_at_load_time():
+    assert load({"FSM_DB_PATH": "/nonexistent/x.db"}).db_path == Path("/nonexistent/x.db")
+
+
+@pytest.mark.parametrize(
+    ("name", "value", "message"),
+    [
+        ("FSM_ROW_CAP", "many", "must be a number"),
+        ("FSM_ROW_CAP", "1.5", "must be a number"),
+        ("FSM_ROW_CAP", "0", "greater than zero"),
+        ("FSM_ROW_CAP", "-3", "greater than zero"),
+        ("FSM_QUERY_TIMEOUT_SECONDS", "soon", "must be a number"),
+        ("FSM_QUERY_TIMEOUT_SECONDS", "0", "greater than zero"),
+        ("FSM_QUERY_TIMEOUT_SECONDS", "inf", "greater than zero"),
+        ("FSM_QUERY_TIMEOUT_SECONDS", "nan", "greater than zero"),
+        ("OLLAMA_HOST", "localhost:11434", "http://"),
+    ],
+)
+def test_invalid_values_name_the_variable(name, value, message):
+    with pytest.raises(ConfigError, match=name) as error:
+        load({name: value})
+    assert message in str(error.value)
+
+
+def test_parse_env_file():
+    text = """
+        # a comment
+        OLLAMA_MODEL=qwen3:14b
+        FSM_ROW_CAP = 25
+        QUOTED="with spaces"
+        SINGLE='x=y'
+        EMPTY=
+    """
+    assert parse_env_file(text) == {
+        "OLLAMA_MODEL": "qwen3:14b",
+        "FSM_ROW_CAP": "25",
+        "QUOTED": "with spaces",
+        "SINGLE": "x=y",
+        "EMPTY": "",
+    }
+
+
+@pytest.mark.parametrize("line", ["JUST_A_WORD", "=value", "export FOO=bar"])
+def test_parse_env_file_rejects_other_syntax(line):
+    with pytest.raises(ConfigError, match="line 2"):
+        parse_env_file(f"OK=1\n{line}\n")
+
+
+def test_env_file_is_read_and_the_environment_wins(tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text("FSM_ROW_CAP=25\nOLLAMA_MODEL=from-file\n")
+    assert load(env_file=env_file).row_cap == 25
+    settings = load({"FSM_ROW_CAP": "7"}, env_file)
+    assert settings.row_cap == 7
+    assert settings.ollama_model == "from-file"
+
+
+def test_missing_env_file_is_ignored(tmp_path):
+    assert load(env_file=tmp_path / "absent.env").row_cap == config.DEFAULT_ROW_CAP
+
+
+def test_os_environ_is_the_default_source(monkeypatch):
+    monkeypatch.setenv("FSM_ROW_CAP", "3")
+    assert load_settings(env_file=None).row_cap == 3
+
+
+def test_env_example_is_a_valid_env_file():
+    values = parse_env_file((config.PROJECT_ROOT / ".env.example").read_text())
+    assert {"FSM_DB_PATH", "OLLAMA_HOST", "OLLAMA_MODEL", "FSM_ROW_CAP",
+            "FSM_QUERY_TIMEOUT_SECONDS"} <= values.keys()
+    load_settings({}, config.PROJECT_ROOT / ".env.example")

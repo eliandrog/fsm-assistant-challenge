@@ -1,6 +1,10 @@
-"""Entry point for the interface. No business logic here.
+"""Thin interface layer (entry point).
 
-Placeholder: prints a status line.
+Responsibility: take an FSM's question, call the pipeline, show the SQL,
+the result and any proposed rule with its backtest. No business logic here.
+
+Placeholder: prints a status line. The interface choice (CLI vs minimal
+web UI) is an open decision, see docs/ARCHITECTURE.md.
 """
 
 

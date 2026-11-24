@@ -1,4 +1,6 @@
 """FSM Assistant: natural-language data exploration and fraud-rule proposal.
 
-Scaffold only: the modules state their intended responsibility and contain no logic yet.
+Work in progress. Implemented: config, db (read-only execution),
+schema_context and rules.backtest. The other modules state their intended responsibility in
+their docstring and contain no logic yet. See docs/ARCHITECTURE.md.
 """
