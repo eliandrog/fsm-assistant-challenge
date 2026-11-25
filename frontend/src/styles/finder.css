@@ -1,0 +1,458 @@
+/* ---------- View switch (top bar) ---------- */
+.views {
+  display: flex;
+  gap: 2px;
+  margin-left: 8px;
+  padding: 2px;
+  border-radius: var(--radius-s);
+  background: var(--surface-sunk);
+}
+.view {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.view[aria-current='page'] {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 2px var(--shadow-near);
+}
+@media (pointer: coarse) {
+  .view {
+    min-height: 40px;
+  }
+}
+
+/* ---------- Rule finder tab ---------- */
+.column-wide {
+  max-width: var(--column-wide);
+}
+.finder {
+  display: grid;
+  gap: 16px;
+  padding: 24px 0 48px;
+}
+.finder h2 {
+  font-size: 20px;
+  font-weight: 650;
+}
+.finder h3 {
+  font-size: 15px;
+  font-weight: 650;
+}
+.finder-head {
+  display: grid;
+  gap: 10px;
+}
+.finder-lede {
+  max-width: 44rem;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.finder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.finder-cost,
+.bank-counts,
+.finder-note,
+.finder-loading,
+.entry-aside,
+.review-hint {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.btn-solid {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn-solid:hover:not(:disabled) {
+    border-color: var(--accent-hover);
+    background: var(--accent-hover);
+  }
+}
+.finder-running,
+.finder-none,
+.finder-empty {
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  font-size: 14px;
+  text-wrap: pretty;
+}
+.finder-running {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.finder-none {
+  border-color: var(--warn-border);
+  background: var(--warn-soft);
+}
+.finder-error {
+  padding: 10px 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-m);
+  background: var(--danger-soft);
+  font-size: 14px;
+  color: var(--danger);
+}
+.run-summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+.run-summary ul {
+  padding-left: 18px;
+  list-style: disc;
+  font-size: 13.5px;
+  color: var(--text-muted);
+}
+.bank-section {
+  display: grid;
+  gap: 10px;
+}
+.bank .table-scroll {
+  max-height: none;
+}
+.bank th[scope='row'] {
+  top: auto;
+  min-width: 14rem;
+  background: var(--surface);
+  white-space: normal;
+}
+.bank-open {
+  align-items: flex-start;
+  width: 100%;
+  font-weight: 600;
+  text-align: left;
+  white-space: normal;
+}
+.bank tr[data-open] .disclosure-chevron {
+  transform: rotate(90deg);
+}
+.bank-none {
+  color: var(--text-faint);
+}
+.bank-detail > td {
+  padding: 0;
+  background: var(--surface-sunk);
+  white-space: normal;
+}
+.entry {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+.entry h4 {
+  font-size: 14px;
+  font-weight: 650;
+}
+.entry h5 {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.entry-block {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+}
+.checks-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.checks ul,
+.entry-matches {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 13.5px;
+  font-variant-numeric: tabular-nums;
+}
+.assumptions {
+  border-left-color: var(--warn);
+}
+.assumptions h4 {
+  color: var(--text);
+}
+.review {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-m);
+  background: var(--surface);
+  font-size: 14px;
+}
+.review label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.review textarea {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  font: inherit;
+  color: inherit;
+  resize: vertical;
+}
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+@media (max-width: 620px) {
+  .checks-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .views {
+    margin-left: 0;
+  }
+}
+
+/* ---------- Two steps: proposed scenarios, processing, delete ---------- */
+.scenarios {
+  display: grid;
+  gap: 12px;
+}
+.scenario {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+}
+.scenario h4,
+.progress h3 {
+  font-size: 15px;
+  font-weight: 650;
+  text-wrap: balance;
+}
+.scenario-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.scenario-cost,
+.scenario-state,
+.progress-hypothesis {
+  flex-basis: 100%;
+  font-size: 13px;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+.btn-danger {
+  color: var(--danger);
+}
+.btn-danger-solid {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--surface);
+}
+.confirm {
+  display: grid;
+  flex-basis: 100%;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-m);
+  background: var(--danger-soft);
+  font-size: 13.5px;
+  text-wrap: pretty;
+}
+.progress {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-color: var(--accent);
+}
+.progress[data-state='failed'],
+.progress[data-state='interrupted'] {
+  border-color: var(--danger-border);
+}
+.progress-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.steps {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+.steps li {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+}
+.steps li[data-state='done'] {
+  color: var(--text);
+}
+.steps li[data-state='current'] {
+  background: var(--accent-soft);
+  font-weight: 600;
+  color: var(--text);
+}
+.steps li[data-state='unreached'] {
+  color: var(--text-faint);
+}
+.step-mark {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  font-weight: 700;
+  color: var(--accent);
+}
+.steps li[data-state='current'] .step-mark {
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+}
+.step-state {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-faint);
+}
+.progress-clause {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  overflow: hidden;
+}
+.progress-clause .panel-title {
+  padding: 6px 12px;
+}
+.progress-result {
+  font-size: 14px;
+  text-wrap: pretty;
+}
+/* The mark of the step in progress turns only for a reader who has not asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .steps li[data-state='current'] .step-mark {
+    border-right-color: transparent;
+    animation: step-turn 0.9s linear infinite;
+  }
+  @keyframes step-turn {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+}
+@media (max-width: 620px) {
+  .steps li {
+    grid-template-columns: 20px minmax(0, 1fr);
+  }
+  .step-state {
+    grid-column: 2;
+  }
+}
+
+/* A grid item is as wide as its content unless told otherwise: the table scrolls in its own box. */
+.finder,
+.finder-head,
+.bank-section,
+.scenarios,
+.scenario,
+.progress,
+.entry {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* ---------- An opened entry: the answer first, the detail after ---------- */
+.entry-panel {
+  min-width: 0;
+  overflow: hidden;
+  /* Clear of the top bar when it is scrolled to. */
+  scroll-margin-top: calc(var(--topbar-h) + 8px);
+}
+.entry-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px 0;
+}
+.entry-panel-head h4 {
+  font-size: 16px;
+  font-weight: 650;
+  text-wrap: balance;
+}
+.entry,
+.entry > *,
+.scenario > *,
+.progress > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.verdict-sentence {
+  font-size: 15.5px;
+  font-weight: 550;
+  text-wrap: pretty;
+}
+.rule-tested {
+  overflow: hidden;
+}
+.rule-tested-note {
+  padding: 8px 14px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+/* A clause is read, not scanned: it wraps. Any other SQL scrolls inside its own box. */
+.sql-wrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.caveat p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.caveat-title {
+  font-weight: 620;
+}
+.caveat .caveat-title + .caveat-code {
+  display: inline;
+  margin-left: 4px;
+  font-weight: 500;
+  opacity: 0.75;
+}
+.caveat .caveat-title + .caveat-code::after {
+  content: '';
+  display: block;
+}
+.bank-why {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.entry-details > summary {
+  padding: 8px 2px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.entry-details[open] > summary {
+  margin-bottom: 8px;
+}

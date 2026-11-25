@@ -1,0 +1,5 @@
+{
+  "code": "finder_busy",
+  "message": "The rule finder is busy with another request. Wait for it to finish, then try again.",
+  "fields": []
+}

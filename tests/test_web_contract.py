@@ -18,17 +18,21 @@ import re
 from pathlib import Path
 
 import pytest
+from pydantic import JsonValue
 from conftest import RecordingSink, call_reply, rule_reply, sql_reply
 from fastapi.testclient import TestClient
+from finder_fixtures import BACKGROUND, FADING, LABEL_LEAK, ROME_BY_NAME, build_history
 from scan_fixtures import MAIN, SACRAMENTO, Group, build
 
-from fsm_assistant import demo, typescript
-from fsm_assistant.api import create_app
+from fsm_assistant import demo, runtime, typescript
+from fsm_assistant.api import ApiError, FinderOverview, create_app
 from fsm_assistant.config import PROJECT_ROOT, Settings, load_settings
 from fsm_assistant.events import Label
+from fsm_assistant.finder import Finder, RunProgress
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import ModelError, ModelReply, ModelUnavailable, ScriptedModel
 from fsm_assistant.result import TurnResult
+from fsm_assistant.rule_bank import BankEntry, FinderRun
 from fsm_assistant.tracing import Destination, Tracer
 
 FIXTURES = PROJECT_ROOT / "frontend" / "src" / "test" / "fixtures"
@@ -93,6 +97,198 @@ def _stable(text: str) -> str:
     return json.dumps(body, indent=2, ensure_ascii=False) + "\n"
 
 
+FIXED_TIME = "2000-01-01T00:00:00+00:00"
+FINDER_SCENARIOS: dict[str, JsonValue] = {
+    "rome": {
+        "title": "Card used in Rome, Italy",
+        "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, "
+        "far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+        "columns": ["transactions.merchant_location_id", "merchant_locations.city", "merchant_locations.state"],
+        "assumptions": [
+            "merchant_locations.state holds a country name outside the US.",
+            "Every cardholder lives in the US; the schema does not say so.",
+        ],
+    },
+    "rome_again": {
+        "title": "Purchases at Italian locations named Rome",
+        "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+        "columns": ["transactions.merchant_location_id"],
+        "assumptions": ["Location 1 is the one in Rome, Italy."],
+    },
+    "fading": {
+        "title": "One merchant taking many cards",
+        "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+        "columns": ["transactions.merchant_id"],
+        "assumptions": ["Merchant 30 stands for a merchant with unusually many distinct cards."],
+    },
+    "background": {
+        "title": "Card testing at $5.17",
+        "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly "
+        "$5.17 (517 cents).",
+        "columns": ["transactions.amount_usd_cents"],
+        "assumptions": ["$5.17 is a chosen amount; no data supports it.", "Negative amounts are left out."],
+    },
+    "vague": {
+        "title": "Unusually large purchase",
+        "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+        "columns": ["transactions.amount_usd_cents"],
+        "assumptions": ["Larger than usual is left undefined."],
+    },
+    "dark_web": {
+        "title": "Dark-web-exposed card spent on cash-equivalent merchants",
+        "hypothesis": "A card whose number was sold is used to buy what turns into cash. Flag money "
+        "transfers of at least $100 on a card flagged as seen on the dark web.",
+        "columns": ["cards.card_on_dark_web", "merchants.mcc", "transactions.amount_usd_cents"],
+        "assumptions": ["card_on_dark_web = 1 marks an exposed card; the schema lists only 0."],
+    },
+    "waiting": {
+        "title": "Many declined attempts before one success",
+        "hypothesis": "A stolen card number is tried with guessed details. Flag a successful "
+        "transaction on a card that had at least 3 transactions with an error in the hour before.",
+        "columns": ["transactions.errors", "transactions.card_id", "transactions.date"],
+        "assumptions": ["Any non-NULL value of errors counts as a declined attempt."],
+    },
+    "unwanted": {
+        "title": "Purchases at night",
+        "hypothesis": "Fraud happens while the cardholder sleeps. Flag transactions between 01:00 and 05:00.",
+        "columns": ["transactions.date"],
+        "assumptions": ["transactions.date is in the cardholder's local time."],
+    },
+    "leak": {
+        "title": "Transactions already known as fraud",
+        "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+        "columns": ["fraud_labels.is_fraud"],
+        "assumptions": ["A label is known when the transaction happens."],
+    },
+}
+# One long line, as a model writes it: an exposed card, a cash-like merchant, an amount.
+DARK_WEB = (
+    "transactions.amount_usd_cents >= 10000 AND transactions.card_id IN (SELECT c.id FROM cards c "
+    "WHERE c.card_on_dark_web = 1) AND transactions.merchant_id IN (SELECT m.id FROM merchants m "
+    "WHERE m.mcc IN (4829, 6011, 6051)) AND transactions.transaction_type IN ('Online Transaction', "
+    "'Swipe Transaction', 'Chip Transaction')"
+)
+VAGUE = call_reply(
+    "ask_clarification",
+    question="How much larger than usual should a purchase be to count?",
+    suggestions=["At least 5 times the card's average amount", "Above $1,000"],
+)
+
+
+def _stable_finder(text: str) -> str:
+    """A finder response as its fixture holds it: the clock readings fixed."""
+
+    def fixed(value: object) -> object:
+        if isinstance(value, dict):
+            return {
+                key: 1234
+                if key == "elapsed_ms"
+                else FIXED_TIME
+                if key.endswith("_at") and isinstance(item, str)
+                else fixed(item)
+                for key, item in value.items()
+            }
+        return [fixed(item) for item in value] if isinstance(value, list) else value
+
+    return json.dumps(fixed(json.loads(text)), indent=2, ensure_ascii=False) + "\n"
+
+
+def _finder(
+    settings: Settings, names: tuple[str, ...], *turns: ModelReply | ModelError, offline: bool = False
+) -> tuple[TestClient, Finder]:
+    """A server whose finder will be told `names` as its scenarios and answer their turns with `turns`."""
+    batch = call_reply("propose_scenarios", scenarios=[FINDER_SCENARIOS[name] for name in names])
+    finder = runtime.open_finder(
+        settings,
+        scenario_model=ScriptedModel([batch]),
+        turn_model=ScriptedModel(turns),
+        replies="demo" if offline else "recorded",
+    )
+    app = create_app(settings, Assistant(settings, ScriptedModel(())), finder=finder)
+    return TestClient(app, base_url="http://127.0.0.1"), finder
+
+
+def _frames(finder: Finder, entry_id: int) -> str:
+    """Every progress body of processing one scenario, in order, as the page would poll them."""
+    frames: list[JsonValue] = []
+    finder.process(entry_id, lambda frame: frames.append(json.loads(frame.model_dump_json())))
+    return _stable_finder(json.dumps(frames))
+
+
+def _finder_fixtures(folder: Path) -> dict[str, str]:
+    """The finder's responses: an empty bank, scenarios proposed, each processed, a duplicate, a decision."""
+    history = build_history(folder / "history.db")
+
+    def settings(name: str) -> Settings:
+        return _settings(history, FSM_RULE_BANK_PATH=str(folder / f"{name}.db"))
+
+    first, finder = _finder(
+        settings("bank"),
+        ("rome", "fading", "background", "vague", "leak", "rome_again", "waiting", "unwanted"),
+        rule_reply(ROME_BY_NAME, "Rome means the city in Italy, not the towns of that name in the US."),
+        rule_reply(FADING, "Merchant 30 is taken as the merchant meant."),
+        rule_reply(BACKGROUND, "Only an amount of exactly 517 cents is flagged."),
+        VAGUE,
+        rule_reply(LABEL_LEAK),
+        rule_reply(LABEL_LEAK),
+        rule_reply("merchant_location_id = 1"),
+    )
+    empty = first.get("/api/finder/entries").text
+    proposed = first.post("/api/finder/scenarios", json={"count": 8}).text
+    waiting = first.get("/api/finder/entries").text
+    scenario = first.get("/api/finder/entries/1").text
+    frames = {name: _frames(finder, number) for number, name in enumerate(
+        ("confirmed", "not_confirmed", "no_signal", "clarification", "rejected", "duplicate"), start=1
+    )}  # fmt: skip
+    discarded = first.post("/api/finder/scenarios/8/discard").text
+    overview = first.get("/api/finder/entries").text
+    as_found = {number: first.get(f"/api/finder/entries/{number}").text for number in range(1, 6)}
+    approved = first.post(
+        "/api/finder/entries/1/decision",
+        json={"decision": "approved", "note": "Holds: every labelled fraud is in Rome, Italy."},
+    ).text
+    nothing, none_finder = _finder(
+        settings("nothing"), ("fading", "background", "vague", "dark_web"),
+        rule_reply(FADING), rule_reply(BACKGROUND), VAGUE,
+        rule_reply(DARK_WEB, "An exposed card is one with card_on_dark_web = 1."),
+    )  # fmt: skip
+    for item in none_finder.propose(4).items:
+        none_finder.process(item.entry_id)
+    failed = _finder(settings("failed"), ())[0].post("/api/finder/scenarios").text
+    exhausted = _finder(settings("demo"), (), offline=True)[0].post("/api/finder/scenarios").text
+    silent, silent_finder = _finder(
+        settings("silent"), ("rome",), ModelUnavailable("timeout", "The model did not reply in time.")
+    )
+    silent.post("/api/finder/scenarios")
+    return {
+        "finder_overview_empty.json": _stable_finder(empty),
+        "finder_proposed.json": _stable_finder(proposed),
+        "finder_proposed_failed.json": _stable_finder(failed),
+        "finder_proposed_demo_exhausted.json": _stable_finder(exhausted),
+        "finder_overview_waiting.json": _stable_finder(waiting),
+        "finder_overview.json": _stable_finder(overview),
+        "finder_overview_none_confirmed.json": _stable_finder(nothing.get("/api/finder/entries").text),
+        **{f"finder_progress_{name}.json": text for name, text in frames.items()},
+        "finder_progress_failed.json": _frames(silent_finder, 1),
+        "finder_entry_proposed.json": _stable_finder(scenario),
+        "finder_entry_flags_nothing.json": _stable_finder(nothing.get("/api/finder/entries/4").text),
+        "finder_entry_discarded.json": _stable_finder(discarded),
+        "finder_entry_confirmed.json": _stable_finder(as_found[1]),
+        "finder_entry_approved.json": _stable_finder(approved),
+        "finder_entry_not_confirmed.json": _stable_finder(as_found[2]),
+        "finder_entry_no_signal.json": _stable_finder(as_found[3]),
+        "finder_entry_clarification.json": _stable_finder(as_found[4]),
+        "finder_entry_rejected.json": _stable_finder(as_found[5]),
+        "api_error_finder_busy.json": _stable(
+            ApiError(
+                code="finder_busy",
+                message="The rule finder is busy with another request. Wait for it to finish, "
+                "then try again.",
+            ).model_dump_json()
+        ),
+    }
+
+
 def _turn(settings: Settings, question: str, *script: ModelReply | ModelError) -> str:
     assistant = Assistant(settings, ScriptedModel(script), label=Label(command="web"))
     client = TestClient(create_app(settings, assistant), base_url="http://127.0.0.1")
@@ -125,6 +321,7 @@ def fixtures(fixture_db: Path, tmp_path_factory: pytest.TempPathFactory) -> dict
     rule = _settings(build(folder / "rule.db", RULE_HISTORY))
     refused = TestClient(create_app(small, Assistant(small, ScriptedModel(()))), base_url="http://127.0.0.1")
     return {
+        **_finder_fixtures(folder),
         "answered_scalar.json": _turn(
             small, "How many transactions are there?", sql_reply(COUNT, explanation="Counts every transaction.")
         ),
@@ -237,7 +434,7 @@ def test_the_fixtures_cover_every_outcome_and_what_the_interface_must_render(
     turns = {
         name: TurnResult.model_validate_json(text)
         for name, text in fixtures.items()
-        if not name.startswith(("health", "api_error"))
+        if not name.startswith(("health", "api_error", "finder"))
     }
     assert {turn.outcome for turn in turns.values()} == {
         "answered", "rule_proposed", "clarification", "cannot_answer", "rejected", "failed",
@@ -268,3 +465,85 @@ def test_the_fixtures_cover_every_outcome_and_what_the_interface_must_render(
     assert failed.error is not None and failed.error.detail, "SQLite's own words, for the user"
     assert turns["rejected.json"].refused and turns["clarification.json"].suggestions
     assert "\x1b" in fixtures["answered_hostile.json"] or "\\u001b" in fixtures["answered_hostile.json"]
+
+
+def test_the_finder_fixtures_cover_every_status_and_what_the_tab_must_render(
+    fixtures: dict[str, str],
+) -> None:
+    overview = FinderOverview.model_validate_json(fixtures["finder_overview.json"])
+    assert [entry.status for entry in overview.entries] == [
+        "confirmed", "not_confirmed", "no_signal", "not_built", "not_built",
+    ]  # fmt: skip
+    assert overview.entries[0].matches == 1 and overview.last_run is not None
+    assert [scenario.id for scenario in overview.proposed] == [7] and overview.discarded == 1
+    waiting = FinderOverview.model_validate_json(fixtures["finder_overview_waiting.json"])
+    assert len(waiting.proposed) == 8 and waiting.entries == () and waiting.proposed[0].assumptions
+    empty = FinderOverview.model_validate_json(fixtures["finder_overview_empty.json"])
+    assert (empty.entries, empty.proposed, empty.last_run) == ((), (), None)
+    nothing = FinderOverview.model_validate_json(fixtures["finder_overview_none_confirmed.json"])
+    assert nothing.entries and all(entry.status != "confirmed" for entry in nothing.entries)
+
+    entries = {
+        name: BankEntry.model_validate_json(text)
+        for name, text in fixtures.items()
+        if name.startswith("finder_entry")
+    }
+    confirmed = entries["finder_entry_confirmed.json"]
+    assert confirmed.rule is not None and confirmed.backtest_sql and confirmed.monthly_sql
+    assert confirmed.scenario_assumptions and confirmed.rule_assumptions and confirmed.matches
+    assert confirmed.caveats and all(check.passed for check in confirmed.criteria)
+    assert confirmed.decision == "pending" and confirmed.decision_note is None
+    approved = entries["finder_entry_approved.json"]
+    assert approved.decision == "approved" and approved.decision_note and approved.decided_at
+    assert {entry.turn_outcome for entry in entries.values()} == {
+        "rule_proposed", "clarification", "rejected", None,
+    }  # fmt: skip
+    assert entries["finder_entry_rejected.json"].refused == ("label_read", "label_read")
+    assert entries["finder_entry_clarification.json"].turn_message
+    assert entries["finder_entry_proposed.json"].status == "proposed"
+    assert entries["finder_entry_discarded.json"].status == "discarded"
+    nothing_flagged = entries["finder_entry_flags_nothing.json"]
+    assert nothing_flagged.rule is not None and nothing_flagged.rule.flagged == 0
+    assert "\n" not in (nothing_flagged.clause or "\n") and len(nothing_flagged.clause or "") > 300
+    assert "no row of cards has card_on_dark_web = 1" in nothing_flagged.verdict
+    assert all(entry.verdict and entry.verdict_short for entry in entries.values())
+
+    proposed = FinderRun.model_validate_json(fixtures["finder_proposed.json"])
+    assert (proposed.kind, proposed.status, proposed.scenarios, proposed.model_requests) == (
+        "propose", "completed", 8, 1,
+    )  # fmt: skip
+    failed = FinderRun.model_validate_json(fixtures["finder_proposed_failed.json"])
+    assert failed.status == "failed" and failed.error is not None
+    exhausted = FinderRun.model_validate_json(fixtures["finder_proposed_demo_exhausted.json"])
+    assert exhausted.error is not None and exhausted.error.kind == "demo_exhausted"
+
+    def frames(name: str) -> list[RunProgress]:
+        return [RunProgress.model_validate(frame) for frame in json.loads(fixtures[name])]
+
+    built = frames("finder_progress_confirmed.json")
+    assert [frame.step for frame in built][0] == "write_rule" and built[-1].step is None
+    assert {frame.step for frame in built} >= {"check_rule", "backtest", "duplicates", "verdict"}
+    assert (built[-1].state, built[-1].outcome, built[-1].status) == ("completed", "added", "confirmed")
+    assert built[-1].verdict == confirmed.verdict
+    duplicate = frames("finder_progress_duplicate.json")[-1]
+    assert (duplicate.outcome, duplicate.result_entry_id, duplicate.match_kind) == (
+        "duplicate", 1, "same_transactions",
+    )  # fmt: skip
+    assert max(frame.attempt for frame in frames("finder_progress_rejected.json")) == 2
+    assert frames("finder_progress_clarification.json")[-1].status == "not_built"
+    silent = frames("finder_progress_failed.json")[-1]
+    assert silent.state == "failed" and silent.error is not None
+    for name in (
+        "FinderOverview", "BankEntry", "FinderRun", "DecisionRequest", "EntrySummary", "Criterion",
+        "RunProgress", "ProposedScenario", "ProposeRequest",
+    ):  # fmt: skip
+        assert f"export interface {name} {{" in typescript.render()
+
+
+def test_the_finder_tab_moves_only_for_a_reader_who_has_not_asked_for_less_motion() -> None:
+    css = (PROJECT_ROOT / "frontend" / "src" / "styles" / "finder.css").read_text(encoding="utf-8")
+    start = css.index("@media (prefers-reduced-motion: no-preference) {")
+    end = css.index("\n}\n", start) + 3
+    assert "animation:" in css[start:end]
+    outside = css[:start] + css[end:]
+    assert "animation" not in outside and "transition" not in outside

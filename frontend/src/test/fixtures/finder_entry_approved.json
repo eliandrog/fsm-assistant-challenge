@@ -1,0 +1,325 @@
+{
+  "run_id": 1,
+  "position": 1,
+  "title": "Card used in Rome, Italy",
+  "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+  "columns": [
+    "transactions.merchant_location_id",
+    "merchant_locations.city",
+    "merchant_locations.state"
+  ],
+  "scenario_assumptions": [
+    "merchant_locations.state holds a country name outside the US.",
+    "Every cardholder lives in the US; the schema does not say so."
+  ],
+  "status": "confirmed",
+  "turn_outcome": "rule_proposed",
+  "turn_message": null,
+  "refused": [],
+  "clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+  "explanation": "Which transactions it flags.",
+  "rule_assumptions": [
+    "Rome means the city in Italy, not the towns of that name in the US."
+  ],
+  "rule": {
+    "flagged": 320,
+    "flagged_labelled": 300,
+    "flagged_unlabelled": 20,
+    "true_positives": 90,
+    "false_positives": 210,
+    "false_negatives": 40,
+    "total_transactions": 3520,
+    "total_labelled": 3500,
+    "total_fraud": 130,
+    "precision": 0.3,
+    "recall": 0.6923076923076923,
+    "flag_rate": 0.09090909090909091,
+    "flagged_amount_cents": 804160,
+    "fraud_amount_caught_cents": 226170,
+    "false_positive_amount_cents": 527730,
+    "base_fraud_rate": 0.037142857142857144,
+    "lift": 8.076923076923077,
+    "months": [
+      {
+        "month": "2019-01",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-02",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-03",
+        "flagged": 220,
+        "flagged_labelled": 200,
+        "true_positives": 60,
+        "false_positives": 140,
+        "total_transactions": 520,
+        "total_labelled": 500,
+        "total_fraud": 61,
+        "flagged_amount_cents": 552860,
+        "fraud_amount_caught_cents": 150780,
+        "false_positive_amount_cents": 351820,
+        "precision": 0.3,
+        "recall": 0.9836065573770492,
+        "flag_rate": 0.4230769230769231
+      },
+      {
+        "month": "2019-04",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 400,
+        "total_labelled": 400,
+        "total_fraud": 31,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-05",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-06",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-07",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-08",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      },
+      {
+        "month": "2019-09",
+        "flagged": 100,
+        "flagged_labelled": 100,
+        "true_positives": 30,
+        "false_positives": 70,
+        "total_transactions": 500,
+        "total_labelled": 500,
+        "total_fraud": 31,
+        "flagged_amount_cents": 251300,
+        "fraud_amount_caught_cents": 75390,
+        "false_positive_amount_cents": 175910,
+        "precision": 0.3,
+        "recall": 0.967741935483871,
+        "flag_rate": 0.2
+      },
+      {
+        "month": "2019-10",
+        "flagged": 0,
+        "flagged_labelled": 0,
+        "true_positives": 0,
+        "false_positives": 0,
+        "total_transactions": 300,
+        "total_labelled": 300,
+        "total_fraud": 1,
+        "flagged_amount_cents": 0,
+        "fraud_amount_caught_cents": 0,
+        "false_positive_amount_cents": 0,
+        "precision": null,
+        "recall": 0.0,
+        "flag_rate": 0.0
+      }
+    ],
+    "weakest_month": "2019-03",
+    "earlier": {
+      "first_month": "2019-01",
+      "last_month": "2019-07",
+      "months": 7,
+      "flagged": 220,
+      "flagged_labelled": 200,
+      "true_positives": 60,
+      "false_positives": 140,
+      "total_transactions": 2420,
+      "total_labelled": 2400,
+      "total_fraud": 97,
+      "precision": 0.3,
+      "recall": 0.6185567010309279,
+      "lift": 7.422680412371134
+    },
+    "later": {
+      "first_month": "2019-08",
+      "last_month": "2019-10",
+      "months": 3,
+      "flagged": 100,
+      "flagged_labelled": 100,
+      "true_positives": 30,
+      "false_positives": 70,
+      "total_transactions": 1100,
+      "total_labelled": 1100,
+      "total_fraud": 33,
+      "precision": 0.3,
+      "recall": 0.9090909090909091,
+      "lift": 10.0
+    },
+    "stability": {
+      "min_month_labelled": 30,
+      "months": 10,
+      "months_flagged": 2,
+      "months_with_labelled_flags": 2,
+      "qualifying_months": 2,
+      "min_precision": 0.3,
+      "max_precision": 0.3
+    }
+  },
+  "caveats": [
+    {
+      "code": "label_coverage",
+      "message": "300 of the 320 flagged transactions have a fraud label. Precision and recall use those only; the other 20 are unknown, not legitimate."
+    },
+    {
+      "code": "high_flag_rate",
+      "message": "The rule flags 9.1% of all transactions, over 5%: it would stop many legitimate payments."
+    }
+  ],
+  "criteria": [
+    {
+      "code": "labelled",
+      "period": "discovery",
+      "passed": true,
+      "detail": "At least 30 labelled flagged transactions: 200."
+    },
+    {
+      "code": "fraud_caught",
+      "period": "discovery",
+      "passed": true,
+      "detail": "At least 5 frauds caught: 60."
+    },
+    {
+      "code": "lift",
+      "period": "discovery",
+      "passed": true,
+      "detail": "Lift above 1.5 times the period's base fraud rate: 7.42."
+    },
+    {
+      "code": "labelled",
+      "period": "confirmation",
+      "passed": true,
+      "detail": "At least 30 labelled flagged transactions: 100."
+    },
+    {
+      "code": "fraud_caught",
+      "period": "confirmation",
+      "passed": true,
+      "detail": "At least 2 frauds caught: 30."
+    },
+    {
+      "code": "lift",
+      "period": "confirmation",
+      "passed": true,
+      "detail": "Lift above 1 times the period's base fraud rate: 10.00."
+    },
+    {
+      "code": "lift_kept",
+      "period": "confirmation",
+      "passed": true,
+      "detail": "Lift at least 50% of the discovery period's: it kept 135%."
+    }
+  ],
+  "duplicate_check": "complete",
+  "model_id": "scripted",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "processed_run_id": 2,
+  "turn_error_kind": null,
+  "id": 1,
+  "created_at": "2000-01-01T00:00:00+00:00",
+  "decision": "approved",
+  "decision_note": "Holds: every labelled fraud is in Rome, Italy.",
+  "decided_at": "2000-01-01T00:00:00+00:00",
+  "matches": [
+    {
+      "run_id": 7,
+      "position": 6,
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "clause": "merchant_location_id = 1",
+      "kind": "same_transactions",
+      "created_at": "2000-01-01T00:00:00+00:00"
+    }
+  ],
+  "backtest_sql": "WITH flagged AS (\n  SELECT id, amount_usd_cents FROM transactions WHERE (\nmerchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')\n  )\n)\nSELECT\n  count(flagged.id) AS flagged,\n  count(f.is_fraud) AS flagged_labelled,\n  coalesce(sum(f.is_fraud = 1), 0) AS true_positives,\n  coalesce(sum(f.is_fraud = 0), 0) AS false_positives,\n  coalesce(sum(flagged.amount_usd_cents), 0) AS flagged_amount_cents,\n  coalesce(sum(CASE WHEN f.is_fraud = 1 THEN flagged.amount_usd_cents END), 0)\n    AS fraud_amount_caught_cents,\n  coalesce(sum(CASE WHEN f.is_fraud = 0 THEN flagged.amount_usd_cents END), 0)\n    AS false_positive_amount_cents,\n  (SELECT count(*) FROM transactions) AS total_transactions,\n  (SELECT count(is_fraud) FROM fraud_labels) AS total_labelled,\n  (SELECT coalesce(sum(is_fraud = 1), 0) FROM fraud_labels) AS total_fraud\nFROM flagged\nLEFT JOIN fraud_labels f ON f.transaction_id = CAST(flagged.id AS TEXT)\n",
+  "monthly_sql": "WITH flagged AS (\n  SELECT id FROM transactions WHERE (\nmerchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')\n  )\n)\nSELECT\n  coalesce(substr(t.date, 1, 7), '') AS month,\n  count(flagged.id) AS flagged,\n  count(CASE WHEN flagged.id IS NOT NULL THEN f.is_fraud END) AS flagged_labelled,\n  coalesce(sum(flagged.id IS NOT NULL AND f.is_fraud = 1), 0) AS true_positives,\n  coalesce(sum(flagged.id IS NOT NULL AND f.is_fraud = 0), 0) AS false_positives,\n  coalesce(sum(CASE WHEN flagged.id IS NOT NULL THEN t.amount_usd_cents END), 0)\n    AS flagged_amount_cents,\n  coalesce(sum(CASE WHEN flagged.id IS NOT NULL AND f.is_fraud = 1 THEN t.amount_usd_cents END), 0)\n    AS fraud_amount_caught_cents,\n  coalesce(sum(CASE WHEN flagged.id IS NOT NULL AND f.is_fraud = 0 THEN t.amount_usd_cents END), 0)\n    AS false_positive_amount_cents,\n  count(*) AS total_transactions,\n  count(f.is_fraud) AS total_labelled,\n  coalesce(sum(f.is_fraud = 1), 0) AS total_fraud\nFROM transactions t\nLEFT JOIN flagged ON flagged.id = t.id\nLEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nGROUP BY month\nORDER BY month\n",
+  "verdict": "Confirmed: in the discovery period it flagged 220 transactions, with 60 fraud among 200 labelled flagged transactions (precision 30.00%, lift 7.4); in the confirmation period, 30 fraud among 100 labelled flagged (precision 30.00%, lift 10.0).",
+  "verdict_short": "lift 7.4, then 10.0"
+}

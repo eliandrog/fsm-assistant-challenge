@@ -18,6 +18,7 @@ Everything a reader can check needs no key and no network: the tests, the replay
 - [Setup](#setup)
 - [How to run](#how-to-run)
 - [The web chat](#the-web-chat)
+- [Rule finder](#rule-finder)
 - [See what the assistant did](#see-what-the-assistant-did)
 - [How to reproduce](#how-to-reproduce)
 - [Solution overview](#solution-overview)
@@ -81,7 +82,7 @@ uv sync
 
 - **The tests need no key and no network.** They never call a model, and every test runs with network connections refused.
 - **A live call needs a key and costs money.** Put the key in `.env` in the project root, as `ANTHROPIC_API_KEY=...` (see Configuration below). `.env` is git-ignored; `.env.example` lists the names only. The key is never printed or logged, and a missing key is an error only when a live call is attempted.
-- Five commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask`, `fsm-assistant chat` and `fsm-assistant serve` (the web chat, unless it is given `--offline-demo`), one or two requests per question, and `fsm-assistant check-model --yes-spend` and `fsm-assistant eval --yes-spend`. Each prints the model it is about to use. `ask`, `chat` and `serve` stop with a message when the key is missing; `check-model` and `eval` send nothing without that flag.
+- Six commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask`, `fsm-assistant chat` and `fsm-assistant serve` (the web chat, unless it is given `--offline-demo`), one or two requests per question, and `fsm-assistant check-model --yes-spend`, `fsm-assistant eval --yes-spend` and `fsm-assistant find-rules --yes-spend` (at most 3 requests by default; in a live `serve`, the "Find a rule" button makes one request and each "Process" at most two). Each prints the model it is about to use. `ask`, `chat` and `serve` stop with a message when the key is missing; `check-model`, `eval` and `find-rules` send nothing without that flag.
 - The evaluation suite replays offline from recorded model replies (`fsm-assistant eval --replay --model claude-haiku-5-5`), so checking reported results needs no key. The suite is recorded on two models, `claude-haiku-5-5` and `claude-opus-5-5` (replay the second with `--model claude-opus-5-5`); the recordings of `check-model`, for two models, replay with no key too.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
@@ -108,6 +109,8 @@ uv sync
 | `LANGSMITH_AGENT_ID`, `LANGSMITH_AGENT_ENVIRONMENT` | none | Where traces go: an agent and one of its environments (`local`, `development`, `staging`, `production`). Set both or neither |
 | `LANGSMITH_PROJECT` | `fsm-assistant` | Where traces go when no agent is named. Not together with an agent |
 | `FSM_TRACE_SYSTEM_PROMPT` | `hash` | What a trace carries of the system prompt: `hash` (its version and SHA-256) or `full` (its text, with the schema context) |
+| `FSM_RULE_BANK_PATH` | `var/rule_bank.db` | The rule bank: a second, writable SQLite file made on first use by the [rule finder](#rule-finder). Never the transaction database: that path is refused. A relative path is resolved against the project root |
+| `FSM_FINDER_BATCH_SIZE` | `1` | Scenarios `find-rules` proposes and processes in one go, at most 25: at most 1 + 2 × this many model requests. The web page does not use it: there, one click is one scenario |
 
 To keep them in a file, copy `.env.example` to `.env` (git-ignored) in the project root:
 
@@ -128,9 +131,12 @@ uv run fsm-assistant graph                                    # the turn graph a
 uv run fsm-assistant scan                                     # where labelled fraud is concentrated; free, no model, no key
 uv run fsm-assistant serve --offline-demo                     # the web chat with canned model replies; free, no key
 uv run fsm-assistant serve                                    # PAID: the web chat; each question asked in the browser calls Claude
+uv run fsm-assistant find-rules                               # what the rule finder would send; sends nothing without --yes-spend
+uv run fsm-assistant find-rules --offline-demo                # the finder on the next canned scenario; free, no key
+uv run fsm-assistant find-rules --list                        # print the rule bank; free
 ```
 
-`uv run python -m fsm_assistant` is the same program. The two `serve` lines are described under [The web chat](#the-web-chat).
+`uv run python -m fsm_assistant` is the same program. The `find-rules` lines are described under [Rule finder](#rule-finder). The two `serve` lines are described under [The web chat](#the-web-chat).
 
 **`ask` and `chat` call the Anthropic API and are billed to your key.** They need `ANTHROPIC_API_KEY` ([Setup](#setup)) and stop with "Cannot start: ANTHROPIC_API_KEY is not set" when it is missing. A question costs one request, or two when the first reply has to be repaired: about 4,450 input tokens each (the schema, the rules and the tool definitions, sent every time; measured in the live smoke test, on both models, on the prompt as it then was; the two lines added since are an estimated 130 tokens more) and 87 to 471 output tokens in that test. They print the model in use before anything is sent.
 
@@ -353,7 +359,102 @@ curl -s -X POST http://127.0.0.1:8000/api/chat -H 'Content-Type: application/jso
 - In the browser: the conversations of the sidebar, results included, in `localStorage`, on your own machine. Deleting a conversation, or clearing the site's data, removes them.
 - A LangSmith trace of each turn, labelled `web`, only if tracing is switched on, and never with result rows ([See what the assistant did](#see-what-the-assistant-did)).
 
-**Not built:** authentication, conversations kept on the server or shared between browsers, streaming of a reply, charts, and accept or reject on a proposed rule. The interface's own notes, its tests and how its types are generated from the backend's models are in [`frontend/README.md`](frontend/README.md).
+**Not built:** authentication, conversations kept on the server or shared between browsers, streaming of a reply, charts, and accept or reject on a rule proposed in the chat (the [Rule finder](#rule-finder) tab has them for the rules it proposes). The interface's own notes, its tests and how its types are generated from the backend's models are in [`frontend/README.md`](frontend/README.md).
+
+## Rule finder
+
+**Built** ([D-35](docs/DECISIONS.md#d-35-an-automatic-rule-finder-scenarios-from-the-schema-the-same-rule-workflow-two-periods-a-rule-bank-a-persons-approval), [D-36](docs/DECISIONS.md#d-36-the-rule-finder-in-two-steps-find-then-process-with-live-progress-no-repeats-and-delete); [The rule finder](docs/ARCHITECTURE.md#the-rule-finder)). Everything above starts with an analyst who has a pattern in mind. The rule finder goes the other way: the assistant proposes a fraud scenario by itself, and, when a reviewer asks for it, turns it into a rule, measures it and keeps it in a rule bank where a person approves or rejects it. It has been run live five times on `claude-haiku-5-5`, described below; that is a handful of runs, not an evaluation.
+
+**Two steps, each started by you.**
+
+1. **Find a rule** makes one model request and stops. The request carries the schema description that every question carries, and the titles of scenarios proposed before so that it does not repeat them; nothing else from the data: no row, no query result, no scan result, nothing measured. The model returns one fraud scenario: a title, a hypothesis of how a person attempting fraud would show up in these columns, the columns involved, and what it assumed. It is saved as *proposed* and waits. No SQL has been written and nothing has run.
+2. **Process**, on a scenario you chose, runs the ordinary rule workflow for it, exactly as for an analyst's rule request: the model writes a `WHERE` clause, the SQL guard checks it, and the two backtest statements measure it. There is no shortcut around the guard. The page shows each step as it happens. The rule is judged on the discovery period (2019-01 to 2019-07) and must then hold on the confirmation period (2019-08 to 2019-10), which played no part in selecting it.
+3. **Into the rule bank, unless it is already there.** A rule is a duplicate when its clause is the same apart from spacing and case, or when a different clause flags exactly the same transactions (checked by SQL: the transactions one flags and the other does not must be zero both ways). A duplicate adds no entry; the page says which rule it matched.
+4. **A person decides.** Each rule is approved or rejected, with an optional note. Nothing is deployed.
+
+A scenario you do not want processed can be **discarded**: no model call, and it is kept so that it is not proposed again. Any entry can be **deleted**, after a confirmation on the page: that removes the scenario, the rule, the evidence, the decision and its note for good, and forgets it, so the finder may propose it again and the duplicate check will no longer catch it.
+
+| Status | Meaning | Checks, all of which must hold |
+|---|---|---|
+| No signal | The rule did not stand out in the discovery period | At least 30 labelled flagged transactions, at least 5 frauds caught, and a lift above 1.5 (precision at least 1.5 times the period's base fraud rate) |
+| Not confirmed | It stood out in the discovery period and did not hold afterwards | In the confirmation period: at least 30 labelled flagged transactions, at least 2 frauds caught, a lift above 1, and at least half the discovery period's lift |
+| Confirmed | Every check held in both periods | |
+| No rule built | The scenario's turn did not end in a rule | The outcome and what the turn said are shown |
+| Proposed | A scenario waiting for you to process or discard it | None yet: nothing has been written or run |
+| Discarded | A scenario you set aside | None: it is kept only so that it is not proposed again |
+
+The thresholds are constants in `src/fsm_assistant/finder.py`, set before any run; D-35 says why each has its value.
+
+**What "confirmed" does and does not mean.** The rule's text was written with no data, so neither period shaped it; the discovery period selects. The confirmation period is a later part of the same history, and every candidate of every run is measured on it. So "confirmed" means "it did not pass in one period by chance alone, as far as this history can show", and never "tested on new data". A run tries several candidates at once, so one can pass both periods by chance; asking for support in both makes that less likely and does not rule it out.
+
+**Assumptions.** The model has seen no data, so every threshold in a scenario is a guess, and the schema leaves things undocumented (what a negative amount is, for one). The model is told to state what it assumed, both when writing the scenario and when writing the rule. Both lists are stored with the entry and shown under "Assumptions" next to the evidence, for the reviewer to judge.
+
+**Cost.** Find a rule is one model request. Process is at most two: one, or two when the first clause has to be repaired. No retry and no second round. Nothing measured is ever sent back to the model: the figures go to the bank and to your screen.
+
+**No repeats.** Asked for one scenario at a time, a model returns its most obvious idea every time. So each scenario request quotes the title and the start of the hypothesis of the scenarios already in the bank, whatever became of them (processed, waiting, discarded), inside a tag marked as data, and asks for something different in kind. It says nothing about what became of them: not a figure, not a status. At most the 40 most recent are quoted; an older one can come back, and if it leads to a rule already in the bank the duplicate check catches it.
+
+**Run it in the browser.** Open the **Rule finder** tab of [the web chat](#the-web-chat) (`uv run fsm-assistant serve`, or `serve --offline-demo` for no key). In that tab the chat is not shown.
+
+- **Find a rule** proposes one scenario, in a few seconds, billed in live mode. It appears under "Proposed scenarios" with **Process**, **Discard** and **Delete**.
+- **Process** shows the steps as they happen, the current one highlighted and the finished ones ticked: writing the rule, checking it (the SQL guard), testing on January to July and confirming on August to October, checking the bank for the same rule, judging the evidence. The clause appears once the guard has accepted it. When it ends, the rule's evidence opens by itself in the table; a duplicate says "This matched rule N" and opens rule N. One scenario is processed at a time; reloading the page during a run picks it back up.
+- **The table** ranks the bank: confirmed rules first, then by lift in the discovery period. Each row shows the rule's title, status and review decision, and for the discovery period the transactions flagged, the frauds caught, the genuine labelled transactions flagged, precision, recall and lift, with the confirmation period's result beside them. Under its status each row says in a few words why the rule ended as it did ("flagged nothing", "too few labelled on discovery", "lift 0.8 on confirmation"). Opening a row shows, from the answer down: what happened in one plain sentence, the rule that was tested (the `WHERE` clause by itself), the hypothesis, the assumptions, every check behind the status with its figure, and the caveats; then, closed until you open them, the month table with the two periods and the two SQL statements that measured the rule; and **Approve**, **Reject** and **Delete**. When a rule flags nothing because it asks for a value the schema shows no row has, the sentence says so.
+
+**Run it in the terminal.** The command does both steps in one go and prints them apart, each processing step as it begins.
+
+```bash
+uv run fsm-assistant find-rules                  # the plan: what would be sent and where the results go; sends nothing
+uv run fsm-assistant find-rules --yes-spend      # PAID: propose one scenario, then process it (at most 3 requests)
+uv run fsm-assistant find-rules --batch 5 --yes-spend   # PAID: five scenarios (at most 1 + 2 x 5 requests; at most 25)
+uv run fsm-assistant find-rules --list           # print the rule bank, ranked, and the scenarios waiting; free
+uv run fsm-assistant find-rules --offline-demo   # free: the next canned scenario through the real guard, backtest and bank
+```
+
+**The API behind the tab.**
+
+| Route | What it does |
+|---|---|
+| `POST /api/finder/scenarios` | Find: one model request; the scenario is saved as proposed. Answers with the finished run |
+| `POST /api/finder/scenarios/{id}/process` | Starts processing a proposed scenario in the background; answers 202 at once with its progress |
+| `GET /api/finder/runs/{id}` | The progress of that run: the step in progress, the steps done, the scenario, the clause, and at the end one sentence that says what happened. No row |
+| `POST /api/finder/scenarios/{id}/discard` | Sets a proposed scenario aside |
+| `GET /api/finder/entries` | The ranked bank, the scenarios waiting, the criteria, the last run, and the run in progress if any |
+| `GET /api/finder/entries/{id}` | One entry in full |
+| `POST /api/finder/entries/{id}/decision` | `{"decision": "approved" \| "rejected" \| "pending", "note": "..."}` |
+| `DELETE /api/finder/entries/{id}` | Removes an entry and everything attached to it, for good |
+
+One finder action runs at a time: a second find or process asked for meanwhile is a 409, as is discarding or deleting the scenario being processed. If the server stops during a run, the run is marked interrupted when it next starts and its scenario is still waiting.
+
+**The rule bank** is a SQLite file of its own, `var/rule_bank.db` by default (`FSM_RULE_BANK_PATH`), git-ignored and made on first use. It is never `data/data.db`, which is only ever read. It holds, per entry, the scenario, the clause, the assumptions, the backtest as counts and rates (no transaction, no id), the status, the decision and note, and the run, model and prompt versions it came from. It also holds each run (what was asked of the model and what it cost), which stays when an entry is deleted. The offline demo writes to `var/rule_bank.demo.db`, so canned rules never mix with real ones.
+
+**What the live runs produced.** All on `claude-haiku-5-5`, into a scratch bank, with the assistant's own figures. First, two batches of 10 scenarios made when a run was one batch done end to end (D-35):
+
+- **The first run** made 15 requests of at most 21 (about 72,000 input and 23,000 output tokens, about $0.02 at the prices written in the code) and took 190 seconds. Seven scenarios became entries and three were recorded as duplicates.
+- **Two rules were confirmed.** "Merchant location jump between consecutive card uses" (a card used in one state and, within an hour, in another): in the discovery period 2,321 flagged, 44 frauds caught, 1,504 genuine labelled transactions flagged, precision 2.84%, recall 4.74%, lift 16.6; in the confirmation period 20 frauds among 635 labelled, lift 17.1. "Amount far above the card's own typical spend" (at least 5 times the card's average): 12,218 flagged, 92 caught, 8,085 genuine, precision 1.13%, recall 9.91%, lift 6.6; then 51 among 3,223, lift 8.6.
+- **Five had no signal.** Card testing with tiny amounts, a card flagged on the dark web, repeated PIN failures, high spend on a new account and a spend burst against the credit limit. Four of them flag at most three transactions: the scenario is reasonable and this data does not contain it.
+- **The second run was stopped at its third scenario by a fault of ours**, a division by a lift of zero, since fixed and covered by a test. It added two entries before that, one confirmed: "Charges in two states within one hour", nearly the first run's location rule and not the same transactions, so it was added as a new entry.
+- **The first run also showed a fault in the duplicate rule, since changed.** Three scenarios produced rules that flag nothing, and each was recorded as a duplicate of an earlier rule that flags nothing. Rules that flag nothing are now compared by their clause only.
+
+Then three single-rule runs in the two-step form (D-36), one find and one process each, about $0.01 together:
+
+- **The three scenarios were different in kind and repeated nothing**: "Card-testing bursts of failed online CVV or card-number attempts", "Swipe use on chip-less card with stale PIN" and "Large first-time spend in a new merchant category". The second and third requests quoted the earlier ones.
+- **One became a rule, not confirmed.** The chip-less swipe rule: in the discovery period 20,483 flagged, 38 frauds caught, 13,766 genuine labelled transactions flagged, precision 0.28%, lift 1.6; in the confirmation period 9 frauds among 5,997 labelled, lift 0.8, under the base rate.
+- **Two became no rule.** Both attempts at a clause passed the guard and were stopped by the 15-second query timeout: each needed a window over a card's earlier transactions. That says the query was too slow, not that the idea is wrong.
+
+**Read the confirmed rules with care.** Every labelled fraud in this dataset is at a location in Rome, Italy ([Data](#data-differences-from-the-brief)), and the model was not told. Both confirmed rules reach that one fact through a side door: a card that appears in Italy within an hour of a US purchase, or a purchase far larger than usual. Of the 3,266 transactions the location rule flags over the whole history, 100 are in Rome, Italy. They are real, weak signals, at roughly 34 and 88 genuine labelled transactions flagged for each fraud caught, and they say nothing about fraud that does not look like this dataset's.
+
+**Limitations.**
+
+- **Many candidates, one history.** Every candidate is confirmed on the same three months. The two-period check reduces chance passes and does not bound them; no correction for multiple testing is applied. A pattern that runs through the whole dataset passes any split by time.
+- **Schema-only scenarios mostly find nothing**, and the page says so when a run confirms none. The model guesses its thresholds.
+- **Near-duplicates are kept apart.** Only an identical clause or an identical set of flagged transactions counts as the same rule.
+- **One reviewer, no authentication.** A decision carries no name, and anyone who can reach the local server can change it.
+- **One action at a time, per process.** A find or a process asked for while one is in progress is refused, not queued. The command and the server do not share that lock: run one server per bank.
+- **Slow rules end as "no rule built".** A clause that runs past the query timeout twice is recorded so; two of the three single runs ended that way.
+- **What you do not process is never measured.** Choosing by eye is the point of the two steps, and it means the bank does not record how the discarded scenarios would have done.
+- **Progress is kept by the running server**, for its latest run. After a restart the page falls back on the bank.
+- **No scheduler.** A find or a process is started by a button or the command. A daily batch is intended and not built.
+- **The scenario request is not sent to a hosted trace.** The scenario turns are, labelled `finder`, without any backtest figure.
+- **Looked at in one headless browser.** The tab was driven in headless Chromium in the offline demo, 1400px wide in the dark theme and 390px wide in the light theme: find, the steps of a process, the result opening, a reload during a run, the delete confirmation, and that nothing of the chat is shown or reachable in this view. A page wider than a phone's screen was found there and fixed. The opened entry (with a long one-line clause that flags nothing) and the chat's rule card and SQL blocks were then measured at 390, 768, 850, 1024 and 1400px: nothing wider than the page, no Copy button cut off. It has not been used in a browser with a live model.
 
 ## See what the assistant did
 
@@ -491,6 +592,7 @@ What exists today:
 - **Result and presentation** (`result.py`, `presentation.py`): every turn returns one typed result with exactly one outcome (answered, rule proposed, clarification, cannot answer, rejected, failed), the tool the model chose, and the reason codes of any reply the guard or the shape check refused during the turn, a repaired one included. Caveats are chosen by code from a fixed list: the result was cut at the row cap; the query read the fraud labels, which a third of transactions lack; no rows matched (check the spelling and case of values); a rule's precision rests on fewer than 30 labelled transactions; a rule flags more than 5% of all transactions; a month's precision is below half the rule's overall precision; the later period's precision is below half the earlier period's (the last two only on at least 30 labelled rows and five expected fraud). The rule card shows the overall backtest, lift, the month table, the weakest month and the two periods, with a fixed sentence saying it is a stability check on the same history. Cents are shown as dollars and a fraction also as a percentage.
 - **Fraud scan** (`explore.py`): `scan(db_path=…, period=…)` returns the ranked segments, the totals and base rate, how many segments the floor dropped, the residual check and the statements that ran, as aggregates only. Every statement passes the SQL guard and runs through the same read-only function as a model-written query. About 4 seconds on the shipped database, cached per database and period for the life of the process.
 - **Terminal** (`cli.py`): `ask`, `chat`, `graph`, `scan` and `--trace` ([How to run](#how-to-run)).
+- **Rule finder** (`scenarios.py`, `finder.py`, `rule_bank.py`, [D-35](docs/DECISIONS.md#d-35-an-automatic-rule-finder-scenarios-from-the-schema-the-same-rule-workflow-two-periods-a-rule-bank-a-persons-approval)): two steps a reviewer starts: one request for a fraud scenario written from the schema alone, then, on request, that scenario put through the same turn as an analyst's rule request, with its progress shown step by step, the evidence judged on a discovery period and a confirmation period, and the result kept in a rule bank, a SQLite file of its own, where a person approves or rejects it ([Rule finder](#rule-finder)).
 - **Evaluation suite** (`evals/`, `src/fsm_assistant/evals/`): 146 cases with reference results, scorers, a runner on the same entry point, and a recorded run that replays offline ([Evaluation](#evaluation)).
 - **Configuration** (`config.py`): see [Setup](#setup).
 
@@ -862,6 +964,7 @@ Everything described above as built is built. This section is what is missing: w
 - A reply the provider stops as a refusal ends the turn as failed. It happened once, on `claude-opus-5-5`; nothing ran, but the user is shown a failure where a decline was due.
 - The web chat on `claude-opus-5-5`, and its page at narrow or mobile widths and in the light theme, which are covered by tests and not by eye ([The web chat](#the-web-chat)).
 - Effort levels other than `medium`.
+- The "Rule finder" tab with a live model in a browser: it was driven in a headless browser in the offline demo only, and the live runs were made from the terminal. The second batch run was cut short by a fault since fixed.
 
 ### What was cut for time, and how it would be built
 
@@ -872,7 +975,9 @@ In the order they would be built:
 | A second opinion on SQL that runs cleanly | The one wrong answer seen in the runs was valid SQL with a plausible result | Ask the model twice, independently, run both statements through the guard and compare the two results in code; show the answer with a caveat when they disagree. It doubles the cost of a turn, so it would be a setting. The existing `--repeat` runs would measure how often it fires. It is a proposal: nothing shows yet that it would have caught that case |
 | Memory of a declined turn | The suite's known limitation: a follow-up to a refusal has no record of what was refused | Remember the refused question, as text the user wrote and nothing read from the data, and give it to the next turn inside its own tag. The failing case already exists |
 | Comparing two rules | Tightening a rule prints two cards one after the other; the FSM has to subtract | A code-computed difference between two backtests (fraud lost, false positives saved, by month), shown when a rule follows a rule in one conversation |
-| Accept and reject on a rule, and a list of kept rules | Nothing records the FSM's decision, which is also the missing online metric | A small store of its own, never `data/data.db`: clause, backtest, decision. Buttons on the web chat's rule card. Acceptance rate then comes from it |
+| Accept and reject on a rule proposed in the chat | Built for the rules the [rule finder](#rule-finder) proposes, which are kept in the rule bank with the reviewer's decision. A rule an analyst asks for in the chat is still shown and not kept | A "keep this rule" button on the chat's rule card that adds it to the same bank, through the same duplicate check. Acceptance rate then comes from the bank |
+| A daily batch of the rule finder | The bank is built to be topped up; today a run is started by hand | A scheduler that calls the same run. Before that: a correction for the number of candidates tried, since each run reuses the same confirmation period |
+| A time budget for the finder's rules | A rule that needs a window over a card's history often runs past the 15-second query timeout and is recorded as not built | A longer timeout for processing than for a chat question, or the budget stated in the scenario request so the model writes cheaper clauses |
 | Feedback on an answer | "Reported as wrong" is the online signal for accuracy, and nothing collects it | A button per answer that attaches feedback to the turn's trace, then saved filters and a dashboard in LangSmith for the metrics in the [Evaluation](#evaluation) table |
 | A scan over pairs of dimensions and over a column the user names | The scan sees one fixed dimension at a time | The same code-written statement grouped by two dimensions, with a higher support floor because there are many more segments to be wrong about |
 | More than one query per turn | A question that needs two steps takes two messages | Keep the fixed graph: let the model return a short, bounded list of statements, each through the guard, with the results joined by code and still never shown to the model. Not a free agent loop |
@@ -905,6 +1010,9 @@ src/fsm_assistant/     The package. Built: config.py, db.py, schema_context.py,
                        api.py (the HTTP API), runtime.py (start-up shared by the
                        interfaces), demo.py (the offline demo's canned replies),
                        typescript.py (writes the web interface's types),
+                       scenarios.py (the finder's scenario request),
+                       finder.py (one finder run, the criteria),
+                       rule_bank.py (the rule bank, a SQLite file of its own),
                        evals/ (cases, scorers, evidence, report, runner,
                        recorded runs, the eval command).
 frontend/              The web chat: Vite, React and TypeScript (see its README).
@@ -913,6 +1021,8 @@ frontend/              The web chat: Vite, React and TypeScript (see its README)
                        node_modules/ and dist/ are git-ignored
 tests/                 pytest tests (fixture databases built from data/schema.sql)
 logs/                  The application log, app.log; git-ignored, made on first use
+var/                   The rule bank, rule_bank.db (and rule_bank.demo.db for the
+                       offline demo); git-ignored, made on first use
 evals/                 Evaluation suite data (see its README): 146 cases in
                        cases/, pinned reference results, the recorded
                        replies of check-model for two models, the recorded

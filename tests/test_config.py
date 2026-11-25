@@ -235,3 +235,20 @@ def test_invalid_logging_and_tracing_values_name_the_variable(
 ) -> None:
     with pytest.raises(ConfigError, match=message):
         load({name: value})
+
+
+def test_the_rule_bank_has_a_path_of_its_own_and_the_batch_is_bounded(tmp_path: Path) -> None:
+    defaults = load_settings({}, env_file=None)
+    assert defaults.rule_bank_path == config.DEFAULT_RULE_BANK_PATH
+    assert defaults.rule_bank_path != defaults.db_path and defaults.finder_batch_size == 1
+    chosen = load_settings(
+        {"FSM_RULE_BANK_PATH": str(tmp_path / "b.db"), "FSM_FINDER_BATCH_SIZE": "25"}, env_file=None
+    )
+    assert (chosen.rule_bank_path, chosen.finder_batch_size) == (tmp_path / "b.db", 25)
+    for variables, message in (
+        ({"FSM_FINDER_BATCH_SIZE": "26"}, "FSM_FINDER_BATCH_SIZE must be at most 25"),
+        ({"FSM_FINDER_BATCH_SIZE": "0"}, "FSM_FINDER_BATCH_SIZE must be greater than zero"),
+        ({"FSM_RULE_BANK_PATH": "data/data.db"}, "FSM_RULE_BANK_PATH"),
+    ):
+        with pytest.raises(ConfigError, match=message):
+            load_settings(variables, env_file=None)

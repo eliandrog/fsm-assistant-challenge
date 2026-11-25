@@ -1,0 +1,202 @@
+[
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "backtest",
+    "done": [
+      "write_rule",
+      "check_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "duplicates",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": "merchant_id = 30",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": "merchant_id = 30",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": "merchant_id = 30",
+    "outcome": "added",
+    "result_entry_id": 2,
+    "status": "not_confirmed",
+    "match_kind": null,
+    "error": null,
+    "verdict": "Not confirmed: it stood out in the discovery period (30 fraud among 100 labelled flagged transactions (precision 30.00%, lift 7.4)), but it caught too few frauds in the confirmation period (0 fraud among 100 labelled flagged (precision 0.00%, lift 0.0))."
+  },
+  {
+    "run_id": 3,
+    "entry_id": 2,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates",
+      "verdict"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ]
+    },
+    "clause": "merchant_id = 30",
+    "outcome": "added",
+    "result_entry_id": 2,
+    "status": "not_confirmed",
+    "match_kind": null,
+    "error": null,
+    "verdict": "Not confirmed: it stood out in the discovery period (30 fraud among 100 labelled flagged transactions (precision 30.00%, lift 7.4)), but it caught too few frauds in the confirmation period (0 fraud among 100 labelled flagged (precision 0.00%, lift 0.0))."
+  }
+]

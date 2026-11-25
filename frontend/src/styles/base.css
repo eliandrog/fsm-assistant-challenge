@@ -197,3 +197,8 @@ kbd {
   background: var(--surface-sunk);
   color: var(--text-muted);
 }
+
+/* `hidden` hides, whatever display a class sets: a view that is not shown takes no space. */
+[hidden] {
+  display: none !important;
+}

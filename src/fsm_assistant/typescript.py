@@ -17,9 +17,18 @@ from typing import Final
 from pydantic import BaseModel, JsonValue
 from pydantic.json_schema import JsonSchemaMode, models_json_schema
 
-from fsm_assistant.api import ApiError, ChatRequest, Health
+from fsm_assistant.api import (
+    ApiError,
+    ChatRequest,
+    DecisionRequest,
+    FinderOverview,
+    Health,
+    ProposeRequest,
+)
+from fsm_assistant.finder import RunProgress
 from fsm_assistant.config import PROJECT_ROOT
 from fsm_assistant.result import TurnResult
+from fsm_assistant.rule_bank import BankEntry, FinderRun
 
 TYPES_FILE: Final = PROJECT_ROOT / "frontend" / "src" / "api" / "types.gen.ts"
 # A body the server writes holds every field; one it reads may omit those with a default.
@@ -28,6 +37,12 @@ MODELS: Final[tuple[tuple[type[BaseModel], JsonSchemaMode], ...]] = (
     (TurnResult, "serialization"),
     (Health, "serialization"),
     (ApiError, "serialization"),
+    (DecisionRequest, "validation"),
+    (ProposeRequest, "validation"),
+    (RunProgress, "serialization"),
+    (FinderOverview, "serialization"),
+    (BankEntry, "serialization"),
+    (FinderRun, "serialization"),
 )
 _HEADER: Final = (
     "// Generated from the API's pydantic models by src/fsm_assistant/typescript.py.\n"

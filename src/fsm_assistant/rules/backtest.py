@@ -292,6 +292,15 @@ def backtest_by_month(clause: str, *, db_path: Path, timeout_seconds: float) -> 
     )
 
 
+def backtest_statements(clause: str) -> tuple[str, str]:
+    """The two statements that measure `clause`, as text: overall, then by month.
+
+    For showing a reader what ran. `clause` is one the guard accepted; nothing
+    is checked or run here.
+    """
+    return _TEMPLATE.format(clause=clause), _MONTHLY_TEMPLATE.format(clause=clause)
+
+
 def _backtest_unchecked(clause: str, *, db_path: Path, timeout_seconds: float) -> BacktestResult:
     """Run the template with `clause` as it is. No policy is applied.
 

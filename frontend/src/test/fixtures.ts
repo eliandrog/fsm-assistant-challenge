@@ -2,7 +2,39 @@
  * Real response bodies of the API, written by the backend's test
  * tests/test_web_contract.py, which fails when the API stops returning them.
  */
-import type { ApiError, Health, TurnResult } from '../api/types';
+import type {
+  ApiError,
+  BankEntry,
+  FinderOverview,
+  FinderRun,
+  Health,
+  RunProgress,
+  TurnResult,
+} from '../api/types';
+import apiErrorFinderBusy from './fixtures/api_error_finder_busy.json';
+import finderEntryApproved from './fixtures/finder_entry_approved.json';
+import finderEntryClarification from './fixtures/finder_entry_clarification.json';
+import finderEntryConfirmed from './fixtures/finder_entry_confirmed.json';
+import finderEntryDiscarded from './fixtures/finder_entry_discarded.json';
+import finderEntryFlagsNothing from './fixtures/finder_entry_flags_nothing.json';
+import finderEntryNoSignal from './fixtures/finder_entry_no_signal.json';
+import finderEntryNotConfirmed from './fixtures/finder_entry_not_confirmed.json';
+import finderEntryProposed from './fixtures/finder_entry_proposed.json';
+import finderEntryRejected from './fixtures/finder_entry_rejected.json';
+import finderOverview from './fixtures/finder_overview.json';
+import finderOverviewEmpty from './fixtures/finder_overview_empty.json';
+import finderOverviewNoneConfirmed from './fixtures/finder_overview_none_confirmed.json';
+import finderOverviewWaiting from './fixtures/finder_overview_waiting.json';
+import finderProgressClarification from './fixtures/finder_progress_clarification.json';
+import finderProgressConfirmed from './fixtures/finder_progress_confirmed.json';
+import finderProgressDuplicate from './fixtures/finder_progress_duplicate.json';
+import finderProgressFailed from './fixtures/finder_progress_failed.json';
+import finderProgressNoSignal from './fixtures/finder_progress_no_signal.json';
+import finderProgressNotConfirmed from './fixtures/finder_progress_not_confirmed.json';
+import finderProgressRejected from './fixtures/finder_progress_rejected.json';
+import finderProposed from './fixtures/finder_proposed.json';
+import finderProposedDemoExhausted from './fixtures/finder_proposed_demo_exhausted.json';
+import finderProposedFailed from './fixtures/finder_proposed_failed.json';
 import answeredAfterWrite from './fixtures/answered_after_write.json';
 import answeredEmpty from './fixtures/answered_empty.json';
 import answeredHostile from './fixtures/answered_hostile.json';
@@ -52,3 +84,40 @@ export const HEALTH = {
 };
 
 export const API_ERROR_INVALID = apiErrorInvalid as ApiError;
+export const API_ERROR_FINDER_BUSY = apiErrorFinderBusy as ApiError;
+
+const frames = (body: unknown) => body as RunProgress[];
+
+export const FINDER = {
+  /** After everything below: five processed entries, one scenario waiting, one discarded. */
+  overview: finderOverview as unknown as FinderOverview,
+  overviewEmpty: finderOverviewEmpty as unknown as FinderOverview,
+  overviewNoneConfirmed: finderOverviewNoneConfirmed as unknown as FinderOverview,
+  /** Eight scenarios proposed and none processed yet. */
+  overviewWaiting: finderOverviewWaiting as unknown as FinderOverview,
+  proposed: finderProposed as unknown as FinderRun,
+  proposedFailed: finderProposedFailed as unknown as FinderRun,
+  proposedDemoExhausted: finderProposedDemoExhausted as unknown as FinderRun,
+  /** Every progress body of processing one scenario, in the order the page would poll them. */
+  progress: {
+    confirmed: frames(finderProgressConfirmed),
+    notConfirmed: frames(finderProgressNotConfirmed),
+    noSignal: frames(finderProgressNoSignal),
+    clarification: frames(finderProgressClarification),
+    rejected: frames(finderProgressRejected),
+    duplicate: frames(finderProgressDuplicate),
+    failed: frames(finderProgressFailed),
+  },
+  entries: {
+    confirmed: finderEntryConfirmed as unknown as BankEntry,
+    approved: finderEntryApproved as unknown as BankEntry,
+    notConfirmed: finderEntryNotConfirmed as unknown as BankEntry,
+    noSignal: finderEntryNoSignal as unknown as BankEntry,
+    clarification: finderEntryClarification as unknown as BankEntry,
+    rejected: finderEntryRejected as unknown as BankEntry,
+    proposed: finderEntryProposed as unknown as BankEntry,
+    discarded: finderEntryDiscarded as unknown as BankEntry,
+    /** Entry 4 of the bank of `overviewNoneConfirmed`: a long one-line clause that flags nothing. */
+    flagsNothing: finderEntryFlagsNothing as unknown as BankEntry,
+  },
+};

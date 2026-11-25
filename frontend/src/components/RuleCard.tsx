@@ -55,10 +55,21 @@ function Period({ name, period }: { name: string; period: RulePeriod }) {
 interface Props {
   rule: Rule;
   whereClause: string;
+  /** What the months before the boundary and those from it are called. */
+  periodNames?: [string, string];
+  /** The sentence under the month table: what this evidence is and is not. */
+  note?: string;
+  monthsHeading?: string;
 }
 
 /** A proposed rule and its backtest. Every figure was computed by the backend from executed SQL. */
-export function RuleCard({ rule, whereClause }: Props) {
+export function RuleCard({
+  rule,
+  whereClause,
+  periodNames = ['Earlier period', 'Later period'],
+  note = EVIDENCE_NOTE,
+  monthsHeading = 'Month by month, on the same history',
+}: Props) {
   const clause = safeBlock(whereClause);
   const { stability } = rule;
   const weakest = rule.months.find((row) => row.month === rule.weakest_month);
@@ -157,7 +168,7 @@ export function RuleCard({ rule, whereClause }: Props) {
 
       {rule.months.length > 0 && (
         <>
-          <h3 className="rule-subhead">Month by month, on the same history</h3>
+          <h3 className="rule-subhead">{monthsHeading}</h3>
           <TableScroll className="months" label="Backtest by month">
             <table>
               <thead>
@@ -216,12 +227,12 @@ export function RuleCard({ rule, whereClause }: Props) {
                 </dd>
               </div>
             )}
-            <Period name="Earlier period" period={rule.earlier} />
-            <Period name="Later period" period={rule.later} />
+            <Period name={periodNames[0]} period={rule.earlier} />
+            <Period name={periodNames[1]} period={rule.later} />
           </dl>
 
           <footer className="rule-foot">
-            <p>{EVIDENCE_NOTE}</p>
+            <p>{note}</p>
           </footer>
         </>
       )}

@@ -17,6 +17,11 @@ a recorded run offline. `serve` runs the HTTP API of `api.py` and the built
 web interface on the loopback address; its turns call Claude, unless
 `--offline-demo` puts the canned replies of `demo.py` in the model's place,
 which also ignores `.env`, so no key is read and nothing is sent or traced.
+`find-rules` runs the rule finder of `finder.py` in one go, as two phases it
+prints apart: it proposes scenarios, then processes each into a rule.
+Nothing is sent without `--yes-spend`; `--offline-demo` runs the canned
+scenarios of `demo.py` instead, and `--list` prints the rule bank and runs
+nothing.
 
 What `ask`, `chat` and `serve` share before their first turn (settings,
 logging, the assistant with its label and its tracer) is in `runtime.py`.
@@ -34,7 +39,9 @@ recordings folder). 3: `ask` could not answer (the model declined). 4: `ask`
 was rejected by the guard. 130: `ask` was interrupted with Ctrl-C. `chat`
 exits 0 whatever its turns ended in. `scan`: 0, 1 when the scan failed, 2
 when it could not start. `serve`: 0 when the server was stopped, 2 when it
-could not start. For
+could not start. `find-rules`: 0 when every run completed, when the bank was
+listed or when nothing was sent; 1 when the run failed or stopped early; 2
+when it could not start. For
 `eval`: 0 when a live run's cases all passed (skipped ones aside), when a
 replay replayed every selected case and scored each exactly as recorded,
 recorded failures included, and for `--list`, `--rescore`, or when nothing
@@ -56,7 +63,18 @@ from typing import Literal
 
 import uvicorn
 
-from fsm_assistant import api, config, db, demo, explore, model_check, runtime, tracing
+from fsm_assistant import (
+    api,
+    config,
+    db,
+    demo,
+    explore,
+    finder,
+    model_check,
+    runtime,
+    scenarios,
+    tracing,
+)
 from fsm_assistant.config import ConfigError, Settings, load_settings
 from fsm_assistant.evals import command as eval_command
 from fsm_assistant.evals.cases import TIERS
@@ -75,6 +93,7 @@ from fsm_assistant.llm import (
 from fsm_assistant.nl2sql import model_spec
 from fsm_assistant.presentation import render_scan, render_text, safe_text
 from fsm_assistant.result import Status
+from fsm_assistant.rule_bank import BankError
 
 logger = logging.getLogger(__name__)
 
@@ -224,7 +243,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="answer a fixed list of questions with canned model replies; ignores .env, "
         "needs no key and sends nothing",
     )
-    for command in (ask, chat, check, evaluate, serve):
+    find = commands.add_parser(
+        "find-rules",
+        help="run the rule finder once: scenarios from the schema, each backtested and "
+        "banked (paid; needs --yes-spend)",
+    )
+    find.add_argument(
+        "--yes-spend",
+        action="store_true",
+        help="really send the requests; each one is billed to your Anthropic account",
+    )
+    find.add_argument(
+        "--offline-demo",
+        action="store_true",
+        help="run the canned scenarios instead; ignores .env, needs no key and sends nothing",
+    )
+    find.add_argument(
+        "--list", action="store_true", help="print the rule bank and run nothing"
+    )
+    find.add_argument(
+        "--batch",
+        type=int,
+        metavar="N",
+        help=f"how many scenarios to propose and process (default: FSM_FINDER_BATCH_SIZE, "
+        f"{config.DEFAULT_FINDER_BATCH_SIZE}; at most {config.MAX_FINDER_BATCH_SIZE})",
+    )
+    for command in (ask, chat, check, evaluate, serve, find):
         command.add_argument(
             "--verbose", action="store_true", help="also print the log lines to stderr"
         )
@@ -290,6 +334,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             host=arguments.host,
             port=arguments.port,
             offline_demo=arguments.offline_demo,
+            verbose=arguments.verbose,
+        )
+    if arguments.command == "find-rules":
+        if sum((arguments.yes_spend, arguments.offline_demo, arguments.list)) > 1:
+            find.error("--yes-spend, --offline-demo and --list cannot be used together")
+        if arguments.batch is not None and not (
+            1 <= arguments.batch <= config.MAX_FINDER_BATCH_SIZE
+        ):
+            find.error(f"--batch must be between 1 and {config.MAX_FINDER_BATCH_SIZE}")
+        return _find_rules(
+            spend=arguments.yes_spend,
+            offline_demo=arguments.offline_demo,
+            list_only=arguments.list,
+            batch=arguments.batch,
             verbose=arguments.verbose,
         )
     if arguments.command == "scan":
@@ -432,9 +490,15 @@ def _serve(*, host: str, port: int, offline_demo: bool, verbose: bool) -> int:
             logger.error("serve cannot start: no model client (%s)", error.kind)
         print(f"Cannot start: {error}")
         return EXIT_CANNOT_START
+    replies: runtime.Replies = "demo" if offline_demo else "live"
     assistant, tracer = runtime.open_assistant(
-        "web", settings, model, replies="demo" if offline_demo else "live", warn=_warn(verbose)
+        "web", settings, model, replies=replies, warn=_warn(verbose)
     )
+    try:
+        rule_finder = _finder(settings, replies, turn_model=model, tracer=tracer)
+    except (BankError, ModelUnavailable) as error:
+        print(f"Cannot start: {error}")
+        return EXIT_CANNOT_START
     print(
         "Hosted tracing: off (the offline demo is never traced)."
         if offline_demo
@@ -454,12 +518,125 @@ def _serve(*, host: str, port: int, offline_demo: bool, verbose: bool) -> int:
         model_id=demo.MODEL_ID if offline_demo else None,
         demo_questions=demo.QUESTIONS if offline_demo else (),
         tracer=tracer,
+        finder=rule_finder,
         allowed_hosts=api.LOOPBACK_HOSTS if local else (*api.LOOPBACK_HOSTS, host),
     )
     # Flushed: the server then runs until it is stopped, and the lines above are wanted now.
     print(f"Open http://{host}:{port}/ in a browser. Ctrl-C stops the server.", flush=True)
     uvicorn.run(app, host=host, port=port, log_level="warning")
     return 0
+
+
+def _finder(
+    settings: Settings,
+    replies: runtime.Replies,
+    *,
+    turn_model: IntentModel | None = None,
+    tracer: tracing.Tracer | None = None,
+) -> finder.Finder:
+    """The rule finder: the scenario request's own binding of the model, and the turns'."""
+    spec = scenarios.scenario_spec(settings)
+    if replies == "demo":
+        return runtime.open_finder(
+            settings,
+            scenario_model=demo.DemoScenarioModel(spec),
+            turn_model=turn_model or demo.DemoModel(model_spec(settings)),
+            replies=replies,
+            model_id=demo.MODEL_ID,
+        )
+    return runtime.open_finder(
+        settings,
+        scenario_model=_live_model(spec, settings),
+        turn_model=turn_model or _live_model(model_spec(settings), settings),
+        replies=replies,
+        tracer=tracer,
+    )
+
+
+def _find_rules(
+    *, spend: bool, offline_demo: bool, list_only: bool, batch: int | None, verbose: bool
+) -> int:
+    replies: runtime.Replies = "demo" if offline_demo else "live"
+    try:
+        if offline_demo:
+            settings = runtime.start(
+                "find-rules", verbose=verbose, load=lambda: config.load_settings({}, env_file=None)
+            )
+        else:
+            settings = _start("find-rules", verbose)
+        if batch is not None:
+            settings = settings.model_copy(update={"finder_batch_size": batch})
+        bank = runtime.bank_path(settings, replies)
+        if list_only:
+            listed = runtime.open_bank(settings, replies)
+            print(finder.render_bank(listed.entries()))
+            for waiting in listed.proposed():
+                print(f"  proposed, entry {waiting.id}: {safe_text(waiting.title, 80)}")
+            return 0
+        if not (spend or offline_demo):
+            print(finder.render_plan(settings, str(bank)))
+            key = "set" if settings.anthropic_api_key is not None else "NOT set"
+            print(f"  ANTHROPIC_API_KEY is {key}.")
+            print("Nothing was sent. To run it, add --yes-spend; --offline-demo runs canned scenarios.")
+            return 0
+        tracer = None if offline_demo else tracing.start(settings, _warn(verbose))
+        rule_finder = _finder(settings, replies, tracer=tracer)
+    except (ModelUnavailable, BankError, ValueError) as error:  # ValueError: a bad setting
+        print(f"Cannot start: {error}")
+        return EXIT_CANNOT_START
+    if offline_demo:
+        print("Model: none. OFFLINE DEMO: canned scenarios and clauses, run through the real "
+              "guard, backtest and bank. Nothing is sent or billed.")  # fmt: skip
+    else:
+        print(f"Model: {settings.anthropic_model}, live. Each request is billed to ANTHROPIC_API_KEY.")
+        print(tracing.describe(tracer, settings))
+    print(f"Rule bank: {bank}")
+    count = settings.finder_batch_size
+    failed = False
+    try:
+        print(f"Phase 1, propose: asking for {count} scenario{'' if count == 1 else 's'}.")
+        proposed = rule_finder.propose(count)
+        print(finder.render_run(proposed))
+        failed = proposed.status != "completed"
+        if proposed.items:
+            print("Phase 2, process: one rule turn per scenario.")
+        for item in proposed.items:
+            print(f"  {item.position:>2}. {safe_text(item.title, 60)}")
+            run = rule_finder.process(item.entry_id, _print_progress)
+            print(finder.render_run(run))
+            if run.status != "completed":
+                failed = True
+                if run.error is not None and run.error.kind == "model_unavailable":
+                    print("The model stopped answering; the scenarios left stay proposed.")
+                    break
+    except BankError as error:
+        print(f"The rule bank could not be used: {error}")
+        failed = True
+    finally:
+        if tracer is not None:
+            tracer.close()
+    try:
+        print(finder.render_bank(rule_finder.bank.entries()))
+        left = len(rule_finder.bank.proposed())
+        if left:
+            print(f"{left} proposed scenario(s) are waiting to be processed, in the web page.")
+    except BankError as error:
+        print(f"The rule bank could not be listed: {error}")
+    return 1 if failed else 0
+
+
+_printed_steps: list[tuple[int, str | None, int]] = []
+
+
+def _print_progress(progress: finder.RunProgress) -> None:
+    """Print each step of a processing run once, as it begins."""
+    key = (progress.run_id, progress.step, progress.attempt)
+    if _printed_steps[-1:] == [key]:
+        return
+    _printed_steps[:] = [key]
+    line = finder.render_step(progress)
+    if line is not None:
+        print(line, flush=True)
 
 
 def _start(command: str, verbose: bool) -> Settings:

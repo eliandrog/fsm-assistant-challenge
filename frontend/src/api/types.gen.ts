@@ -2,9 +2,44 @@
 // Do not edit: run `uv run python -m fsm_assistant.typescript`.
 
 export interface ApiError {
-  code: 'invalid_request' | 'conversation_busy' | 'not_found' | 'method_not_allowed' | 'internal';
+  code: 'invalid_request' | 'conversation_busy' | 'not_found' | 'method_not_allowed' | 'internal' | 'finder_busy' | 'finder_unavailable' | 'not_reviewable' | 'not_processable';
   message: string;
   fields: FieldProblem[];
+}
+
+export interface BankEntry {
+  run_id: number;
+  position: number;
+  title: string;
+  hypothesis: string;
+  columns: string[];
+  scenario_assumptions: string[];
+  status: 'confirmed' | 'not_confirmed' | 'no_signal' | 'not_built' | 'proposed' | 'discarded';
+  turn_outcome: 'answered' | 'rule_proposed' | 'clarification' | 'cannot_answer' | 'rejected' | 'failed' | null;
+  turn_message: string | null;
+  refused: string[];
+  clause: string | null;
+  explanation: string | null;
+  rule_assumptions: string[];
+  rule: RuleCard | null;
+  caveats: Caveat[];
+  criteria: Criterion[];
+  duplicate_check: 'complete' | 'incomplete' | 'not_applicable';
+  model_id: string;
+  scenario_prompt_version: string;
+  rule_prompt_version: string;
+  processed_run_id: number | null;
+  turn_error_kind: string | null;
+  id: number;
+  created_at: string;
+  decision: 'pending' | 'approved' | 'rejected';
+  decision_note: string | null;
+  decided_at: string | null;
+  matches: ScenarioMatch[];
+  backtest_sql: string | null;
+  monthly_sql: string | null;
+  verdict: string;
+  verdict_short: string;
 }
 
 export interface Caveat {
@@ -24,15 +59,86 @@ export interface Column {
   format: 'plain' | 'usd_cents' | 'fraction' | 'identifier';
 }
 
+export interface Criteria {
+  confirmation_starts: string;
+  discovery_min_labelled: number;
+  discovery_min_fraud: number;
+  discovery_min_lift: number;
+  confirmation_min_labelled: number;
+  confirmation_min_fraud: number;
+  confirmation_min_lift: number;
+  confirmation_lift_ratio: number;
+}
+
+export interface Criterion {
+  code: string;
+  period: 'discovery' | 'confirmation';
+  passed: boolean;
+  detail: string;
+}
+
 export interface DatabaseHealth {
   present: boolean;
   readable: boolean;
   schema_context: boolean;
 }
 
+export interface DecisionRequest {
+  decision: 'pending' | 'approved' | 'rejected';
+  note?: string | null;
+}
+
+export interface EntrySummary {
+  id: number;
+  run_id: number;
+  title: string;
+  status: 'confirmed' | 'not_confirmed' | 'no_signal' | 'not_built' | 'proposed' | 'discarded';
+  decision: 'pending' | 'approved' | 'rejected';
+  turn_outcome: 'answered' | 'rule_proposed' | 'clarification' | 'cannot_answer' | 'rejected' | 'failed' | null;
+  discovery: RulePeriod | null;
+  confirmation: RulePeriod | null;
+  verdict_short: string;
+  matches: number;
+  created_at: string;
+}
+
 export interface FieldProblem {
   field: string;
   problem: string;
+}
+
+export interface FinderOverview {
+  running: boolean;
+  active: RunProgress | null;
+  propose_requests: number;
+  process_requests: number;
+  criteria: Criteria;
+  note: string;
+  last_run: FinderRun | null;
+  proposed: ProposedScenario[];
+  discarded: number;
+  entries: EntrySummary[];
+}
+
+export interface FinderRun {
+  id: number | null;
+  kind: 'propose' | 'process' | 'batch';
+  status: 'running' | 'completed' | 'stopped' | 'failed' | 'interrupted';
+  error: RunError | null;
+  source: 'live' | 'offline_demo' | 'scripted';
+  batch_size: number;
+  scenarios: number;
+  items: RunItem[];
+  model_requests: number;
+  request_bound: number;
+  input_tokens: number;
+  output_tokens: number;
+  elapsed_ms: number;
+  model_id: string;
+  scenario_prompt_version: string;
+  rule_prompt_version: string;
+  started_at: string;
+  finished_at: string | null;
 }
 
 export interface Health {
@@ -51,6 +157,20 @@ export interface Health {
 export interface Limits {
   max_message_characters: number;
   row_cap: number;
+}
+
+export interface ProposeRequest {
+  count?: number;
+}
+
+export interface ProposedScenario {
+  id: number;
+  run_id: number;
+  title: string;
+  hypothesis: string;
+  columns: string[];
+  assumptions: string[];
+  created_at: string;
 }
 
 export type ReasonCode = 'empty' | 'code_fence' | 'invalid_text' | 'too_long' | 'too_complex' | 'multiple_statements' | 'explain' | 'unterminated_quote' | 'sqlite_error' | 'not_read_only' | 'not_select' | 'table_not_allowed' | 'function_not_allowed' | 'relative_to_today' | 'clause_not_contained' | 'label_read' | 'not_deterministic';
@@ -121,6 +241,54 @@ export interface RuleStability {
   qualifying_months: number;
   min_precision: number | null;
   max_precision: number | null;
+}
+
+export interface RunError {
+  kind: 'bank_unavailable' | 'database' | 'model_unavailable' | 'model_output' | 'scenario_shape' | 'demo_exhausted' | 'interrupted' | 'internal';
+  message: string;
+}
+
+export interface RunItem {
+  position: number;
+  title: string;
+  result: 'proposed' | 'added' | 'duplicate';
+  entry_id: number;
+  status: 'confirmed' | 'not_confirmed' | 'no_signal' | 'not_built' | 'proposed' | 'discarded';
+  match_kind: 'same_clause' | 'same_transactions' | null;
+}
+
+export interface RunProgress {
+  run_id: number;
+  entry_id: number;
+  state: 'running' | 'completed' | 'stopped' | 'failed' | 'interrupted';
+  step: 'write_rule' | 'check_rule' | 'backtest' | 'duplicates' | 'verdict' | null;
+  done: ('write_rule' | 'check_rule' | 'backtest' | 'duplicates' | 'verdict')[];
+  attempt: number;
+  scenario: Scenario;
+  clause: string | null;
+  outcome: 'added' | 'duplicate' | null;
+  result_entry_id: number | null;
+  status: 'confirmed' | 'not_confirmed' | 'no_signal' | 'not_built' | 'proposed' | 'discarded' | null;
+  match_kind: 'same_clause' | 'same_transactions' | null;
+  error: RunError | null;
+  verdict: string | null;
+}
+
+export interface Scenario {
+  title: string;
+  hypothesis: string;
+  columns: string[];
+  assumptions: string[];
+}
+
+export interface ScenarioMatch {
+  run_id: number;
+  position: number;
+  title: string;
+  hypothesis: string;
+  clause: string;
+  kind: 'same_clause' | 'same_transactions';
+  created_at: string;
 }
 
 export interface TableResult {

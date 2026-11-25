@@ -1,0 +1,41 @@
+{
+  "run_id": 1,
+  "position": 5,
+  "title": "Transactions already known as fraud",
+  "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+  "columns": [
+    "fraud_labels.is_fraud"
+  ],
+  "scenario_assumptions": [
+    "A label is known when the transaction happens."
+  ],
+  "status": "not_built",
+  "turn_outcome": "rejected",
+  "turn_message": "The rule clause was not allowed to run. A rule must not read fraud_labels: it is scored against those labels. Use only what is known about a transaction when it happens.",
+  "refused": [
+    "label_read",
+    "label_read"
+  ],
+  "clause": null,
+  "explanation": null,
+  "rule_assumptions": [],
+  "rule": null,
+  "caveats": [],
+  "criteria": [],
+  "duplicate_check": "not_applicable",
+  "model_id": "scripted",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "processed_run_id": 6,
+  "turn_error_kind": "sql_rejected",
+  "id": 5,
+  "created_at": "2000-01-01T00:00:00+00:00",
+  "decision": "pending",
+  "decision_note": null,
+  "decided_at": null,
+  "matches": [],
+  "backtest_sql": null,
+  "monthly_sql": null,
+  "verdict": "No rule built: the SQL guard refused the clause the model wrote, and the one it wrote after that.",
+  "verdict_short": "refused by the guard"
+}

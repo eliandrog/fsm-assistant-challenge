@@ -36,6 +36,7 @@ const ERROR_TITLES: Record<ErrorKind, string> = {
 };
 
 const FAILURE_TITLES: Record<FailureReason, string> = {
+  missing: 'Not found on the server',
   network: 'Can’t reach the server',
   busy: 'Still answering the previous question',
   invalid: 'The message was not accepted',

@@ -1,0 +1,223 @@
+[
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "backtest",
+    "done": [
+      "write_rule",
+      "check_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "duplicates",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+    "outcome": "added",
+    "result_entry_id": 1,
+    "status": "confirmed",
+    "match_kind": null,
+    "error": null,
+    "verdict": "Confirmed: in the discovery period it flagged 220 transactions, with 60 fraud among 200 labelled flagged transactions (precision 30.00%, lift 7.4); in the confirmation period, 30 fraud among 100 labelled flagged (precision 30.00%, lift 10.0)."
+  },
+  {
+    "run_id": 2,
+    "entry_id": 1,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates",
+      "verdict"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ]
+    },
+    "clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+    "outcome": "added",
+    "result_entry_id": 1,
+    "status": "confirmed",
+    "match_kind": null,
+    "error": null,
+    "verdict": "Confirmed: in the discovery period it flagged 220 transactions, with 60 fraud among 200 labelled flagged transactions (precision 30.00%, lift 7.4); in the confirmation period, 30 fraud among 100 labelled flagged (precision 30.00%, lift 10.0)."
+  }
+]

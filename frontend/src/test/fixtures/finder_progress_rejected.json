@@ -1,0 +1,160 @@
+[
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 2,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 2,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 2,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": "added",
+    "result_entry_id": 5,
+    "status": "not_built",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No rule built: the SQL guard refused the clause the model wrote, and the one it wrote after that."
+  },
+  {
+    "run_id": 6,
+    "entry_id": 5,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 2,
+    "scenario": {
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ]
+    },
+    "clause": null,
+    "outcome": "added",
+    "result_entry_id": 5,
+    "status": "not_built",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No rule built: the SQL guard refused the clause the model wrote, and the one it wrote after that."
+  }
+]

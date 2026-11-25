@@ -161,7 +161,14 @@ def test_only_db_opens_the_database() -> None:
             )
             if any(name.split(".")[0] == "sqlite3" for name in names):
                 importers.add(path.name)
-    assert importers == {"db.py"}
+    # `rule_bank.py` opens the rule bank, a file of its own, and never the database.
+    assert importers == {"db.py", "rule_bank.py"}
+    bank = ast.parse((package / "rule_bank.py").read_text(encoding="utf-8"))
+    imported = {
+        node.module for node in ast.walk(bank) if isinstance(node, ast.ImportFrom) and node.module
+    }
+    assert not {"fsm_assistant.db", "fsm_assistant.config", "fsm_assistant"} & imported
+    assert "rule_bank" not in (package / "db.py").read_text(encoding="utf-8")
 
 
 def test_every_figure_shown_comes_through_run_query(

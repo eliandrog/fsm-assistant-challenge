@@ -203,7 +203,7 @@ describe('errors and recovery', () => {
       .fn<ChatClient['sendMessage']>()
       .mockRejectedValueOnce(new Error('boom'))
       .mockResolvedValueOnce({ kind: 'turn', result: TURNS.answeredScalar });
-    const { user, ask } = setup({ sendMessage, health: async () => HEALTH.live });
+    const { user, ask } = setup({ ...createMockClient(), sendMessage, health: async () => HEALTH.live });
     await ask('anything');
 
     expect(await screen.findByText('The reply could not be read')).toBeInTheDocument();
@@ -263,6 +263,7 @@ describe('server status', () => {
 function manualClient() {
   const calls: { conversationId: string; text: string; reply: (answer: string, turn?: number) => void }[] = [];
   const client: ChatClient = {
+    ...createMockClient(),
     health: async () => HEALTH.live,
     sendMessage: (conversationId, text) =>
       new Promise<Reply>((resolve) => {

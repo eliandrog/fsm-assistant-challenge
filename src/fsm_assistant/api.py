@@ -13,6 +13,19 @@ the application; the `serve` command runs it.
   whether the database can be read, whether a key is set, the model, the
   limits and whether turns are traced. It calls no model and never returns a
   key.
+- The rule finder, in two steps the reviewer starts (docs/DECISIONS.md, D-35,
+  D-36). `POST /api/finder/scenarios` makes the one scenario request and
+  saves what comes back as proposed. `POST /api/finder/scenarios/{id}/process`
+  starts turning one proposed scenario into a rule on a worker thread and
+  answers 202 at once; `GET /api/finder/runs/{id}` says where that run
+  stands, step by step. `POST /api/finder/scenarios/{id}/discard` sets a
+  scenario aside. `GET /api/finder/entries` lists the bank,
+  `GET /api/finder/entries/{id}` is one entry in full,
+  `POST /api/finder/entries/{id}/decision` records an approval or rejection
+  and `DELETE /api/finder/entries/{id}` removes an entry for good. One
+  finder action runs at a time: another asked for meanwhile is a 409. A run
+  that fails is still a 2xx whose body says so; an unknown entry is a 404
+  and a bank that cannot be read a 503.
 - Any other path serves the built web interface from `frontend/dist`, when
   it has been built.
 
@@ -43,11 +56,30 @@ from starlette.exceptions import HTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from fsm_assistant import db
-from fsm_assistant.config import PROJECT_ROOT, Settings
+from fsm_assistant.config import MAX_FINDER_BATCH_SIZE, PROJECT_ROOT, Settings
+from fsm_assistant.finder import (
+    CRITERIA,
+    FINDER_NOTE,
+    PROCESS_REQUESTS,
+    PROPOSE_REQUESTS,
+    Criteria,
+    Finder,
+    FinderBusy,
+    RunProgress,
+)
 from fsm_assistant.graph import Assistant
 from fsm_assistant.nl2sql import PROMPT_VERSION
 from fsm_assistant.presentation import EVIDENCE_NOTE
 from fsm_assistant.result import TurnResult
+from fsm_assistant.rule_bank import (
+    MAX_NOTE_CHARACTERS,
+    BankEntry,
+    BankError,
+    Decision,
+    EntrySummary,
+    FinderRun,
+    ProposedScenario,
+)
 from fsm_assistant.schema_context import build_schema_context
 from fsm_assistant.tracing import Tracer
 
@@ -70,7 +102,15 @@ NOT_BUILT: Final = (
 # Whose replies the assistant runs on: Claude, or the canned replies of `demo.py`.
 Mode = Literal["live", "offline_demo"]
 ApiErrorCode = Literal[
-    "invalid_request", "conversation_busy", "not_found", "method_not_allowed", "internal"
+    "invalid_request",
+    "conversation_busy",
+    "not_found",
+    "method_not_allowed",
+    "internal",
+    "finder_busy",
+    "finder_unavailable",
+    "not_reviewable",
+    "not_processable",
 ]
 
 
@@ -139,6 +179,36 @@ class Health(BaseModel):
     demo_questions: tuple[str, ...]  # what the offline demo can answer; empty when live
 
 
+class FinderOverview(BaseModel):
+    """The rule bank as the "Rule finder" tab shows it."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    running: bool  # a propose or a process is in progress in this process
+    active: RunProgress | None  # the processing in progress, for a page that was reloaded
+    propose_requests: int  # model requests one "find a rule" makes
+    process_requests: int  # the most model requests processing one scenario makes
+    criteria: Criteria
+    note: str  # what the two-period check is and is not
+    last_run: FinderRun | None
+    proposed: tuple[ProposedScenario, ...]  # waiting for the reviewer, oldest first
+    discarded: int  # scenarios the reviewer set aside
+    entries: tuple[EntrySummary, ...]  # the processed ones, ranked
+
+
+class ProposeRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    count: int = Field(default=1, ge=1, le=MAX_FINDER_BATCH_SIZE)
+
+
+class DecisionRequest(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    decision: Decision
+    note: str | None = Field(default=None, max_length=MAX_NOTE_CHARACTERS)
+
+
 class _Conversations:
     """One lock per conversation id seen. Private working state of the application."""
 
@@ -189,6 +259,7 @@ def create_app(
     model_id: str | None = None,
     demo_questions: Sequence[str] = (),
     tracer: Tracer | None = None,
+    finder: Finder | None = None,
     dist: Path = DEFAULT_DIST,
     allowed_hosts: Sequence[str] = LOOPBACK_HOSTS,
     busy_wait_seconds: float = DEFAULT_BUSY_WAIT_SECONDS,
@@ -270,6 +341,126 @@ def create_app(
             demo_questions=tuple(demo_questions),
         )
 
+    busy: dict[int | str, dict[str, Any]] = {409: {"model": ApiError}, 503: {"model": ApiError}}
+    missing: dict[int | str, dict[str, Any]] = {404: {"model": ApiError}, **busy}
+
+    @app.post("/api/finder/scenarios", response_model=FinderRun, responses=busy)
+    def propose(request: ProposeRequest | None = None) -> Response:
+        """One model request: scenarios saved as proposed. Nothing is written as SQL or run."""
+        if finder is None:
+            return _no_finder()
+        try:
+            run = finder.propose(1 if request is None else request.count)
+        except FinderBusy:
+            return _finder_busy()
+        return Response(content=run.model_dump_json(), media_type="application/json")
+
+    @app.post(
+        "/api/finder/scenarios/{entry_id}/process",
+        response_model=RunProgress,
+        status_code=202,
+        responses=missing,
+    )
+    def process(entry_id: int) -> Response:
+        """Start turning one proposed scenario into a rule; answers at once with its progress."""
+        if finder is None:
+            return _no_finder()
+        try:
+            started = finder.start_process(entry_id)
+        except FinderBusy:
+            return _finder_busy()
+        except BankError as error:
+            return _bank_refusal(error)
+        return Response(
+            content=started.model_dump_json(), media_type="application/json", status_code=202
+        )
+
+    @app.post(
+        "/api/finder/scenarios/{entry_id}/discard", response_model=BankEntry, responses=missing
+    )
+    def discard(entry_id: int) -> Response:
+        if finder is None:
+            return _no_finder()
+        try:
+            entry = finder.discard(entry_id)
+        except FinderBusy:
+            return _finder_busy()
+        except BankError as error:
+            return _bank_refusal(error)
+        logger.info("finder scenario discarded: entry=%d", entry_id)
+        return Response(content=entry.model_dump_json(), media_type="application/json")
+
+    @app.get("/api/finder/runs/{run_id}", response_model=RunProgress, responses=missing)
+    def run_progress(run_id: int) -> Response:
+        """Where a processing run stands. Only the latest one of this process is remembered."""
+        if finder is None:
+            return _no_finder()
+        found = finder.progress(run_id)
+        if found is None:
+            return _refuse(
+                404, "not_found", "This server holds no progress for that run.", what="finder"
+            )
+        return Response(content=found.model_dump_json(), media_type="application/json")
+
+    @app.delete("/api/finder/entries/{entry_id}", status_code=204, responses=missing)
+    def delete(entry_id: int) -> Response:
+        """Remove an entry and everything attached to it from the rule bank, for good."""
+        if finder is None:
+            return _no_finder()
+        try:
+            finder.delete(entry_id)
+        except FinderBusy:
+            return _finder_busy()
+        except BankError as error:
+            return _bank_refusal(error)
+        return Response(status_code=204)
+
+    @app.get("/api/finder/entries", response_model=FinderOverview, responses=busy)
+    def bank_entries() -> Response:
+        if finder is None:
+            return _no_finder()
+        try:
+            overview = FinderOverview(
+                running=finder.running,
+                active=finder.active,
+                propose_requests=PROPOSE_REQUESTS,
+                process_requests=PROCESS_REQUESTS,
+                criteria=CRITERIA,
+                note=FINDER_NOTE,
+                last_run=finder.bank.latest_run(),
+                proposed=finder.bank.proposed(),
+                discarded=finder.bank.count("discarded"),
+                entries=finder.bank.entries(),
+            )
+        except BankError as error:
+            return _bank_refusal(error)
+        return Response(content=overview.model_dump_json(), media_type="application/json")
+
+    @app.get("/api/finder/entries/{entry_id}", response_model=BankEntry, responses=missing)
+    def bank_entry(entry_id: int) -> Response:
+        if finder is None:
+            return _no_finder()
+        try:
+            entry = finder.entry(entry_id)
+        except BankError as error:
+            return _bank_refusal(error)
+        return Response(content=entry.model_dump_json(), media_type="application/json")
+
+    @app.post(
+        "/api/finder/entries/{entry_id}/decision", response_model=BankEntry, responses=missing
+    )
+    def decide(entry_id: int, request: DecisionRequest) -> Response:
+        if finder is None:
+            return _no_finder()
+        try:
+            finder.bank.decide(entry_id, request.decision, request.note)
+            entry = finder.entry(entry_id)
+        except BankError as error:
+            return _bank_refusal(error)
+        # The entry and the decision only: a note is the reviewer's own text.
+        logger.info("finder decision: entry=%d decision=%s", entry_id, request.decision)
+        return Response(content=entry.model_dump_json(), media_type="application/json")
+
     @app.get("/{path:path}", include_in_schema=False)
     def page(path: str) -> Response:
         """A file of the built interface, or its page for any other address."""
@@ -334,8 +525,40 @@ def _code_of(status: int) -> ApiErrorCode:
     return "invalid_request" if status < 500 else "internal"
 
 
-def _refuse(status: int, code: ApiErrorCode, message: str, field: str | None = None) -> Response:
-    logger.info("chat request refused: status=%d code=%s", status, code)
+def _no_finder() -> Response:
+    return _refuse(
+        503, "finder_unavailable", "The rule finder is not set up on this server.", what="finder"
+    )
+
+
+def _finder_busy() -> Response:
+    return _refuse(
+        409,
+        "finder_busy",
+        "The rule finder is busy with another request. Wait for it to finish, then try again.",
+        what="finder",
+    )
+
+
+def _bank_refusal(error: BankError) -> Response:
+    if error.kind == "not_processable":
+        return _refuse(409, "not_processable", str(error), what="finder")
+    if error.kind == "unknown_entry":
+        return _refuse(404, "not_found", str(error), what="finder")
+    if error.kind == "not_reviewable":
+        return _refuse(409, "not_reviewable", str(error), what="finder")
+    return _refuse(503, "finder_unavailable", str(error), what="finder")
+
+
+def _refuse(
+    status: int,
+    code: ApiErrorCode,
+    message: str,
+    field: str | None = None,
+    *,
+    what: str = "chat",
+) -> Response:
+    logger.info("%s request refused: status=%d code=%s", what, status, code)
     problems = () if field is None else (FieldProblem(field=field, problem=message),)
     return _error(status, code, message, problems)
 

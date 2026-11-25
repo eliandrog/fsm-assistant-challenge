@@ -116,6 +116,8 @@ def test_env_example_names_every_variable_and_holds_no_secret() -> None:
         "LANGSMITH_AGENT_ENVIRONMENT",
         "LANGSMITH_PROJECT",
         "FSM_TRACE_SYSTEM_PROMPT",
+        "FSM_RULE_BANK_PATH",
+        "FSM_FINDER_BATCH_SIZE",
     } == values.keys()
     assert all(value == "" for value in values.values())
     assert load_settings({}, config.PROJECT_ROOT / ".env.example") == load()

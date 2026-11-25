@@ -425,6 +425,11 @@ def _strict_schema(model: type[BaseModel]) -> JsonObject:
     return schema
 
 
+def strict_schema(model: type[BaseModel]) -> JsonObject:
+    """`_strict_schema`, for another request that offers a strict tool (`scenarios`)."""
+    return _strict_schema(model)
+
+
 def _without_noise(value: JsonValue) -> JsonValue:
     if isinstance(value, dict):
         return {

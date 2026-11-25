@@ -232,6 +232,16 @@ def log_directory(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
     config.DEFAULT_LOG_DIR = default
 
 
+@pytest.fixture(scope="session", autouse=True)
+def default_rule_bank(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Path]:
+    """Send the default rule bank to a temp file, so no test writes one into the project."""
+    path = tmp_path_factory.mktemp("bank") / "rule_bank.db"
+    default = config.DEFAULT_RULE_BANK_PATH
+    config.DEFAULT_RULE_BANK_PATH = path
+    yield path
+    config.DEFAULT_RULE_BANK_PATH = default
+
+
 @pytest.fixture(scope="session")
 def fixture_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """A small database with the real schema. Not in WAL mode: no sidecar files."""

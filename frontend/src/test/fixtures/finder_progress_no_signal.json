@@ -1,0 +1,209 @@
+[
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "backtest",
+    "done": [
+      "write_rule",
+      "check_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "duplicates",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": "amount_usd_cents = 517",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": "amount_usd_cents = 517",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "running",
+    "step": "verdict",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": "amount_usd_cents = 517",
+    "outcome": "added",
+    "result_entry_id": 3,
+    "status": "no_signal",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No signal: in the discovery period it did not find fraud clearly more often than flagging at random would. It flagged 2,100 transactions there, with 7 fraud among 2,100 labelled flagged transactions (precision 0.33%, lift 0.1)."
+  },
+  {
+    "run_id": 4,
+    "entry_id": 3,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates",
+      "verdict"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ]
+    },
+    "clause": "amount_usd_cents = 517",
+    "outcome": "added",
+    "result_entry_id": 3,
+    "status": "no_signal",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No signal: in the discovery period it did not find fraud clearly more often than flagging at random would. It flagged 2,100 transactions there, with 7 fraud among 2,100 labelled flagged transactions (precision 0.33%, lift 0.1)."
+  }
+]
