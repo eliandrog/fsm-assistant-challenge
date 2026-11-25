@@ -68,8 +68,8 @@ What was judged to matter less, and left out: charts, a polished interface, and 
 Requirements: [uv](https://docs.astral.sh/uv/) (it installs Python 3.13 if needed). Tested on macOS.
 
 ```bash
-git clone <repository-url>
-cd fsm-assistant-challenge-python
+git clone https://github.com/eliandrog/fsm-assistant-challenge.git
+cd fsm-assistant-challenge
 uv sync
 ```
 
@@ -81,8 +81,8 @@ uv sync
 
 - **The tests need no key and no network.** They never call a model, and every test runs with network connections refused.
 - **A live call needs a key and costs money.** Put the key in `.env` in the project root, as `ANTHROPIC_API_KEY=...` (see Configuration below). `.env` is git-ignored; `.env.example` lists the names only. The key is never printed or logged, and a missing key is an error only when a live call is attempted.
-- Four commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask`, `fsm-assistant chat` and `fsm-assistant serve` (the web chat, unless it is given `--offline-demo`), one or two requests per question, and `fsm-assistant check-model --yes-spend`. Each prints the model it is about to use. `ask`, `chat` and `serve` stop with a message when the key is missing; `check-model` sends nothing without its flag.
-- The evaluation suite replays offline from recorded model replies (`fsm-assistant eval --replay --model claude-haiku-5-5`), so checking reported results needs no key. One evaluation run is recorded, on `claude-haiku-5-5`; the recordings of `check-model`, for two models, replay with no key too.
+- Five commands make live calls ([How to run](#how-to-run)): `fsm-assistant ask`, `fsm-assistant chat` and `fsm-assistant serve` (the web chat, unless it is given `--offline-demo`), one or two requests per question, and `fsm-assistant check-model --yes-spend` and `fsm-assistant eval --yes-spend`. Each prints the model it is about to use. `ask`, `chat` and `serve` stop with a message when the key is missing; `check-model` and `eval` send nothing without that flag.
+- The evaluation suite replays offline from recorded model replies (`fsm-assistant eval --replay --model claude-haiku-5-5`), so checking reported results needs no key. The suite is recorded on two models, `claude-haiku-5-5` and `claude-opus-5-5` (replay the second with `--model claude-opus-5-5`); the recordings of `check-model`, for two models, replay with no key too.
 
 **Configuration.** Optional: every setting has a default, so nothing needs to be set to run the tests. Settings are environment variables:
 
@@ -142,7 +142,7 @@ uv run fsm-assistant serve                                    # PAID: the web ch
 - `graph` prints the diagram shown in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#how-one-turn-works), drawn from the compiled graph. It reads no setting and no key.
 - `scan [--period START END] [--top N] [--sql]` runs the fraud-concentration scan directly: no model, no key, nothing sent. It prints the ranked segments, the notes (scope, support floor, segments that are the same transactions, what is left without the top segment) and the caveats; the same table a turn shows when the model chooses `profile_fraud`. `--period` takes two days as `YYYY-MM-DD`, both included (default: all the data); `--top` sets how many segments are printed (default 10); `--sql` also prints every statement that ran. It takes about 4 seconds on the shipped database. Exit code: 0, 1 when the scan failed, 2 for a bad argument or setting.
 
-What the output looks like. This is real output from an earlier live run of this question on `claude-haiku-5-5`, made with the first version of the turn prompt, trimmed of the lines printed before the answer and of the last line (outcome, model, requests, tokens and time). The figures come from the executed backtest and are the same on every run; the explanation and the assumptions are the model's text and can vary between runs. The same question on the current prompt (`turn-3`) gave the same clause and the same figures on both models, with slightly different wording of the assumptions.
+What the output looks like. This is real output from an earlier live run of this question on `claude-haiku-5-5`, made with the first version of the turn prompt, trimmed of the lines printed before the answer and of the last line (outcome, model, requests, tokens and time). The figures come from the executed backtest and are the same on every run; the explanation and the assumptions are the model's text and can vary between runs. The same question on a later prompt (`turn-3`; the current one is `turn-5`), asked once on each of `claude-haiku-5-5` and `claude-opus-5-5`, gave the same clause and the same figures on both models, with slightly different wording of the assumptions.
 
 ```text
 $ uv run fsm-assistant ask "Propose a rule for debit card transactions over \$1,000"
@@ -399,7 +399,7 @@ What can be reproduced today:
 
 ```bash
 uv sync          # install
-uv run pytest    # a few seconds, offline (no model, no key)
+uv run pytest    # 1,633 tests, about two and a half minutes, offline (no model, no key)
 uv run mypy      # type check: strict on src/ and tests/
 ```
 
@@ -410,7 +410,6 @@ To see the diagram of one turn, and the schema description that is given to the 
 ```bash
 uv run fsm-assistant graph
 ```
-
 
 ```bash
 uv run python -c "from fsm_assistant.config import load_settings; from fsm_assistant.schema_context import build_schema_context; print(build_schema_context(load_settings().db_path))"
@@ -632,7 +631,7 @@ Mitigations by risk, and whether each is built. Where each sits in the design: [
 |---|---|---|
 | Invented tables, columns or values | Schema context from the real database, including the actual values of categorical columns; the guard checks tables against the real ones; SQLite's compile error on an unknown column is sent back to the model for one repair | Measured in the evaluation suite |
 | Destructive or runaway SQL | Read-only connection, timeout, row cap, value-size cap, result-size budget; a guard that bounds the text, compiles the SQL without running it and accepts a single read-only `SELECT`; nothing in a turn runs without passing it | none |
-| SQL that runs but answers the wrong question | SQL always shown with the result, with the model's assumptions listed; a glossary that fixes the fraud rate, relative dates, day ranges and the location join | Execution accuracy measured by the evaluation suite (built; recorded on `claude-haiku-5-5` only, where one such answer was seen) |
+| SQL that runs but answers the wrong question | SQL always shown with the result, with the model's assumptions listed; a glossary that fixes the fraud rate, relative dates, day ranges and the location join | Execution accuracy measured by the evaluation suite (built; recorded on `claude-haiku-5-5` and `claude-opus-5-5`: one such answer was seen on the first, and on the second one reading that differs from the reference, listed as an assumption) |
 | Made-up numbers | Every figure comes from executed SQL; the model is never shown result rows, and its text is labelled as model text | none |
 | Plausible but poor rules | No rule shown without its backtest, overall and month by month, with lift over the base fraud rate; caveats for a small labelled sample, a high flag rate, a weak month and a drop in the later period; the FSM decides, the tool does not deploy | none |
 | A rule that reads the labels it is scored on | The guard rejects any clause that reads `fraud_labels`, in the turn and again in the backtest. Not detectable: a clause that lists fraud transaction ids as literals | none |
