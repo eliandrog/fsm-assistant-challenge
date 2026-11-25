@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-risky",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What should count as a \"risky\" transaction? The data doesn't define that term.",
+          "suggestions": [
+            "Transactions labelled as fraud (is_fraud = 1)",
+            "Transactions that had an error such as 'Bad CVV' or 'Bad PIN'",
+            "Transactions above a dollar amount you choose (for example over $1,000)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 173
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNguVvvsooF4BS9kXNx6",
+    "request_hash": "df9a7923d06d5aad6c3c33fc18f9aa66e469008f49151283c697292e9e99a833"
+  }
+}

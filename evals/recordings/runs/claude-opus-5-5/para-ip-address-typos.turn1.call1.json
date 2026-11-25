@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "para-ip-address-typos",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database doesn't record IP addresses, so I can't rank online transactions by IP. Instead, I can show which merchants or cards had the most online transactions ('Online Transaction' type)."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 103
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhAkaesNVTuxohZ7u2s",
+    "request_hash": "3f323b65a44ee423a34f74587bccfb4ff6ab3f9425213240361beb262a8ef77f"
+  }
+}

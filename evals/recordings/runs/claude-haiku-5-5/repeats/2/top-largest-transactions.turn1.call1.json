@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "top-largest-transactions",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT id AS transaction_id, amount_usd_cents / 100.0 AS amount_usd FROM transactions ORDER BY amount_usd_cents DESC, id ASC LIMIT 5",
+          "explanation": "Returns the five transactions with the highest amounts, with their ids and amounts in dollars, largest first.",
+          "assumptions": [
+            "'Largest' means the highest signed amount_usd_cents, so negative amounts rank last.",
+            "Ties on amount are broken by transaction id ascending.",
+            "All transactions are included, whether or not they have a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4631,
+      "output_tokens": 369
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNadmVurSYgcMQu3zEYD",
+    "request_hash": "69e88fb6def91978af14debadb2fd8e0ba01f69665b7f803e400cf26839b4974"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-rule-request",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "Which transactions should the rule catch? \"Fraud\" covers many patterns, so I need the pattern before I can write and measure a rule.",
+          "suggestions": [
+            "Online transactions above a dollar amount you choose",
+            "Transactions on a card within a short time of its previous transaction (velocity)",
+            "Transactions with a specific error type, such as Bad CVV or Bad PIN"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 258
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaHsfBuQk3JXZkck4nP",
+    "request_hash": "75f82e23431bf35e7e180e79b152b981a7c02bf97da368e0f503ef2b5a7e6c60"
+  }
+}

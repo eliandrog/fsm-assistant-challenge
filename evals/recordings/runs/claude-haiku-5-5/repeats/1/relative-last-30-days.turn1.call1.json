@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "relative-last-30-days",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-02' AND date < '2019-11-01'",
+          "explanation": "Counts all transactions dated in the 30 days ending on 2019-10-31, the most recent day included.",
+          "assumptions": [
+            "Last day of the data is 2019-10-31, so the 30-day window is 2019-10-02 through 2019-10-31 inclusive.",
+            "All transactions are counted, whether labelled or not, and regardless of amount sign or error status."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 357
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaTjMf1oC8z3f8GPbis",
+    "request_hash": "f03cbd172eb4cbebc594fb6e34672c8750cbdc4cffea49b0c14143500bf3eba0"
+  }
+}

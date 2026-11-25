@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "A rule cannot read the fraud labels, so I can't write one that flags transactions because they are labelled as fraud. I can instead help you find transaction attributes that concentrate fraud, such as transaction type, merchant category, card type or amount band, and turn one of those into a rule. Tell me which pattern you want to test, or I can run a scan of where labelled fraud concentrates."
+          "reason": "A rule cannot read the fraud labels, because the rule is scored against those same labels, so a rule that flags transactions labelled as fraud is not allowed. I can instead find transaction features that concentrate fraud, such as transaction type, amount band, merchant category, or card type, and propose a rule built on one of those. Try asking \"which transaction types have the highest fraud rate\" or run the open fraud profile."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4622,
-      "output_tokens": 272
+      "output_tokens": 253
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJYwha9HyMNShCn8K3L",
-    "request_hash": "6c2566d1e779ebde8b462e8dbb18ee68a20c02f990202be4ea5da471a5582fb0"
+    "response_id": "msg_011ChNZum6gkJKt2xNRZtU5h",
+    "request_hash": "2fe38561a1093a693122fa435473e3e0888e396d732f11fee8bc34f8ab442a0c"
   }
 }

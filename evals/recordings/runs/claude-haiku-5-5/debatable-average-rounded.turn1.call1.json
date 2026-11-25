@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-average-rounded",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_online_amount_usd, COUNT(*) AS online_transactions FROM transactions WHERE transaction_type = 'Online Transaction'",
+          "explanation": "Returns the mean amount in dollars across all online transactions, along with how many transactions it is based on.",
+          "assumptions": [
+            "'Online transaction' means transactions.transaction_type = 'Online Transaction'.",
+            "All online transactions are included, labelled or not, since the question does not mention fraud labels.",
+            "Negative amounts are included as recorded, since their meaning is undocumented and they are not assumed to be refunds.",
+            "Amounts are converted from cents to dollars by dividing by 100.0."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 482
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa3bQFiXiAT4R8pfMEX",
+    "request_hash": "ec44e1f5abc43a2a4d029f5f3c27f7d647984990b8a71f0683c1d4b9e1ede07c"
+  }
+}

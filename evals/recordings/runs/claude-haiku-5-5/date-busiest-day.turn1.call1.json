@@ -12,7 +12,7 @@
           "sql": "SELECT substr(date, 1, 10) AS day, COUNT(*) AS n FROM transactions GROUP BY day ORDER BY n DESC, day ASC LIMIT 1",
           "explanation": "Counts transactions per calendar day and returns the day with the highest count, with that count.",
           "assumptions": [
-            "Calendar day taken from the date text (YYYY-MM-DD part), covering all transactions regardless of label status.",
+            "Calendar day is taken from the date text (YYYY-MM-DD), covering all transactions regardless of label status.",
             "Ties broken by earliest day."
           ]
         }
@@ -25,7 +25,7 @@
       "output_tokens": 233
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJMubmffRXNjToMYqnH",
-    "request_hash": "174beeeebeb1c227d8edf9f7077085487a6f287c947ae82ddfface99c917d9dd"
+    "response_id": "msg_011ChNZfgFb3mf5iFRQoALkT",
+    "request_hash": "915d8cf1aa7d08acfb15621661ebf9a4b48c5574f6a9b308fc0b9638fb411183"
   }
 }

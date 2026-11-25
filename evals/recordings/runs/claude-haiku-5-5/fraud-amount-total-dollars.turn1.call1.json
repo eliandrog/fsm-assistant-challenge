@@ -9,11 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_usd FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
-          "explanation": "Sums the amounts of transactions labelled as fraud and converts the total from cents to dollars.",
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_dollars FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+          "explanation": "Sums the amounts of transactions labelled as fraud and converts the cents total to dollars.",
           "assumptions": [
-            "Fraud means fraud_labels.is_fraud = 1; transactions with no label are excluded rather than treated as non-fraud.",
-            "Amounts are summed as recorded, including any negative amounts among the fraud-labelled rows."
+            "Only transactions with a fraud label of 1 are counted; unlabelled transactions are excluded.",
+            "Negative amounts are included in the sum as recorded, without treating them as refunds."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4627,
-      "output_tokens": 294
+      "output_tokens": 278
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJLJXbjSDx1QKCovMJA",
-    "request_hash": "5ad4ecec4d936d28ec334f6c1c5c98f75c5fb3b3c40e542711b9726e77563574"
+    "response_id": "msg_011ChNZeA6Lct5HM4sgigUUV",
+    "request_hash": "00141a67c8a030c7ff4ac30f12f0c815046c44539320e361d58607782ef9f05e"
   }
 }

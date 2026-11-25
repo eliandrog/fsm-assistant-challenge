@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-by-city-and-state",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT ml.city, ml.state, COUNT(*) AS fraud_transactions\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE f.is_fraud = 1\nGROUP BY ml.city, ml.state\nORDER BY fraud_transactions DESC, ml.city, ml.state",
+          "explanation": "This lists every city, with its state, where transactions labelled as fraud took place, and how many fraud transactions each one had. Cities with the most fraud come first.",
+          "assumptions": [
+            "Only transactions with a fraud label of is_fraud = 1 are counted. Transactions without a label are left out.",
+            "Online transactions show up as their own row, with the city 'ONLINE' and an empty state.",
+            "Outside the US, the state column holds the country name."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4637,
+      "output_tokens": 387
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNghrZaJ8n8Dk1B1tiC6",
+    "request_hash": "4e5eae08c824589455f2f00538c28682d051a2d3c7da6a485edfec446443da0a"
+  }
+}

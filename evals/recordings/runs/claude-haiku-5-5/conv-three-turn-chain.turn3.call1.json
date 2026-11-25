@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "conv-three-turn-chain",
+  "turn": 3,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS mastercard_credit_transactions_over_500 FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_brand = 'Mastercard' AND c.card_type = 'Credit' AND t.amount_usd_cents > 50000",
+          "explanation": "Counts the Mastercard credit-card transactions whose amount is over $500.",
+          "assumptions": [
+            "'Over $500' means amount_usd_cents strictly greater than 50000 (exactly $500.00 is excluded).",
+            "The count includes all such transactions, labelled or not, as in the previous count.",
+            "Credit means card_type = 'Credit' only.",
+            "Negative amounts are excluded because they are not over $500."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4789,
+      "output_tokens": 454
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa1xQVLZTiNtBG6HLG1",
+    "request_hash": "67730f3cd04e7afd290e33c2c5be5e20caa6a5c69cf5c8a63ad672a0d48d82ce"
+  }
+}

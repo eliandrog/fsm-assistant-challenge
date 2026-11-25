@@ -9,13 +9,12 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT m.mcc AS mcc,\n       c.description AS description,\n       SUM(f.is_fraud) AS fraud_count,\n       COUNT(*) AS labelled_count,\n       1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchants m ON t.merchant_id = m.id\nJOIN mcc_codes c ON m.mcc = c.mcc\nGROUP BY m.mcc, c.description\nHAVING SUM(f.is_fraud) >= 50\nORDER BY fraud_rate DESC, m.mcc ASC",
-          "explanation": "For each MCC with at least 50 fraud-labelled transactions, this returns the fraud count, the labelled transaction count and the fraud rate over labelled transactions, sorted from highest rate down.",
+          "sql": "SELECT m.mcc AS mcc, c.description AS description, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description HAVING SUM(f.is_fraud) >= 50 ORDER BY fraud_rate DESC, m.mcc ASC",
+          "explanation": "Computes the fraud rate over labelled transactions for each MCC that has at least 50 fraud-labelled transactions, sorted by fraud rate.",
           "assumptions": [
-            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions are excluded, not treated as legitimate.",
-            "MCC is taken from the transaction's merchant (transactions.merchant_id -> merchants.mcc), with the description from mcc_codes.",
-            "'At least 50 transactions labelled as fraud' means SUM(is_fraud) >= 50 per MCC.",
-            "Fraud rate is returned as a fraction between 0 and 1."
+            "Fraud rate is computed over labelled transactions only; unlabelled transactions are excluded.",
+            "'Transactions labelled as fraud' means rows where fraud_labels.is_fraud = 1.",
+            "MCC is taken from the merchant's mcc (merchants.mcc), since transactions has no mcc column."
           ]
         }
       }
@@ -24,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4635,
-      "output_tokens": 1000
+      "output_tokens": 487
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJKJmCeDyzEaZkb5HVv",
-    "request_hash": "cb98fad648f832288d740c79c901d97d5ab3a58e141a63d256592580427c3711"
+    "response_id": "msg_011ChNZd5uoUSH6Ys3zn341x",
+    "request_hash": "c98bd7d2a6c5dc8e2f1f122c1b246453d57d1f9eaef67ff670cc9bcdfcd37a48"
   }
 }

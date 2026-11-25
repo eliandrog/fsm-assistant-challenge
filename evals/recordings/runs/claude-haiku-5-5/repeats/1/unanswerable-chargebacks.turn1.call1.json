@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-chargebacks",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no chargeback data. Its fraud_labels table only marks transactions as fraud or not, with no chargeback or dispute records. I can instead show the number of confirmed fraud transactions per month (is_fraud = 1, by transaction date), if that is useful."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 210
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaJCiAKj3NwGsKnwreY",
+    "request_hash": "4089b3ad6bc16408b77097192d4d519ab27ea10a6d9c98d814059be8beeeb9c4"
+  }
+}

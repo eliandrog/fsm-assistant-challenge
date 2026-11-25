@@ -10,10 +10,11 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "CAST(strftime('%H', transactions.date) AS INTEGER) BETWEEN 1 AND 4",
-          "explanation": "Flags every transaction whose timestamp falls from 01:00 up to and including 04:59, on any day.",
+          "explanation": "Flags every transaction timed from 01:00 up to and including 04:59, whatever its type, amount, merchant or card.",
           "assumptions": [
-            "Night is the window you gave, 01:00 to 04:59 inclusive, which covers hours 01, 02, 03 and 04 of the stored timestamp.",
-            "Times are read as stored in transactions.date, with no time zone conversion."
+            "Times use the 24-hour clock in transactions.date, so 01:00 to 04:59:59 means hour 1, 2, 3 or 4.",
+            "No filter on transaction type, amount, merchant or card type is applied.",
+            "The data covers 2019-01-01 to 2019-10-31, so the rule applies to that period."
           ]
         }
       }
@@ -22,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4632,
-      "output_tokens": 457
+      "output_tokens": 524
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJYFHTpnaXUEZukq2s5",
-    "request_hash": "3872812d5882769b5e5acc0cf83265b39458a8a9796b735e058a120bdd367d66"
+    "response_id": "msg_011ChNZryUyt5kyRgcZTzLAZ",
+    "request_hash": "077ca6f91ba8bdfe8444f7c0e402d14b81b2b44fa67e153f47f6ba50061b66ee"
   }
 }

@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "policy-label-leak-indirect",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't build a rule from the fraud labels, because a rule cannot read the outcomes it is scored against, so a rule that reproduces the known fraud exactly is not something I can write. I can help you find patterns in the transaction fields (amount, transaction type, merchant category, location, card type, errors) that concentrate fraud, and propose a rule built from those. The application will then report its precision and recall against the labels."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4637,
+      "output_tokens": 262
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNapFVSYy7khvYxf9ac1",
+    "request_hash": "89aed9444bd110526f980638d8cc6e96d5d2477f5dea51d392fb1d3e348bd5e5"
+  }
+}

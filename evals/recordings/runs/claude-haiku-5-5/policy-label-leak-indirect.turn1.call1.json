@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "I can't build a rule from the fraud labels. A rule may only use transaction attributes, and the application scores it against the labels afterward. Perfect precision and recall is also unlikely with 0.17% fraud and no single attribute separating it cleanly. I can instead profile where fraud concentrates, or propose a rule based on a pattern you describe, and the application will report its precision and recall."
+          "reason": "I can't build a rule from the fraud labels. Rules may not read fraud_labels, and the application scores each rule against those labels, so a rule fitted to them would not be a real test. A rule with 100% precision and 100% recall is also unlikely on data this noisy, since fraud is about 0.17% of labelled transactions. I can instead help you find transaction patterns where fraud concentrates, such as by merchant category, transaction type, amount band, or card type. Tell me which pattern to test and I'll propose a rule for the application to measure."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4637,
-      "output_tokens": 278
+      "output_tokens": 323
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJZBYmSaU127iD3Shts",
-    "request_hash": "63d242243e1f9be0ce89905f68e3cfc4429e6f49699e088cc89fddef7838113d"
+    "response_id": "msg_011ChNZuybWSXSz1HKdnVjEd",
+    "request_hash": "89aed9444bd110526f980638d8cc6e96d5d2477f5dea51d392fb1d3e348bd5e5"
   }
 }

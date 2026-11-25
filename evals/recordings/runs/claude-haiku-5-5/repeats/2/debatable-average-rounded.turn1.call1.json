@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-average-rounded",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_online_amount_usd, COUNT(*) AS online_transaction_count FROM transactions WHERE transaction_type = 'Online Transaction'",
+          "explanation": "Returns the average amount in dollars across all online transactions, along with how many transactions that average is based on.",
+          "assumptions": [
+            "'Online transaction' means transaction_type = 'Online Transaction'.",
+            "All online transactions are included, labelled or not, since the question does not ask for fraud-labelled rows only.",
+            "Negative amounts (undocumented meaning, 56900 rows overall) are included as recorded, not excluded or treated as refunds.",
+            "The average covers the full data range, 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 458
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNavkHhnnMXwXd1KaeWw",
+    "request_hash": "ec44e1f5abc43a2a4d029f5f3c27f7d647984990b8a71f0683c1d4b9e1ede07c"
+  }
+}

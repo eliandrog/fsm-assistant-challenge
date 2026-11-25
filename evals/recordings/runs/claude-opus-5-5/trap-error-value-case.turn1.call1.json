@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-error-value-case",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS bad_pin_transactions FROM transactions WHERE errors = 'Bad PIN'",
+          "explanation": "Counts all transactions whose error is recorded as 'Bad PIN', across the whole data period, whether or not they have a fraud label.",
+          "assumptions": [
+            "Counted transactions whose errors value is exactly 'Bad PIN'. If a transaction can hold more than one error in that field, any that combine 'Bad PIN' with another error are left out.",
+            "Covers the full data range, 2019-01-01 to 2019-10-31.",
+            "Took 'failed with a bad pin error' to mean the transaction has the 'Bad PIN' error. The data doesn't say whether the transaction was actually declined."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 323
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgp1nsKcNQMHXMfYEzR",
+    "request_hash": "c24db6b4882829093ef624b3e0808fd2cd7be3155822882cf865a54291200132"
+  }
+}

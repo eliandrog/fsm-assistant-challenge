@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-date-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT MIN(date) AS earliest_transaction, MAX(date) AS latest_transaction FROM transactions",
+          "explanation": "Returns the earliest and the latest transaction timestamps across all transactions.",
+          "assumptions": [
+            "All transactions are included, whether or not they have a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 176
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNfhGXpktM5L6KXi41aS",
+    "request_hash": "81d777bdadd9401866c085d524c1d3006deb73d410bee6e84839aff0ca76ef49"
+  }
+}

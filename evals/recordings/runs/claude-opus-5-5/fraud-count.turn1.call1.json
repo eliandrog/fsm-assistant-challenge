@@ -1,0 +1,28 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-count",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+          "explanation": "Counts the transactions whose fraud label marks them as fraud.",
+          "assumptions": []
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4618,
+      "output_tokens": 190
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgfNucoAPP1e6aYxodK",
+    "request_hash": "dbd8c51dc99afe88c4423bf57f603b57c395dbb8f52363521a2c174408e8f761"
+  }
+}

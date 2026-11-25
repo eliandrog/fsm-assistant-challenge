@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "agg-negative-amounts",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS negative_amount_transactions FROM transactions WHERE amount_usd_cents < 0",
+          "explanation": "Counts all transactions whose amount is below zero, across all transactions whether or not they have a fraud label.",
+          "assumptions": [
+            "Counts all transactions, not only the ones with a fraud label.",
+            "Negative amounts are counted as they are. Their meaning isn't documented, so they aren't treated as refunds."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 227
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNfhwWNYC4SJZeRJTkv1",
+    "request_hash": "cf4f8bcb3c86217c4db56138e9501b2637a69a44de3f1f538ed99e978f9bcba5"
+  }
+}

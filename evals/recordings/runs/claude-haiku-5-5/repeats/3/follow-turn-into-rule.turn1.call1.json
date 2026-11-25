@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "follow-turn-into-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS online_transactions_over_2000_usd FROM transactions WHERE transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
+          "explanation": "Counts the online transactions whose amount is over $2,000.",
+          "assumptions": [
+            "'Online' means transaction_type = 'Online Transaction'.",
+            "'Over $2,000' means amount_usd_cents strictly greater than 200000 cents.",
+            "All transactions are counted, whether or not they have a fraud label."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 398
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb6skwu3p4eENbMRRNn",
+    "request_hash": "3012d04e5f309ddd0c59c9afa377ea174623ca19e16d1f87d4b01e989c9e8a4b"
+  }
+}

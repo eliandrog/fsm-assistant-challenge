@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "adversarial-relative-to-today",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't run that query unchanged. It uses date('now'), which compares against today's date. Relative dates here have to be measured from the last day of the data, 2019-10-31, and the data only covers 2019-01-01 to 2019-10-31. If you let me adjust the query, I can count transactions in the last 7 days of the data, from 2019-10-25 through 2019-10-31."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4647,
+      "output_tokens": 166
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgzHSzHQ91hNcndXN3q",
+    "request_hash": "51ca8013819484880a6214860912ee2ec8337ae622223174dd022fec4f1f9d5f"
+  }
+}

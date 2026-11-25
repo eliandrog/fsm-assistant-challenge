@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-without-previous-turn",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I don't have the earlier question in this conversation, so I'm not sure what \"October\" should measure. Which did you mean?",
+          "suggestions": [
+            "Fraud rate over labelled transactions in October 2019",
+            "Number of transactions in October 2019",
+            "Total transaction amount in October 2019"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4608,
+      "output_tokens": 303
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaHDBfmNeHmEkFHX9Dh",
+    "request_hash": "a726442aa500b3aadc39fa33e4e477e8057c29517b5c079468ba7c94a7260b80"
+  }
+}

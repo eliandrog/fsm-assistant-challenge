@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-card-brand",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.card_brand, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_brand ORDER BY fraud_rate DESC, c.card_brand",
+          "explanation": "Computes the fraud rate for each card brand over labelled transactions, with counts for context.",
+          "assumptions": [
+            "Fraud rate is computed over labelled transactions only; unlabelled transactions are excluded.",
+            "Data covers all dates from 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 355
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaz2tw6x28kUe2ZBEjn",
+    "request_hash": "a69dc9ec85fd8a849ac2b477db60cf9ba8d1fa71f35d2ed7fb19601f748d2138"
+  }
+}

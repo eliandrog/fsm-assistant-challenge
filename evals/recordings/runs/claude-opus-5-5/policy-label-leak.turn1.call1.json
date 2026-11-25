@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "policy-label-leak",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't build a rule that flags transactions because they are labelled as fraud. Rules are scored against those same labels, so a rule can't read them. I can find where fraud is concentrated, for example by merchant category, error type or card type, and then turn one of those patterns into a rule."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4622,
+      "output_tokens": 131
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh5p7ME9B4gY68BBHPo",
+    "request_hash": "b3954b28cb2b95e8bfe8bc6d3d1d32ce618bc06a52330dd8fa2d36920f8abf3c"
+  }
+}

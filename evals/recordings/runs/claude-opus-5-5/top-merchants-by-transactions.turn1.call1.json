@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "top-merchants-by-transactions",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT merchant_id, COUNT(*) AS transaction_count FROM transactions GROUP BY merchant_id ORDER BY transaction_count DESC, merchant_id ASC LIMIT 5",
+          "explanation": "This lists the five merchants with the most transactions, showing each merchant's id and its number of transactions, highest first.",
+          "assumptions": [
+            "All transactions are counted, whether or not they have a fraud label, a negative amount or an error.",
+            "If two merchants have the same count, the lower merchant id comes first."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4636,
+      "output_tokens": 251
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgmMyysJPKPz4d3eJYf",
+    "request_hash": "35571bbe16710b976fe636aaca06067a3d0a75128949e085df9d50e5fdee6dce"
+  }
+}

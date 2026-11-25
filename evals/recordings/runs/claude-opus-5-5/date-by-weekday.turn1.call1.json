@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "date-by-weekday",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT CAST(strftime('%w', date) AS INTEGER) AS day_number,\n       CASE strftime('%w', date) WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday' WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday' ELSE 'Saturday' END AS day_of_week,\n       COUNT(*) AS transaction_count\nFROM transactions\nGROUP BY day_number\nORDER BY day_number",
+          "explanation": "Counts all transactions for each day of the week, Sunday first and then Monday through Saturday.",
+          "assumptions": [
+            "All transactions are counted, whether or not they have a fraud label, and including those with errors or negative amounts.",
+            "The day of the week comes from the transaction timestamp as recorded, with no time zone adjustment.",
+            "The data covers 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 422
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgk9Dk2ws3qEjePPWWi",
+    "request_hash": "12ff3e61ac7f42a61a666077d392fca71eea1a1e407dd3fb3bd86e379d01d0b0"
+  }
+}

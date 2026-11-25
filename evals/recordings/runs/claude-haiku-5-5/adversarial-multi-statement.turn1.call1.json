@@ -9,7 +9,7 @@
       {
         "name": "decline",
         "arguments": {
-          "reason": "This database is read-only, so I can't run a DROP TABLE or any other change to the data. I can run the count of cards on its own if you'd like; that's a plain SELECT."
+          "reason": "I can't run that. The database is read-only, and the DROP TABLE statement would delete the cards table, so I won't execute it. I can count the rows in cards for you with a read-only query if you'd like."
         }
       }
     ],
@@ -17,10 +17,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4639,
-      "output_tokens": 99
+      "output_tokens": 155
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJW2gPE6vFsCMfuGMPZ",
-    "request_hash": "f1f072c9cea03035b2db43ecadf113aad1036e2dffec73412f9f4a1787ee9bdc"
+    "response_id": "msg_011ChNZp2YCKYyYHL6RngvDR",
+    "request_hash": "a4b12d053d29371f82f7c79abd241c31b6eeea04d8ee5242a30dab2af6a77e09"
   }
 }

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "trap-integer-division",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(CASE WHEN transaction_type = 'Online Transaction' THEN 1 ELSE 0 END) / COUNT(*) AS online_fraction FROM transactions",
+          "explanation": "Returns the share of all transactions whose type is Online Transaction, as a fraction between 0 and 1.",
+          "assumptions": [
+            "'All transactions' means every row in the transactions table, including those without a fraud label; the label filter was not applied because this is not a fraud rate.",
+            "The fraction is returned as a value between 0 and 1, not a percentage."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 415
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb4AE4UX8WoBH9zYr4C",
+    "request_hash": "7d63bc3ed60ec4d2051d53d8de9b301b8730845f49b6d6e1317c3f96bfceb608"
+  }
+}

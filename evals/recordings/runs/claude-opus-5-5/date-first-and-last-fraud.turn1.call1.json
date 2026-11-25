@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "date-first-and-last-fraud",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT MIN(t.date) AS first_fraud_date, MAX(t.date) AS last_fraud_date FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+          "explanation": "Returns the date and time of the earliest and the latest transaction labelled as fraud.",
+          "assumptions": [
+            "Only transactions with a fraud label of 1 count; transactions with no label are left out."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 242
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgkRTnsNPizGQVDGkvs",
+    "request_hash": "3ddfa96044dc1e853d478230575a17ecf20857de41c09a4f25e6a768c4f21409"
+  }
+}

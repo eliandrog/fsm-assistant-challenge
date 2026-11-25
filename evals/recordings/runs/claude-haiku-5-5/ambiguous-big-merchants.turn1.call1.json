@@ -11,9 +11,9 @@
         "arguments": {
           "question": "How do you want \"big\" measured for merchants?",
           "suggestions": [
-            "Most transactions (count of transactions per merchant)",
-            "Largest total spend (sum of transaction amounts per merchant)",
-            "Most distinct cards (number of different cards that transacted with the merchant)"
+            "Most transactions (count of transactions)",
+            "Highest total spend (sum of amount_usd_cents)",
+            "Most distinct cards that transacted there"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4613,
-      "output_tokens": 210
+      "output_tokens": 192
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJTyAVnWRDzJEf4HmXS",
-    "request_hash": "07b41bcfbaf6d62b67f7078c6fbf6da61b734083ff0b1d5c4a9becb578921188"
+    "response_id": "msg_011ChNZn56BhnGGMZoifWJWy",
+    "request_hash": "4a4e82b60d1d726e10ffa61e3789139e636f7bf3dedfe7e3467390a12388637b"
   }
 }

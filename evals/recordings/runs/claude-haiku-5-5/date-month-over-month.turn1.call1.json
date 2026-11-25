@@ -9,13 +9,13 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "WITH m AS (\n  SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n\n  FROM transactions\n  GROUP BY strftime('%Y-%m', date)\n),\nw AS (\n  SELECT month, n, n - LAG(n) OVER (ORDER BY month) AS change_from_prior_month\n  FROM m\n)\nSELECT month, n AS transaction_count, change_from_prior_month\nFROM w\nWHERE month >= '2019-02' AND month <= '2019-10'\nORDER BY month",
-          "explanation": "Counts all transactions per calendar month from February to October 2019, with the change from the previous month. January is used only as the baseline for February's change.",
+          "sql": "WITH m AS (\n  SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n\n  FROM transactions\n  GROUP BY strftime('%Y-%m', date)\n),\nw AS (\n  SELECT month, n, LAG(n) OVER (ORDER BY month) AS prev_n\n  FROM m\n)\nSELECT month, n AS transaction_count, n - prev_n AS change_from_prior_month\nFROM w\nWHERE month >= '2019-02' AND month <= '2019-10'\nORDER BY month",
+          "explanation": "Counts all transactions per calendar month from February to October 2019, and the change from the previous month. January is used only as the baseline for February's change.",
           "assumptions": [
-            "Counts cover all transactions, labelled or not, since the question asks for transaction counts rather than fraud rates.",
-            "Months are calendar months based on transactions.date, covering 2019-02 to 2019-10.",
-            "The February change is measured against January 2019, which is in the data range.",
-            "Negative-amount transactions are included in the counts."
+            "Counts every transaction in the transactions table, whether or not it has a fraud label.",
+            "Months are calendar months based on the transaction date (2019-02 through 2019-10).",
+            "January 2019 is used only to compute the February change and is not shown in the output.",
+            "Negative-amount transactions are included in the count."
           ]
         }
       }
@@ -24,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4636,
-      "output_tokens": 874
+      "output_tokens": 802
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJMaPcD2x9AWvqoQ4Nr",
-    "request_hash": "d303e8c3db3ca61296f66f00d8c6ddc24a5dabf9aa8e848c14c58ce2c31631ea"
+    "response_id": "msg_011ChNZfPgSTPJ8KYcsQhTEZ",
+    "request_hash": "05de2f176e22653a7d91c97690005622a048b71d365e648a15b7bea580f4cfac"
   }
 }

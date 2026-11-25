@@ -1,0 +1,34 @@
+{
+  "format_version": 1,
+  "case_id": "edges-zero-rows",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT t.id AS transaction_id, t.amount_usd_cents / 100.0 AS amount_usd FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 200000 ORDER BY t.id",
+          "explanation": "Lists the id and dollar amount of every transaction over $2,000 made on a prepaid debit card.",
+          "assumptions": [
+            "Prepaid debit cards means card_type = 'Debit (Prepaid)'.",
+            "Over $2,000 means strictly greater than 200000 cents, so exactly $2,000.00 is excluded.",
+            "Amount is shown in dollars as amount_usd_cents / 100.0.",
+            "All transactions are included whether or not they have a fraud label.",
+            "Results are ordered by transaction id."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4642,
+      "output_tokens": 577
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaUAwmuXFkN2EQ3PsVs",
+    "request_hash": "da0599758ec8bc5add7ff2b82e117dce1b82b13ef5f0d9ed6f1fe017576ecbe9"
+  }
+}

@@ -9,11 +9,11 @@
       {
         "name": "ask_clarification",
         "arguments": {
-          "question": "Which transactions should the rule catch? \"Fraud\" covers several patterns, so I need one concrete condition to build it on.",
+          "question": "Which transactions should the rule catch? \"Fraud\" covers many patterns, so I need a starting point before I write a condition.",
           "suggestions": [
-            "Transactions over a certain amount (for example over $1,000), with a threshold you choose",
-            "Online transactions only, or a specific transaction type such as Chip, Swipe or Online",
-            "Transactions on a certain kind of card, such as Debit (not Prepaid) or Credit cards, or cards with a specific error code"
+            "Online transactions only (transaction_type = 'Online Transaction')",
+            "Transactions above a dollar amount you choose, for example over $1,000",
+            "Transactions on a card that already has a specific error, such as 'Bad CVV' or 'Bad PIN'"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4617,
-      "output_tokens": 286
+      "output_tokens": 352
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJU5J6VuNSgWLnV1hU6",
-    "request_hash": "3e92588614ffdd147a37aad6b4aa38557e9f70d003fdf6b3cc8a82e9c51d730e"
+    "response_id": "msg_011ChNZnBhZau9Xd96xsfoSY",
+    "request_hash": "75f82e23431bf35e7e180e79b152b981a7c02bf97da368e0f503ef2b5a7e6c60"
   }
 }

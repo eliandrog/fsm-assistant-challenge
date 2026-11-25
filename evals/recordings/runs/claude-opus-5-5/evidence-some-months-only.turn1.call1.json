@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-some-months-only",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents > 50000 AND date >= '2019-06-01' AND date < '2019-09-01'",
+          "explanation": "Flags transactions with an amount over $500 dated in June, July or August 2019.",
+          "assumptions": [
+            "\"Over $500\" means strictly more than 50000 cents; a transaction of exactly $500 is not flagged.",
+            "June to August 2019 is taken as 2019-06-01 00:00:00 up to but not including 2019-09-01."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4631,
+      "output_tokens": 238
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh4rFoVy39d4fzBhLx7",
+    "request_hash": "08074a0f5127ddf006d2e28ff068ced6b37f2347b533447e9e51fdc04d9c042b"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "para-online-users-non-native",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(DISTINCT u.id) AS users_with_online_transaction FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON u.id = c.user_id WHERE t.transaction_type = 'Online Transaction'",
+          "explanation": "Counts the distinct users who made at least one online transaction, across all transactions in the data.",
+          "assumptions": [
+            "'Online transaction' means transaction_type = 'Online Transaction'.",
+            "All transactions are counted, labelled or not, covering the full data range 2019-01-01 to 2019-10-31.",
+            "A user is counted once however many online transactions they made, and transactions are linked to users through their cards."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 591
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbGQkHGbPa1kzZx3cti",
+    "request_hash": "0153416defcf713de8eea924d21eb12ad2a481e58cf7f5b618482194a3caaec9"
+  }
+}

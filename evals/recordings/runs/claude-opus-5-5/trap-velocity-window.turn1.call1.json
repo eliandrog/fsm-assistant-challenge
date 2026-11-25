@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "trap-velocity-window",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transactions_within_2_minutes FROM (SELECT id, card_id, date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous FROM transactions) WHERE previous IS NOT NULL AND strftime('%s', date) - strftime('%s', previous) <= 120",
+          "explanation": "Counts the transactions that came 2 minutes or less after the previous transaction on the same card.",
+          "assumptions": [
+            "'Within 2 minutes' means 120 seconds or less after the card's previous transaction, 120 seconds included.",
+            "Every transaction counts, whatever its amount (negative amounts too), error status or fraud label.",
+            "When two transactions on a card have the same timestamp, the one with the lower id comes first. The later one counts as 0 seconds after it."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4630,
+      "output_tokens": 355
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgpGrErY513oXmLwcbH",
+    "request_hash": "70931f3d5d1a3ce24a288015d75be20ed935a22bf2672622331af8f588670c39"
+  }
+}

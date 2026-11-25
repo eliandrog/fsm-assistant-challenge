@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "edges-fraud-share-of-all",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, SUM(f.is_fraud) AS fraud_count, COUNT(*) AS labelled_count, (SELECT COUNT(*) FROM transactions) AS total_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "Returns the fraud rate as a fraction over the labelled transactions, with the fraud count, the labelled count and the total transaction count for context.",
+          "assumptions": [
+            "The fraud rate is computed over labelled transactions only (those with a row in fraud_labels), because 33% of transactions have no label and are unknown, not legitimate.",
+            "The result is a fraction between 0 and 1, not multiplied by 100; multiply by 100 to read it as a percentage.",
+            "The data covers 2019-01-01 to 2019-10-31; all transactions in that range are included."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4618,
+      "output_tokens": 807
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNatMQFWg44dpBcPTSbb",
+    "request_hash": "8906d0f58ec5a2fed276bea0ad624d89b5e7bd09f13f0718e1fc54b7f24d28fa"
+  }
+}

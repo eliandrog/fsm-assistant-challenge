@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-change-grouping",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.has_chip, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.has_chip ORDER BY fraud_rate DESC, c.has_chip",
+          "explanation": "Shows the fraud rate over labelled transactions split by whether the card has a chip, with the transaction and fraud counts for each group.",
+          "assumptions": [
+            "Same definition as the earlier query: fraud rate is fraud-labelled transactions divided by all labelled transactions, computed only over labelled rows.",
+            "has_chip is taken from the card that made each transaction (cards.has_chip, 1 = chip, 0 = no chip)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4892,
+      "output_tokens": 402
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb6JafPhJqs8kdPFJAw",
+    "request_hash": "2a656fdad250d1bd327a1033bc557702dbf14c7332fe867a258e24fd3c0ec17b"
+  }
+}

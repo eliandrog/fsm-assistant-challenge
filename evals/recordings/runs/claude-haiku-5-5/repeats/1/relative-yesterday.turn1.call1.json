@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "relative-yesterday",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-30' AND date < '2019-10-31'",
+          "explanation": "Counts all transactions dated on the day before the last day of data, 30 October 2019.",
+          "assumptions": [
+            "The data ends on 2019-10-31, so I treated that as 'today' and 'yesterday' as 2019-10-30.",
+            "Counted every transaction, whether or not it has a fraud label.",
+            "Negative-amount transactions are included in the count."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 451
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaTsUop2NW2hzSCX4Lp",
+    "request_hash": "5cdbea8c70d86391b3a09fa579ac279b55887b3f396fb64c864d5f265ebc8626"
+  }
+}

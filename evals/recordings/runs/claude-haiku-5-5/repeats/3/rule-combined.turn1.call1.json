@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "rule-combined",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.transaction_type = 'Online Transaction' AND transactions.amount_usd_cents > 20000 AND transactions.card_id IN (SELECT c.id FROM cards c JOIN users u ON c.user_id = u.id WHERE c.card_type = 'Credit' AND u.credit_score < 650)",
+          "explanation": "Flags online transactions over $200 made on credit cards whose owner has a credit score below 650.",
+          "assumptions": [
+            "'Over $200' read as amount_usd_cents > 20000 (strictly greater than $200.00).",
+            "'Credit cards' read as card_type = 'Credit' only, excluding 'Debit (Prepaid)' and 'Debit'.",
+            "'Online' read as transaction_type = 'Online Transaction'.",
+            "Credit score below 650 read as users.credit_score < 650 (650 itself not included)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4638,
+      "output_tokens": 369
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbCCgcrwLn6zhH6ScQf",
+    "request_hash": "49b2a9953d3425eb67ec4026c490df92b88f158c2cc848be46496a8d7e07c290"
+  }
+}

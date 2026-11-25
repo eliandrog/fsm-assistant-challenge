@@ -139,9 +139,9 @@ def test_the_check_uses_tool_mode_and_its_own_prompt_version() -> None:
     structured = load_settings(
         {"FSM_TOOL_MODE": "structured", "FSM_DB_PATH": str(config.DEFAULT_DB_PATH)}, None
     )
-    spec = model_check.check_spec(structured, "claude-haiku-5-5")
+    spec = model_check.check_spec(structured, "claude-opus-5-5")
     assert (spec.model, spec.tool_mode, spec.prompt_version) == (
-        "claude-haiku-5-5",
+        "claude-opus-5-5",
         "tools",
         "check-model-1",
     )
@@ -149,15 +149,15 @@ def test_the_check_uses_tool_mode_and_its_own_prompt_version() -> None:
 
 
 def test_the_plan_names_the_model_and_the_upper_bound(settings: Settings) -> None:
-    plan = model_check.render_plan(model_check.check_spec(settings, "claude-haiku-5-5"))
-    assert "11 questions, one request each, to claude-haiku-5-5 in tool mode" in plan
+    plan = model_check.render_plan(model_check.check_spec(settings, "claude-opus-5-5"))
+    assert "11 questions, one request each, to claude-opus-5-5 in tool mode" in plan
     assert "COST WARNING" in plan and "up to 88,000 output tokens in total" in plan
     assert SECRET not in plan
 
 
 def test_a_run_records_every_reply_and_a_summary(settings: Settings, recordings: Path) -> None:
     returned = record(settings)
-    directory = recordings / "claude-opus-5-5"
+    directory = recordings / "claude-haiku-5-5"
     assert sorted(path.name for path in directory.iterdir()) == [*RECORDING_NAMES, "summary.json"]
     assert model_check.recorded_count(returned) == 11
 
@@ -169,7 +169,7 @@ def test_a_run_records_every_reply_and_a_summary(settings: Settings, recordings:
 
     summary = CheckSummary.model_validate_json((directory / "summary.json").read_text())
     assert summary == returned == model_check.read_summary(directory)
-    assert (summary.model, summary.effort) == ("claude-opus-5-5", "medium")
+    assert (summary.model, summary.effort) == ("claude-haiku-5-5", "medium")
     assert summary.max_tokens == 8000
     assert (summary.tool_mode, summary.prompt_version) == ("tools", "check-model-1")
     versions = summary.library_versions.model_dump()
@@ -197,7 +197,7 @@ def test_a_request_that_got_no_reply_is_not_counted_as_recorded(
     steps.append(ModelUnavailable("timeout", "no answer"))
     summary = run(settings, ScriptedModel(steps))
     assert model_check.recorded_count(summary) == 10
-    assert len(list((recordings / "claude-opus-5-5").iterdir())) == 10
+    assert len(list((recordings / "claude-haiku-5-5").iterdir())) == 10
     assert model_check.render_table(summary.questions).splitlines()[11].split()[-6] == "-"
 
 
@@ -205,7 +205,7 @@ def test_the_summary_holds_no_timestamp_no_path_and_no_key(
     settings: Settings, recordings: Path
 ) -> None:
     record(settings)
-    text = (recordings / "claude-opus-5-5" / "summary.json").read_text()
+    text = (recordings / "claude-haiku-5-5" / "summary.json").read_text()
     document: JsonValue = json.loads(text)
     assert isinstance(document, dict)
     assert set(document) == {
@@ -232,7 +232,7 @@ def test_a_recording_holds_neither_the_system_prompt_nor_the_question(
 ) -> None:
     record(settings)
     for name in RECORDING_NAMES:
-        text = (recordings / "claude-opus-5-5" / name).read_text()
+        text = (recordings / "claude-haiku-5-5" / name).read_text()
         assert set(json.loads(text)["reply"]) == {
             "tool_mode",
             "tool_calls",
@@ -312,7 +312,7 @@ def test_replay_fails_when_a_recording_is_missing_or_edited(
     settings: Settings, recordings: Path
 ) -> None:
     record(settings)
-    path = recordings / "claude-opus-5-5" / RECORDING_NAMES[2]
+    path = recordings / "claude-haiku-5-5" / RECORDING_NAMES[2]
     document = json.loads(path.read_text())
     document["reply"]["tool_calls"] = []
     path.write_text(json.dumps(document))

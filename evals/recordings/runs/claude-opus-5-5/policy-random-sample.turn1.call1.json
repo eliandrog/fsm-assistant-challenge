@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-random-sample",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "id % 100 = 0",
+          "explanation": "This rule flags about 1 in every 100 transactions for manual review. It picks a transaction when its ID is a multiple of 100, which has no link to amount, merchant, card or fraud.",
+          "assumptions": [
+            "I used a fixed sample (ID is a multiple of 100) instead of random(). With random(), the flagged set would change every time the rule ran, so it couldn't be measured consistently.",
+            "I assumed transaction IDs aren't linked to fraud, so picking every 100th ID works like a random 1% sample. The share will be close to 1%, not exactly 1%."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4626,
+      "output_tokens": 421
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh6QfjEobNFAzjK4aPR",
+    "request_hash": "88dbe4b7a564b828da4c0e421993e155a5cc2ee9f89d18aeeb5652e61ab0a1cc"
+  }
+}

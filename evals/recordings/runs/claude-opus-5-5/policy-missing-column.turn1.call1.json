@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "policy-missing-column",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't build this rule because the transactions don't record an IP address or where the customer was. The data only shows where the merchant is. Instead, I could propose a rule that flags transactions at merchant locations outside the US, where the location's state field holds a country name rather than a two-letter US state code."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 177
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh7dujNPXB8p3hhTaZm",
+    "request_hash": "37d834b14d0a204afaca98d19bfded30be2d3f77f5187859611e6dad1d6072de"
+  }
+}

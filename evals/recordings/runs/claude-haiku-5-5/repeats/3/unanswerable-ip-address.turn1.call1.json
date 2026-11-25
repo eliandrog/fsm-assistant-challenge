@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-ip-address",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no IP address data: transactions only record a transaction type, merchant, and merchant location, and online locations have no address beyond city 'ONLINE'. I can't rank IP addresses. I could instead rank online transactions by merchant, by card, or by merchant category."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 172
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb8FmJk6T5D48u93vq7",
+    "request_hash": "7ceb6b2b77ff62e2dcb49a5a23249746fcf0698878d992e7c30a9dd88ab6ebdb"
+  }
+}

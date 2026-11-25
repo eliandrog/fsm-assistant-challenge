@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "date-month-over-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "WITH m AS (SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n FROM transactions WHERE date >= '2019-02-01' AND date < '2019-11-01' GROUP BY strftime('%Y-%m', date)) SELECT month, n, n - LAG(n) OVER (ORDER BY month) AS change_from_prior_month FROM m ORDER BY month",
+          "explanation": "Counts all transactions per calendar month from February to October 2019 and the change from the previous month. The February row has no prior month in the range, so its change is empty.",
+          "assumptions": [
+            "Counts every transaction row regardless of fraud label or whether it has a label, including negative-amount rows.",
+            "Months are calendar months of 2019 (February through October), using transactions.date.",
+            "The change for February is blank because January is outside the requested range and is not shown; it is computed against January only if January were included."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4636,
+      "output_tokens": 376
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaCTcSKc3hxxWJrce3o",
+    "request_hash": "05de2f176e22653a7d91c97690005622a048b71d365e648a15b7bea580f4cfac"
+  }
+}

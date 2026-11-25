@@ -271,7 +271,7 @@ class ClaudeModel:
         self._secret = secret
         self._runnable: Runnable[LanguageModelInput, object]
         if spec.tool_mode == "tools":
-            # Tool choice stays on auto: the default model rejects a forced choice.
+            # Tool choice stays on auto: not every model accepts a forced choice.
             self._runnable = chat.bind_tools(
                 [{**tool.model_dump(mode="json"), "strict": True} for tool in spec.tools],
                 strict=True,

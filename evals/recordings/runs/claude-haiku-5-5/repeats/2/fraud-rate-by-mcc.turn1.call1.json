@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-mcc",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT m.mcc AS mcc,\n       c.description AS description,\n       SUM(f.is_fraud) AS fraud_count,\n       COUNT(*) AS labelled_count,\n       1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchants m ON t.merchant_id = m.id\nJOIN mcc_codes c ON m.mcc = c.mcc\nGROUP BY m.mcc, c.description\nHAVING SUM(f.is_fraud) >= 50\nORDER BY fraud_rate DESC, m.mcc ASC",
+          "explanation": "Lists each MCC with at least 50 fraud-labelled transactions, with its fraud count, labelled transaction count and fraud rate over labelled transactions, highest rate first.",
+          "assumptions": [
+            "'At least 50 transactions labelled as fraud' means SUM(is_fraud) >= 50 per MCC.",
+            "Fraud rate = fraud-labelled count / all labelled transactions for that MCC; unlabelled transactions are excluded.",
+            "MCC is taken from the merchant's mcc (transactions -> merchants -> mcc_codes), over the full data range 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 1000
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaaVX9NKXbLSmaiqJJX",
+    "request_hash": "c98bd7d2a6c5dc8e2f1f122c1b246453d57d1f9eaef67ff670cc9bcdfcd37a48"
+  }
+}

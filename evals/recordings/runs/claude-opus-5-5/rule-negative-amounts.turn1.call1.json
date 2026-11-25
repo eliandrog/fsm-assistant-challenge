@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-negative-amounts",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents < -30000",
+          "explanation": "Flags transactions with a negative amount below -$300. You described these as refunds over $300.",
+          "assumptions": [
+            "'Below -$300' is read as strictly less than -30000 cents, so a transaction of exactly -$300.00 is not flagged.",
+            "The data does not say what negative amounts mean. The rule calls them refunds only because you did; it does not confirm that they are refunds."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 329
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh3b8SDCaAv289EkJmS",
+    "request_hash": "75fbcfbbcf2416258af958bc71fe9159a4cdb9d97357213cf9cd14cfd2e09cbd"
+  }
+}

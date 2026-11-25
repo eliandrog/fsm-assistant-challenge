@@ -9,11 +9,11 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT strftime('%Y-%m', t.date) AS month, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.date >= '2019-01-01' AND t.date < '2019-11-01' GROUP BY month ORDER BY month",
-          "explanation": "Computes the labelled fraud rate for each month from January to October 2019, along with the labelled transaction and fraud counts behind each rate.",
+          "sql": "SELECT strftime('%Y-%m', t.date) AS month, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.date >= '2019-01-01' AND t.date < '2019-11-01' GROUP BY strftime('%Y-%m', t.date) ORDER BY month",
+          "explanation": "Computes the fraud rate for each month from January to October 2019, using only labelled transactions, along with the labelled count and fraud count behind each rate.",
           "assumptions": [
-            "Fraud rate is computed over labelled transactions only; unlabelled transactions are excluded rather than treated as non-fraud.",
-            "Months are calendar months in 2019 (January 2019 through October 2019), based on transaction date."
+            "Fraud rate is computed over labelled transactions only (inner join to fraud_labels); unlabelled transactions are excluded, not treated as legitimate.",
+            "Months are calendar months by transaction date, covering 2019-01-01 through 2019-10-31."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4624,
-      "output_tokens": 393
+      "output_tokens": 420
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJJuAP1GHHCWkjvaaeL",
-    "request_hash": "2462c766cf4a9cd4f97ea055b3f1c8e6c4f0040114f47882716a84578d512fff"
+    "response_id": "msg_011ChNZcgMwwdyCNbukvQuge",
+    "request_hash": "bda30b2d9821040ca88c63cb5fc3bfc9dfe873ace403c63d76aa3313c5bea9fb"
   }
 }

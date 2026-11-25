@@ -9,11 +9,11 @@
       {
         "name": "ask_clarification",
         "arguments": {
-          "question": "\"Suspicious\" isn't defined in the data. Which kind of transactions should I look at?",
+          "question": "\"Suspicious\" isn't defined in this data. Which pattern do you want to look at?",
           "suggestions": [
-            "Unusually large amounts (give me a dollar threshold, or I can use the top 1% by amount)",
-            "Transactions with an error code such as Bad CVV, Bad PIN or Bad Card Number",
-            "Bursts of activity, e.g. several transactions on the same card within 5 minutes"
+            "Large transactions, e.g. over a dollar amount you choose",
+            "Rapid repeat transactions on the same card (several within a few minutes)",
+            "Transactions with an error code such as Bad CVV or Bad PIN"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4615,
-      "output_tokens": 220
+      "output_tokens": 200
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJTdof5iJKkaUUfcmZF",
-    "request_hash": "79664b03ec9b31f0f1233e32b676993c24542ec5a6e9a07f35d13ca836d25c0e"
+    "response_id": "msg_011ChNZmf9XFQRaGi8k7CtqR",
+    "request_hash": "2591a257c904a5e2fb6064eff17c2984510b159820ecf1f7232badc8c43edf36"
   }
 }

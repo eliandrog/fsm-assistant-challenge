@@ -184,7 +184,7 @@ def test_a_reply_is_described_for_the_repair() -> None:
 
 
 def test_the_prompt_version_differs_from_the_checks() -> None:
-    assert nl2sql.PROMPT_VERSION == "turn-4"
+    assert nl2sql.PROMPT_VERSION == "turn-5"
     assert model_check.CHECK_PROMPT_VERSION == "check-model-1"
     assert nl2sql.PROMPT_VERSION != model_check.CHECK_PROMPT_VERSION
 

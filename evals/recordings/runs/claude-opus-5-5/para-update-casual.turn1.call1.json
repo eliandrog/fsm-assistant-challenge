@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "para-update-casual",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't change the amount on transaction 22326462. This database is read-only, so I can't edit or delete any data. If it helps, I can look up that transaction's details, such as its amount, card, merchant and fraud label, so you can report the problem to whoever manages the data."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 128
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhAv1Srh2V1akfnRM2a",
+    "request_hash": "7855f6cfb0282587d0dd2a82b84c61b1e3845da41c5df22afe3b6577af2afeb0"
+  }
+}

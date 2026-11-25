@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-big-merchants",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What do you mean by \"big\" merchants?",
+          "suggestions": [
+            "Merchants with the most transactions",
+            "Merchants with the highest total transaction amount (dollars)",
+            "Merchants with the most distinct cards transacting with them"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 202
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNahyfWedCYNKhPejV1W",
+    "request_hash": "4a4e82b60d1d726e10ffa61e3789139e636f7bf3dedfe7e3467390a12388637b"
+  }
+}

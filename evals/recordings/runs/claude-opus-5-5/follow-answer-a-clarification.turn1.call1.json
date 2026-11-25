@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-answer-a-clarification",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What amount should count as a \"high value\" transaction?",
+          "suggestions": [
+            "Transactions over $1,000 (amount_usd_cents > 100000)",
+            "Transactions over $500 (amount_usd_cents > 50000)",
+            "The top 1% of transactions by amount"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4614,
+      "output_tokens": 150
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgtszD23vTLVz9zPBHP",
+    "request_hash": "c37d88dd3b3c076ae05c6106a86852e3ad328a5eaa60d20779be3a1860dfa46f"
+  }
+}

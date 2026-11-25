@@ -342,7 +342,7 @@ def test_health_with_a_key_says_what_the_interface_needs(
         mode="live",
         database=api.DatabaseHealth(present=True, readable=True, schema_context=True),
         key_configured=True,
-        model_id="claude-opus-5-5",
+        model_id="claude-haiku-5-5",
         prompt_version=found.prompt_version,
         tracing=api.TracingHealth(enabled=False, destination=None),
         limits=api.Limits(max_message_characters=2000, row_cap=1000),
@@ -772,7 +772,7 @@ def test_serve_runs_live_turns_labelled_web(
 
     assert cli.main(["serve", "--port", "8123"]) == 0
     output = capsys.readouterr().out
-    assert "Model: claude-opus-5-5, live. Each question asked in the browser is billed" in output
+    assert "Model: claude-haiku-5-5, live. Each question asked in the browser is billed" in output
     assert "Hosted tracing: on, to LangSmith project 'p'" in output
     assert "http://127.0.0.1:8123/" in output and "Warning" not in output
     assert KEY not in output and served.port == 8123
@@ -785,7 +785,7 @@ def test_serve_runs_live_turns_labelled_web(
     assert sink.batches[0][0].name == "web turn 1" and sink.closed
     started = (settings.log_dir / LOG_FILE).read_text().splitlines()[0]
     assert started.endswith(
-        "INFO fsm_assistant.runtime: web started: model=claude-opus-5-5 "
+        "INFO fsm_assistant.runtime: web started: model=claude-haiku-5-5 "
         f"prompt={found.prompt_version} tool_mode=tools replies=live tracing=project 'p'"
     )
     applog.configure(directory=None)

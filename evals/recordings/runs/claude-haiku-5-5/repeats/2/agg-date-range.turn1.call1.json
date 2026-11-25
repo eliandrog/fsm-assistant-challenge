@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "agg-date-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT MIN(date) AS earliest_timestamp, MAX(date) AS latest_timestamp FROM transactions",
+          "explanation": "Returns the earliest and latest transaction timestamps across all transactions in the database.",
+          "assumptions": [
+            "Timestamps are taken across all transactions, including those without a fraud label, since the question does not restrict to labelled rows."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4625,
+      "output_tokens": 199
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaXEqWoovKzVS9N4nZb",
+    "request_hash": "0cd9f741d94486ef6a1608655b7688a281b0700307dfdcabe1281abc4dc74b6f"
+  }
+}

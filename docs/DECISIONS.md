@@ -23,19 +23,22 @@ One entry per significant decision: the problem, what was chosen, what was rejec
 | D-11 | Backtest metrics use labelled transactions only; undefined ratios are `None` | Accepted |
 | D-12 | One backtest template; the clause sees only `transactions` | Accepted; refined by D-17; D-28 adds a second fixed template, by month |
 | D-13 | A rule clause is contained by parentheses and a lexical scan | Accepted; refined by D-17 |
-| D-14 | Model provider: Anthropic (Claude) through its API | Accepted; built (D-20) |
+| D-14 | Model provider: Anthropic (Claude) through its API | Accepted; built (D-20); refined by D-34 |
 | D-15 | LangGraph as a fixed state graph, not an agent loop | Accepted; the packages are installed (D-20), the graph is not built yet |
 | D-16 | The model chooses one of five tools; code executes it | Accepted; refined by D-21: both modes built, and tools confirmed as the default by a small live check. The graph that routes on them is not built |
 | D-17 | The SQL guard reads SQLite's own account of a compiled statement | Accepted; refined by D-19 |
 | D-18 | Connection hardening: unknown quoted names are errors, and values are capped in size | Accepted |
 | D-19 | Pydantic models at every structured boundary, and strict type checking | Accepted |
-| D-20 | Model settings, key handling, and hosted tracing off | Accepted; refined by D-27 |
+| D-20 | Model settings, key handling, and hosted tracing off | Accepted; refined by D-27 and D-34 |
 | D-21 | One model interface, with our own record and replay | Accepted |
 | D-27 | Logs for errors and health; LangSmith for traces, opt-in and built from an allow-list | Accepted |
 | D-28 | A rule is shown with its backtest month by month, as a stability check | Accepted |
 | D-29 | The fraud scan: chosen by the model, computed by code | Accepted |
 | D-30 | Evaluation hardening: exact counts, write attempts reported by the guard, run identity, repeats and rescoring | Accepted; refines D-25 |
 | D-31 | Two interfaces over one result: the terminal, and a local web chat over an HTTP API | Accepted |
+| D-32 | Prompt version `turn-5`, and the recorded runs of the suite as it is now | Accepted; refines D-25, D-29 and D-30 |
+| D-33 | The recorded run on `claude-opus-5-5`, made in two sittings | Accepted; refines D-25 and D-32; refined by D-34 |
+| D-34 | `claude-haiku-5-5` is the default model | Accepted; refines D-14, D-20 and D-33 |
 
 ## Template
 
@@ -254,7 +257,9 @@ SQLite's message is kept verbatim on the error for the repair attempt.
 
 ## D-14: Model provider: Anthropic (Claude) through its API
 
-**Status:** Accepted; built, with the settings in D-20. Supersedes D-05.
+**Status:** Accepted; built, with the settings in D-20. Supersedes D-05. Refined by D-34 (the default model is `claude-haiku-5-5`).
+
+**Status note:** This entry names `claude-opus-5-5` as the default and leaves open whether `claude-haiku-5-5` replaces it. D-34 settles that: the default is `claude-haiku-5-5`. The entry is left as it was written.
 
 **Context:** D-05 chose a local Qwen model in Ollama, mainly so that no API key was needed and nothing left the machine. Exploratory runs on the two local models (see [`ARCHITECTURE.md`](ARCHITECTURE.md#evidence)) showed the approach was workable, but slower end to end, and a reviewer would need a download of 18.5 GB for the larger model and enough memory to load it. Two things changed the balance: the owner has an Anthropic API key, and the evaluation suite is designed to be replayed offline from recorded model replies (proposed), so a reviewer needs no model at all to check the reported results.
 
@@ -303,6 +308,8 @@ Two dependencies will be added by the task that builds the model layer: `langgra
 ## D-16: The model chooses one of five tools; code executes it
 
 **Status:** Accepted; refined by D-21. The five tools, the fallback object and the check that turns either into one typed action are built (D-21); the graph that routes on the action is not. Default mode: tools, confirmed by the live measurement recorded in D-21 (`fsm-assistant check-model`). Rate of replies with exactly one valid tool call: 11 of 11 on each of two models, `claude-opus-5-5` and `claude-haiku-5-5`. Structured output stays as the fallback behind the `FSM_TOOL_MODE` setting. The check is small: eleven questions, each asked once, with a minimal system message and not the final prompt, and it measures whether the reply was one valid tool call, not whether the SQL was right. The text below is as it was written before the measurement.
+
+**Status note:** This entry says tool choice is left on auto because the default model rejects a forced tool choice. That model was `claude-opus-5-5`; the default is `claude-haiku-5-5` since D-34, and tool choice stays on auto (D-34 says why). The entry is left as it was written.
 
 **Context:** Every reply from the model has to be one of five actions with known fields, so that code can route on it without parsing free text. Claude offers two ways to get that: tool calls (the model names an action and fills in typed arguments) and structured output (the reply is one object constrained to a schema).
 
@@ -474,7 +481,9 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-20: Model settings, key handling, and hosted tracing off
 
-**Status:** Accepted. Builds D-14. Refined by D-27: opt-in hosted tracing now exists, and the forced-off switch described here also covers the whole graph run.
+**Status:** Accepted. Builds D-14. Refined by D-27: opt-in hosted tracing now exists, and the forced-off switch described here also covers the whole graph run. Refined by D-34 (the default of `ANTHROPIC_MODEL` is `claude-haiku-5-5`).
+
+**Status note:** The settings table in this entry gives `claude-opus-5-5` as the default model. It is `claude-haiku-5-5` since D-34; the other defaults are unchanged. The entry is left as it was written.
 
 **Context:** D-14 chose Claude and left the request settings to the task that builds the client. The wrapper library (`langchain-anthropic`) has defaults that would break the design or send data somewhere unexpected. Checked in the installed source (1.7.12): it retries a failed request twice; when `max_tokens` is not given it takes the model's maximum (128,000); it reads the API address from `ANTHROPIC_API_URL` or `ANTHROPIC_BASE_URL`, and then from a LangSmith gateway setting, before falling back to Anthropic's; and LangChain sends every call to LangSmith, a hosted tracing service, when `LANGSMITH_TRACING` or `LANGCHAIN_TRACING_V2` is `true` in the environment. The key is a secret that must not reach a log, an error message or a recorded file.
 
@@ -569,7 +578,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-22: The prompt: one system text, a fixed glossary, and a repair paragraph
 
-**Status:** Accepted. Builds the prompt side of D-16. Refined by D-26 (two glossary lines added after the first recorded evaluation run; `PROMPT_VERSION` is now `turn-4`).
+**Status:** Accepted. Builds the prompt side of D-16. Refined by D-26 (two glossary lines added after the first recorded evaluation run; `PROMPT_VERSION` became `turn-4`). Refined by D-32 (`PROMPT_VERSION` is now `turn-5`; the system text is unchanged).
 
 **Context:** The model had the tools (D-21) and no instructions beyond their descriptions. The exploratory checks and the recorded `check-model` replies showed where a model goes wrong on this data without being told: a fraud rate returned as a rounded percentage, "debit card" read two ways by two models, "last month" read against today, a day range written with `BETWEEN`, a rule clause that uses a column of another table, and a threshold invented for "risky".
 
@@ -712,7 +721,7 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 
 ## D-25: The evaluation suite: results compared with pinned references, recorded runs replayed through the real code
 
-**Status:** Accepted. Refined by D-29 (the scan tier has six cases; a case a recorded run skipped is reported as not recorded once it can run). Refined by D-30.
+**Status:** Accepted. Refined by D-29 (the scan tier has six cases; a case a recorded run skipped is reported as not recorded once it can run). Refined by D-30. Refined by D-32 (a third run, of all 146 cases, and a repeated run of the held-out cases are recorded; the second run's report and `run.json` are kept under `evals/results/history/`). Refined by D-33 (the run on `claude-opus-5-5`, which this entry's "Consequences" still calls planned, is recorded).
 
 **Context:** The brief asks for an initial evaluation suite and for a way to show a stakeholder that the tool is effective and safe. The turn (D-23) and its result (D-24) are built. A live model call costs money, cannot be reproduced from a seed, and a reviewer may have no key.
 
@@ -784,6 +793,8 @@ How the two complexity limits were chosen, on the real database. Compile time fo
 ## D-27: Logs for errors and health; LangSmith for traces, opt-in and built from an allow-list
 
 **Status:** Accepted. Refines D-20. Builds the "Observability" section of `ARCHITECTURE.md`. Refined by D-29 (the step of a scan carries two counts, `scan_segments` and `scan_statements`, which are added to the allow-list).
+
+**Status note:** Under "Consequences" this entry says that no trace has been sent yet. That is no longer true; the entry is left as it was written. Traces have since been sent with tracing switched on, from `ask`, from the web chat and from two evaluation runs. Two `ask` traces were opened in LangSmith and showed only fields of the allow-list. The traces of the web chat and of the evaluation runs have not been opened.
 
 **Context:** Until now the only record of a turn was what `--trace` printed while it ran. Two things were missing: a way to check afterwards whether the assistant was healthy (did turns fail, could it reach the model and the database), and a way to look at one turn step by step. The second is what LangSmith does, and the project's libraries can send to it. The invariant that governs both is D-23's: nothing read from the database is saved or sent anywhere except to the user's own screen.
 
@@ -885,7 +896,7 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 
 ## D-29: The fraud scan: chosen by the model, computed by code
 
-**Status:** Accepted. Builds the scan side of D-16. Refines D-23, D-24, D-25 and D-27.
+**Status:** Accepted. Builds the scan side of D-16. Refines D-23, D-24, D-25 and D-27. Refined by D-32 (the text a follow-up to a scan is given, added here without a new prompt version, is named by `turn-5`; the six scan cases have a recorded run).
 
 **Context:** Every other action needs the analyst to arrive with a question. The brief asks how the tool can help an FSM "explore the data and uncover suspicious patterns", and the first question of an exploration is "where is the fraud?". D-16 gave that question a tool, `profile_fraud`, with no arguments, and D-23 routed it to "not available yet". Three facts about the data shape what a useful answer is. Fraud is rare: 1,360 of 777,339 labelled transactions. All of it is at merchant locations in one city, Rome, Italy, so anything more common there (chip transactions, some merchant categories, some hours, a PIN error) has a raised fraud rate without being a signal of its own. And among 9,417 segments, small ones with a handful of frauds have the most dramatic rates.
 
@@ -934,7 +945,7 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 
 ## D-30: Evaluation hardening: exact counts, write attempts reported by the guard, run identity, repeats and rescoring
 
-**Status:** Accepted. Refines D-25.
+**Status:** Accepted. Refines D-25. Refined by D-32 (the run of the suite as it is now and the repeated run this entry calls for are recorded).
 
 **Context:** An independent review of the suite reproduced every reported figure and found no wrong reference. It also found places where a wrong or unsafe turn could have passed. None of them fired in the two recorded runs, so no reported count was wrong because of them; each could have let a later failure through. The review also asked what a record says about how it was made, and how "a sample, not a rate" would ever get data.
 
@@ -1017,3 +1028,91 @@ Checked in the installed packages (`langsmith` 0.16.1, `langchain-core` 1.8.4, `
 - **Not built:** authentication, conversations kept on the server, streaming, charts, and accept or reject on a rule card (still an open point).
 - **How far it has been checked.** By tests with scripted model replies, and over HTTP in the offline demo. Its page has been reviewed in a real browser in the offline demo, 1400px wide, in the dark theme: the start screen, the scan answer with its table, notes, caveats and suggestion chips, and the rule card with the month table and the weakest month highlighted. A width problem in the scan table was found there and fixed. It has also been run live through the browser on `claude-haiku-5-5`, with the server started by `fsm-assistant serve` and hosted tracing on: six turns in two conversations, each answered with one model request. They were a three-table query ("What is the fraud rate by card type?", asked in both conversations with the same result), a clarification, a declined delete, the scan chosen for "Where is fraud concentrated?", and a rule proposed by clicking the scan's first suggestion chip, shown with its backtest and month table; the turns and what the page showed for each are listed in [`ARCHITECTURE.md`](ARCHITECTURE.md#a-live-run-of-the-web-chat). That is a handful of questions asked once on one model, by us, in one browser 1400px wide in the dark theme: it is not an evaluation and says nothing about other questions. `claude-opus-5-5` has not been run through the web chat, and narrow or mobile layouts and the light theme have not been reviewed in a browser.
 - **The interface adds a second toolchain.** Node and npm are needed to build or change the page, though not to run the terminal commands, the tests or the evaluation.
+
+## D-32: Prompt version `turn-5`, and the recorded runs of the suite as it is now
+
+**Status:** Accepted. Refines D-25, D-29 and D-30.
+
+**Status note:** Under "Consequences" this entry says that `claude-opus-5-5` has not been run on the suite. It has been since, once: see D-33. The entry is left as it was written.
+
+**Context:** D-30 ended with "the next recorded run is what counts": the two recorded runs predated the corrected scorers, the rule evidence by month and the scan, and 29 of the 146 cases had no recording. One more thing stood in the way of recording. D-29 added prompt text, the paragraph a turn after a scan is given, and left `PROMPT_VERSION` at `turn-4`, because the system text, the tools and every request the recorded runs had made were unchanged and the recordings stayed valid. That was true of the recordings. It also meant that a run recorded with the scan cases would carry the label of a run made before that text existed, against the convention that a change to the prompt text takes a new version.
+
+**Decision:**
+
+- **`PROMPT_VERSION` becomes `turn-5`.** It names the system text and the tool descriptions of `turn-4`, unchanged, together with the scan follow-up text of D-29. That the system text had not changed was checked before raising the number: the `turn-4` replies, each stored with a hash of its request, still replayed against the code. The tool descriptions and schemas are not touched, so the `check-model` recordings stay valid.
+- **The `turn-4` run is kept as history.** Its report and `run.json` are in `evals/results/history/turn-4-claude-haiku-5-5/`, as the first run's are, unchanged and not rescored. Its replies were replaced by the new run's, since a record holds the replies of one prompt version.
+- **Two runs were recorded on `claude-haiku-5-5`**, with nothing in the prompt, the cases or the scorers changed for them or because of them:
+  - all 146 cases, asked once: 144 passed and 2 failed, `fraud-label-coverage-share` (`value_mismatch`: the two counts returned before the fraction) and `follow-after-decline` (the marked known limitation);
+  - the 119 held-out cases, three times each: 117 passed all three repetitions, `date-month-over-month` passed one of three (`value_mismatch`: the previous month looked up after January had been filtered out), and `follow-after-decline` passed none.
+- **The failing cases are reported, not fixed.** No prompt line was written for them and no case option or scorer was loosened.
+
+**Alternatives rejected:**
+
+- Recording under `turn-4`: the record would then claim a prompt version that predates text some of its turns were sent.
+- Rebuilding the `turn-4` record with `eval --rescore` and adding the 29 missing cases to it with a filtered run: the cheapest route, and one that leaves a record made of two runs under one label, with the same question about the scan text.
+- Letting `fraud-label-coverage-share` accept extra columns in any position: the figure was right, and the case could be argued either way. Changing it after seeing it fail is the adjustment D-26 already had to account for, and one asking in four is not a reason.
+
+**Consequences:**
+
+- The figures to report are those of the two `turn-5` runs, as counts per tier with tuned and held-out apart (`evals/README.md`, "The suite as it is now"). They are one model's, and `claude-opus-5-5` has still not been run on the suite.
+- The earlier totals (109 of 117, 116 of 117) are not comparable with 144 of 146: the suite has 29 more cases in the run and stricter scorers. Of the 117 cases the `turn-4` run also asked, 116 ended the same way and one went from pass to fail.
+- The repetitions showed what one run hides. `date-month-over-month` passed in the full run and failed in two repetitions of three; `fraud-label-coverage-share` failed in the full run and passed in all three. A held-out case has now been asked four times, a tuned case once.
+- A replay of the record exits 0: all 146 cases have a recording and score as recorded. The same holds for each of the three repetitions.
+- The `turn-4` run can no longer be replayed. What remains of it is its report and its `run.json`, which keeps the SQL and the clause each turn ran.
+
+## D-33: The recorded run on `claude-opus-5-5`, made in two sittings
+
+**Status:** Accepted. Refines D-25 and D-32. Leaves open whether `claude-haiku-5-5` becomes the default model (D-14; `ARCHITECTURE.md`, "Open points"). Refined by D-34, which settles it.
+
+**Status note:** This entry says the default model in the code stays `claude-opus-5-5`. It is `claude-haiku-5-5` since D-34. The entry is left as it was written.
+
+**Context:** D-25 planned a run of the suite on `claude-opus-5-5` as the final recorded run, and D-14 left the default model to be decided from the results on both models. The run was started as one live run of all 146 cases. After 15 cases had been answered, the account's spend limit was reached: every later request got no reply, and the other 131 cases were written to the record as `turn_failed` (`model_unavailable`), not replayable, as D-25 prescribes for a request without a reply. The record and its report then read "15 of 146", which described the account and not the model.
+
+**Decision:**
+
+- **The 131 cases without a reply were run once the limit was raised, with filters, and merged into the record.** Three cases by `--case` and the other seventeen tiers by `--tier`. The 15 cases that had a reply were not asked again. So every case has exactly one reply, the one it was first given, and none was discarded or chosen.
+- **It is one record, and the docs say it was made in two sittings.** A filtered run is merged only under the same model settings, prompt version, schema context, system text and limits (D-30), and the record states them: they equal those of the `claude-haiku-5-5` record. Nothing in the code, the prompt, the cases or the scorers changed between the sittings.
+- **The result is reported as it came out:** 139 of 146 cases passed and 7 failed, against 144 and 2 on `claude-haiku-5-5`. The failing cases are `fraud-overall-rate`, `fraud-label-coverage-share`, `fraud-rate-in-italy` and `edges-explicit-percentage` (two counts returned before the rate, which was right), `top-users-by-spend` (positive amounts only, stated as an assumption), `guard-rule-clause-escape` (the provider stopped the reply as a refusal and the turn ended as failed; nothing ran) and `follow-after-decline` (the known limitation). The tables are in `evals/README.md`, "The same suite on `claude-opus-5-5`".
+- **Nothing was changed because of it.** No prompt line, case option, scorer or line of code. The default model in the code stays `claude-opus-5-5`.
+
+**Alternatives rejected:**
+
+- Starting the run again from the first case: it would have asked 15 cases a second time and kept the second reply, which is a choice between two askings, and it would have cost more for no gain in evidence.
+- Keeping the record of 15 answered cases as the run: it reports 131 failures that are the account's.
+- Letting the four rate cases accept columns before the expected one, or `top-users-by-spend` accept the positive-amounts reading: each can be argued, and changing a case after seeing it fail is the adjustment D-26 and D-32 already declined to repeat.
+- Mapping a reply stopped by the provider to a decline before reporting: it would be a code change made because of a run's result. It is listed as not checked in the README, and is a candidate for a later change with its own entry.
+- Changing the default model here: the rule was "if `claude-haiku-5-5` scores the same it becomes the default", and it did not score lower. That settles an open point, which is the user's to settle, and `claude-opus-5-5` was asked each case once.
+
+**Consequences:**
+
+- Both models now have a replayable record of the suite as it is: `eval --replay --model claude-opus-5-5` exits 0 with all 146 cases scored as recorded, as the `claude-haiku-5-5` replay does.
+- The two runs differ in five cases, all passed by `claude-haiku-5-5` and failed by `claude-opus-5-5`. Four are the shape of a right answer, one a different reading, one a refusal the code does not count as one. These are counts from one asking per case, not a measured difference between the models.
+- `claude-opus-5-5` has no repeated run, so nothing says which of its failures would repeat.
+- A reply with the stop reason `refusal` ends a turn as failed. It was seen once in the 160 turns of this run and in none of the 553 on `claude-haiku-5-5`.
+
+## D-34: `claude-haiku-5-5` is the default model
+
+**Status:** Accepted. Refines D-14, D-20 and D-33. Settles the open point "whether the smaller model becomes the default".
+
+**Context:** D-14 made `claude-opus-5-5` the default and left open whether `claude-haiku-5-5` would replace it, to be decided from the evaluation suite on both models, with the rule that the smaller model becomes the default if it scores the same. Both runs are now recorded on the same prompt (`turn-5`), settings, cases and scorers (D-32, D-33), each of the 146 cases asked once. `claude-haiku-5-5` passed 144 and `claude-opus-5-5` 139, with no case that only `claude-opus-5-5` passed. The guardrail scores were the same on both: 160 of 160 passed and no reply was a write attempt. A turn took 2.16 s at the median on `claude-haiku-5-5` against 3.19 s, and a run of the suite an estimated $0.10 against $3.83, at the prices written in `report.py`. D-33 left the choice to the user, who has made it.
+
+**Decision:**
+
+- **The default of `ANTHROPIC_MODEL` is `claude-haiku-5-5`** (`config.DEFAULT_ANTHROPIC_MODEL`). `ask`, `chat`, `serve`, `check-model` and `eval` use it when no model is named. `claude-opus-5-5` is still selected with `ANTHROPIC_MODEL=claude-opus-5-5`, or `--model` on `check-model` and `eval`.
+- **Nothing else changes.** Effort `medium`, 8,000 output tokens and output mode `tools` are the settings the `claude-haiku-5-5` runs were recorded under (their `run.json`), so they stay. The prompt, `PROMPT_VERSION`, the tools, the cases, the scorers and both models' recordings are untouched, and both recorded runs replay as before.
+- **Tool choice stays on auto.** D-16 left it on auto because the default model, then `claude-opus-5-5`, rejects a forced choice. The library reports that `claude-haiku-5-5` accepts one (pinned in `tests/test_llm.py`), but every recorded run was made on auto, a forced choice has not been tried on the suite, and the request must stay valid for `claude-opus-5-5`.
+- **The caveat goes wherever the choice is cited.** `claude-opus-5-5` was asked each case once and has no repeated run, and four of its five extra failures were a right figure returned behind extra columns. 144 against 139 is a count from one asking per case, not a measured difference between the models. The choice rests on the rule set beforehand (it did not score lower) together with the time and the cost, not on the smaller model being shown to be more accurate.
+
+**Alternatives rejected:**
+
+- Keeping `claude-opus-5-5` as the default: in these runs it passed no case the smaller model failed, took longer, and cost an estimated $3.83 a run against $0.10.
+- Repeating the `claude-opus-5-5` run before deciding: it would say which of its seven failures repeat, at an estimated $3.83 an asking of the suite. The user chose not to spend it; the caveat is stated instead.
+- Loosening the four rate cases so that columns before the expected one pass, and comparing again: changing a case after seeing it fail, which D-26, D-32 and D-33 declined.
+- Forcing the tool choice now that the default accepts it: a change to the request that no recorded run covers.
+
+**Consequences:**
+
+- A command run with no model named now calls `claude-haiku-5-5`: `check-model --replay` and `eval --replay` with no `--model` replay its recordings, which exist for both.
+- The model the suite was developed against and the default are now the same one, so the reported figures, the repeated run and the live web-chat turns all describe the default. `claude-opus-5-5` remains a recorded comparison.
+- The four frontend fixtures that carry the default model id were renewed by `tests/test_web_contract.py`; nothing else in them changed.
+- Still not known: how `claude-opus-5-5` scores when asked more than once, and how either model does on questions from a real FSM.

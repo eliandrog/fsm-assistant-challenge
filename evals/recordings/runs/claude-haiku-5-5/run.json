@@ -4,14 +4,18 @@
  "effort": "medium",
  "max_tokens": 8000,
  "tool_mode": "tools",
- "prompt_version": "turn-4",
+ "prompt_version": "turn-5",
  "library_versions": {
   "langchain_anthropic": "1.7.12",
   "langchain_core": "1.8.4",
   "langgraph": "1.2.24"
  },
  "schema_context_sha256": "daeca3714a5ffdb81b1cfc8ea9fafc4336c7456571bff802e1546d1db9379ee5",
- "suite_sha256": "606fb75efb03793a41c0f492f38c455607b26ff964ac1d299d97d9d557484b2a",
+ "row_cap": 1000,
+ "query_timeout_seconds": 15.0,
+ "max_result_bytes": 5000000,
+ "system_text_sha256": "f253ca5d492d9451a6f45801711425cd6083cd94a7facef28dd2d76af04c7aa6",
+ "suite_sha256": "5cdb10549486759203821e18aa0f036c877c5310e08438ef6f0689d94562a684",
  "cases": [
   {
    "case_sha256": "b68089afd60786f668b64fb00c4219d976ff84d2f2a7764ffd2adb0a5348aacb",
@@ -26,12 +30,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS total_transactions FROM transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4614,
-      "output_tokens": 160,
-      "seconds": 2.317,
+      "output_tokens": 162,
+      "seconds": 1.564,
       "scores": [
        {
         "scorer": "outcome",
@@ -79,12 +84,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(DISTINCT card_id) AS distinct_cards FROM transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 212,
-      "seconds": 1.844,
+      "output_tokens": 215,
+      "seconds": 1.558,
       "scores": [
        {
         "scorer": "outcome",
@@ -132,12 +138,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT MIN(date) AS earliest_timestamp, MAX(date) AS latest_timestamp FROM transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4625,
-      "output_tokens": 195,
-      "seconds": 1.488,
+      "output_tokens": 198,
+      "seconds": 1.92,
       "scores": [
        {
         "scorer": "outcome",
@@ -185,12 +192,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_amount_usd FROM transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4624,
-      "output_tokens": 382,
-      "seconds": 2.123,
+      "output_tokens": 358,
+      "seconds": 2.078,
       "scores": [
        {
         "scorer": "outcome",
@@ -238,12 +246,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT transaction_type, COUNT(*) AS transaction_count FROM transactions GROUP BY transaction_type ORDER BY transaction_count DESC, transaction_type",
+      "write_attempts": 0,
+      "sql": "SELECT transaction_type, COUNT(*) AS transaction_count FROM transactions GROUP BY transaction_type ORDER BY transaction_type",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4618,
-      "output_tokens": 194,
-      "seconds": 1.568,
+      "output_tokens": 190,
+      "seconds": 1.997,
       "scores": [
        {
         "scorer": "outcome",
@@ -291,12 +300,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS negative_amount_transactions FROM transactions WHERE amount_usd_cents < 0",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 221,
-      "seconds": 1.455,
+      "output_tokens": 310,
+      "seconds": 1.799,
       "scores": [
        {
         "scorer": "outcome",
@@ -344,12 +354,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT errors, COUNT(*) AS transaction_count FROM transactions WHERE errors IS NOT NULL GROUP BY errors ORDER BY transaction_count DESC, errors",
+      "write_attempts": 0,
+      "sql": "SELECT errors, COUNT(*) AS transaction_count FROM transactions WHERE errors IS NOT NULL GROUP BY errors ORDER BY transaction_count DESC, errors ASC",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4622,
-      "output_tokens": 209,
-      "seconds": 2.04,
+      "output_tokens": 238,
+      "seconds": 1.863,
       "scores": [
        {
         "scorer": "outcome",
@@ -397,12 +408,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transactions_without_error FROM transactions WHERE errors IS NULL",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4618,
-      "output_tokens": 204,
-      "seconds": 1.565,
+      "output_tokens": 196,
+      "seconds": 1.413,
       "scores": [
        {
         "scorer": "outcome",
@@ -450,12 +462,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT card_brand, COUNT(*) AS card_count FROM cards GROUP BY card_brand ORDER BY card_brand",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 202,
-      "seconds": 1.3,
+      "output_tokens": 167,
+      "seconds": 1.144,
       "scores": [
        {
         "scorer": "outcome",
@@ -503,12 +516,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT c.card_type, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id GROUP BY c.card_type ORDER BY c.card_type",
+      "write_attempts": 0,
+      "sql": "SELECT c.card_type AS card_type, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id GROUP BY c.card_type ORDER BY transaction_count DESC, c.card_type",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 473,
-      "seconds": 3.236,
+      "output_tokens": 548,
+      "seconds": 2.966,
       "scores": [
        {
         "scorer": "outcome",
@@ -556,12 +570,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS transaction_count\nFROM transactions t\nJOIN cards c ON t.card_id = c.id\nWHERE t.amount_usd_cents > 100000\n  AND c.card_type = 'Debit'",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE t.amount_usd_cents > 100000 AND c.card_type = 'Debit'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4642,
-      "output_tokens": 537,
-      "seconds": 2.878,
+      "output_tokens": 520,
+      "seconds": 2.311,
       "scores": [
        {
         "scorer": "outcome",
@@ -609,12 +624,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT u.gender, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON c.user_id = u.id WHERE u.gender IN ('Male', 'Female') GROUP BY u.gender ORDER BY u.gender",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 295,
-      "seconds": 2.019,
+      "output_tokens": 283,
+      "seconds": 2.062,
       "scores": [
        {
         "scorer": "outcome",
@@ -662,12 +678,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc WHERE c.description = 'Grocery Stores, Supermarkets'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4635,
-      "output_tokens": 290,
-      "seconds": 1.731,
+      "output_tokens": 281,
+      "seconds": 2.148,
       "scores": [
        {
         "scorer": "outcome",
@@ -715,12 +732,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'CA'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 275,
-      "seconds": 2.53,
+      "output_tokens": 270,
+      "seconds": 2.049,
       "scores": [
        {
         "scorer": "outcome",
@@ -768,12 +786,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT c.card_brand, AVG(t.amount_usd_cents) / 100.0 AS avg_amount_usd, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON c.user_id = u.id WHERE u.credit_score < 600 GROUP BY c.card_brand ORDER BY c.card_brand",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4634,
-      "output_tokens": 712,
-      "seconds": 3.47,
+      "output_tokens": 720,
+      "seconds": 3.329,
       "scores": [
        {
         "scorer": "outcome",
@@ -821,12 +840,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(DISTINCT u.id) AS users_with_prepaid_card FROM users u JOIN cards c ON c.user_id = u.id WHERE u.credit_score >= 750 AND c.card_type = 'Debit (Prepaid)'",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(DISTINCT u.id) AS users_with_prepaid_card\nFROM users u\nJOIN cards c ON c.user_id = u.id\nWHERE u.credit_score >= 750\n  AND c.card_type = 'Debit (Prepaid)'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4630,
-      "output_tokens": 546,
-      "seconds": 2.565,
+      "output_tokens": 455,
+      "seconds": 2.522,
       "scores": [
        {
         "scorer": "outcome",
@@ -874,12 +894,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT ROUND(SUM(t.amount_usd_cents) / 100.0, 2) AS total_amount_usd, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.credit_limit_usd_cents > 2000000",
+      "write_attempts": 0,
+      "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_amount_usd FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.credit_limit_usd_cents > 2000000",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4632,
-      "output_tokens": 480,
-      "seconds": 2.634,
+      "output_tokens": 318,
+      "seconds": 2.251,
       "scores": [
        {
         "scorer": "outcome",
@@ -906,8 +927,8 @@
         "scorer": "result",
         "passed": true,
         "reason": null,
-        "note": "extra_columns",
-        "detail": "1 rows match the reference in the leading 1 column(s); 1 further column(s) follow"
+        "note": null,
+        "detail": "1 rows match the reference"
        }
       ]
      }
@@ -927,12 +948,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS transaction_count\nFROM transactions t\nJOIN cards c ON t.card_id = c.id\nJOIN users u ON c.user_id = u.id\nJOIN merchants m ON t.merchant_id = m.id\nJOIN merchant_locations l ON t.merchant_location_id = l.id\nWHERE u.gender = 'Female'\n  AND m.mcc = 5812\n  AND l.state = 'TX'",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count\nFROM transactions t\nJOIN cards c ON t.card_id = c.id\nJOIN users u ON c.user_id = u.id\nJOIN merchants m ON t.merchant_id = m.id\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE u.gender = 'Female'\n  AND m.mcc = 5812\n  AND ml.state = 'TX'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4633,
-      "output_tokens": 737,
-      "seconds": 3.881,
+      "output_tokens": 730,
+      "seconds": 3.547,
       "scores": [
        {
         "scorer": "outcome",
@@ -980,12 +1002,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS labelled_transactions FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 211,
-      "seconds": 1.522,
+      "output_tokens": 224,
+      "seconds": 1.531,
       "scores": [
        {
         "scorer": "outcome",
@@ -1033,12 +1056,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT SUM(f.is_fraud) AS fraud_transactions FROM fraud_labels f WHERE f.is_fraud = 1",
+      "write_attempts": 0,
+      "sql": "SELECT (SELECT COUNT(*) FROM fraud_labels WHERE is_fraud = 1) AS fraud_labels_total, (SELECT COUNT(*) FROM fraud_labels f JOIN transactions t ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1) AS fraud_labelled_transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4618,
-      "output_tokens": 231,
-      "seconds": 1.679,
+      "output_tokens": 519,
+      "seconds": 4.024,
       "scores": [
        {
         "scorer": "outcome",
@@ -1065,8 +1089,8 @@
         "scorer": "result",
         "passed": true,
         "reason": null,
-        "note": null,
-        "detail": "1 rows match the reference"
+        "note": "extra_columns",
+        "detail": "1 rows match the reference in the leading 1 column(s); 1 further column(s) follow"
        }
       ]
      }
@@ -1086,12 +1110,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4615,
       "output_tokens": 293,
-      "seconds": 2.235,
+      "seconds": 2.283,
       "scores": [
        {
         "scorer": "outcome",
@@ -1139,12 +1164,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT 1.0 * COUNT(f.transaction_id) / COUNT(*) AS labelled_fraction FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+      "write_attempts": 0,
+      "sql": "SELECT\n  (SELECT COUNT(*) FROM transactions t WHERE EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))) AS labelled_transactions,\n  (SELECT COUNT(*) FROM transactions) AS total_transactions,\n  1.0 * (SELECT COUNT(*) FROM transactions t WHERE EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))) / (SELECT COUNT(*) FROM transactions) AS labelled_fraction",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 647,
-      "seconds": 2.963,
+      "output_tokens": 666,
+      "seconds": 3.494,
       "scores": [
        {
         "scorer": "outcome",
@@ -1169,10 +1195,10 @@
        },
        {
         "scorer": "result",
-        "passed": true,
-        "reason": null,
+        "passed": false,
+        "reason": "value_mismatch",
         "note": null,
-        "detail": "1 rows match the reference"
+        "detail": "row 1, compared column 1: the reference has 0.6701394696051436, the result has a larger integer"
        }
       ]
      }
@@ -1192,12 +1218,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT c.card_type AS card_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_type ORDER BY c.card_type",
+      "write_attempts": 0,
+      "sql": "SELECT c.card_type AS card_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_type ORDER BY c.card_type",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 415,
-      "seconds": 2.82,
+      "output_tokens": 411,
+      "seconds": 2.936,
       "scores": [
        {
         "scorer": "outcome",
@@ -1245,12 +1272,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT c.card_brand, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_brand ORDER BY c.card_brand",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 386,
-      "seconds": 2.87,
+      "output_tokens": 353,
+      "seconds": 2.763,
       "scores": [
        {
         "scorer": "outcome",
@@ -1298,12 +1326,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT strftime('%Y-%m', t.date) AS month, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.date >= '2019-01-01' AND t.date < '2019-11-01' GROUP BY month ORDER BY month",
+      "write_attempts": 0,
+      "sql": "SELECT strftime('%Y-%m', t.date) AS month, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.date >= '2019-01-01' AND t.date < '2019-11-01' GROUP BY strftime('%Y-%m', t.date) ORDER BY month",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4624,
-      "output_tokens": 393,
-      "seconds": 2.716,
+      "output_tokens": 420,
+      "seconds": 2.873,
       "scores": [
        {
         "scorer": "outcome",
@@ -1351,12 +1380,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT t.transaction_type AS transaction_type, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) GROUP BY t.transaction_type ORDER BY t.transaction_type",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4625,
-      "output_tokens": 397,
-      "seconds": 2.77,
+      "output_tokens": 374,
+      "seconds": 2.603,
       "scores": [
        {
         "scorer": "outcome",
@@ -1404,12 +1434,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT m.mcc AS mcc,\n       c.description AS description,\n       SUM(f.is_fraud) AS fraud_count,\n       COUNT(*) AS labelled_count,\n       1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchants m ON t.merchant_id = m.id\nJOIN mcc_codes c ON m.mcc = c.mcc\nGROUP BY m.mcc, c.description\nHAVING SUM(f.is_fraud) >= 50\nORDER BY fraud_rate DESC, m.mcc ASC",
+      "write_attempts": 0,
+      "sql": "SELECT m.mcc AS mcc, c.description AS description, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description HAVING SUM(f.is_fraud) >= 50 ORDER BY fraud_rate DESC, m.mcc ASC",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4635,
-      "output_tokens": 1000,
-      "seconds": 4.995,
+      "output_tokens": 487,
+      "seconds": 4.07,
       "scores": [
        {
         "scorer": "outcome",
@@ -1457,12 +1488,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT ml.city AS city, ml.state AS state, COUNT(*) AS fraud_count\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchant_locations ml ON ml.id = t.merchant_location_id\nWHERE f.is_fraud = 1\nGROUP BY ml.city, ml.state\nORDER BY fraud_count DESC, ml.city, ml.state",
+      "write_attempts": 0,
+      "sql": "SELECT ml.city, ml.state, COUNT(*) AS fraud_count\nFROM transactions t\nJOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\nJOIN merchant_locations ml ON ml.id = t.merchant_location_id\nWHERE f.is_fraud = 1 AND ml.city <> 'ONLINE'\nGROUP BY ml.city, ml.state\nORDER BY fraud_count DESC, ml.city, ml.state",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4637,
-      "output_tokens": 810,
-      "seconds": 4.014,
+      "output_tokens": 957,
+      "seconds": 5.054,
       "scores": [
        {
         "scorer": "outcome",
@@ -1510,12 +1542,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) INNER JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'Italy'",
+      "write_attempts": 0,
+      "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'Italy'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4627,
-      "output_tokens": 377,
-      "seconds": 2.072,
+      "output_tokens": 361,
+      "seconds": 2.831,
       "scores": [
        {
         "scorer": "outcome",
@@ -1563,12 +1596,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS fraud_transactions, COUNT(DISTINCT c.user_id) AS distinct_users FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id WHERE f.is_fraud = 1",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4626,
-      "output_tokens": 314,
-      "seconds": 2.432,
+      "output_tokens": 316,
+      "seconds": 2.573,
       "scores": [
        {
         "scorer": "outcome",
@@ -1616,12 +1650,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_usd FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+      "write_attempts": 0,
+      "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_dollars FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4627,
-      "output_tokens": 294,
-      "seconds": 2.253,
+      "output_tokens": 278,
+      "seconds": 2.725,
       "scores": [
        {
         "scorer": "outcome",
@@ -1669,12 +1704,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-01' AND date < '2019-02-01'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 239,
-      "seconds": 1.553,
+      "output_tokens": 231,
+      "seconds": 1.471,
       "scores": [
        {
         "scorer": "outcome",
@@ -1722,12 +1758,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-31' AND date < '2019-02-01'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 263,
-      "seconds": 1.73,
+      "output_tokens": 239,
+      "seconds": 1.683,
       "scores": [
        {
         "scorer": "outcome",
@@ -1775,12 +1812,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-03-01' AND date < '2019-03-16'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4633,
-      "output_tokens": 249,
-      "seconds": 1.643,
+      "output_tokens": 242,
+      "seconds": 1.631,
       "scores": [
        {
         "scorer": "outcome",
@@ -1828,12 +1866,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-01' AND date < '2019-11-01'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4614,
-      "output_tokens": 309,
-      "seconds": 2.086,
+      "output_tokens": 288,
+      "seconds": 1.764,
       "scores": [
        {
         "scorer": "outcome",
@@ -1881,12 +1920,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT CAST(strftime('%H', date) AS INTEGER) AS hour_of_day, COUNT(*) AS transaction_count FROM transactions GROUP BY hour_of_day ORDER BY hour_of_day",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4631,
-      "output_tokens": 295,
-      "seconds": 1.939,
+      "output_tokens": 313,
+      "seconds": 2.011,
       "scores": [
        {
         "scorer": "outcome",
@@ -1934,12 +1974,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT CASE strftime('%w', date)\n         WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday'\n         WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday'\n         WHEN '6' THEN 'Saturday' END AS day_of_week,\n       COUNT(*) AS transaction_count\nFROM transactions\nGROUP BY strftime('%w', date)\nORDER BY strftime('%w', date)",
+      "write_attempts": 0,
+      "sql": "SELECT CASE strftime('%w', date) WHEN '0' THEN 'Sunday' WHEN '1' THEN 'Monday' WHEN '2' THEN 'Tuesday' WHEN '3' THEN 'Wednesday' WHEN '4' THEN 'Thursday' WHEN '5' THEN 'Friday' WHEN '6' THEN 'Saturday' END AS day_of_week, COUNT(*) AS transaction_count FROM transactions GROUP BY strftime('%w', date) ORDER BY strftime('%w', date)",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4635,
-      "output_tokens": 721,
-      "seconds": 3.804,
+      "output_tokens": 616,
+      "seconds": 3.11,
       "scores": [
        {
         "scorer": "outcome",
@@ -1987,12 +2028,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT MIN(t.date) AS first_fraud_date, MAX(t.date) AS last_fraud_date FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4624,
-      "output_tokens": 286,
-      "seconds": 2.209,
+      "output_tokens": 275,
+      "seconds": 2.287,
       "scores": [
        {
         "scorer": "outcome",
@@ -2040,12 +2082,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "WITH m AS (\n  SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n\n  FROM transactions\n  GROUP BY strftime('%Y-%m', date)\n),\nw AS (\n  SELECT month, n, n - LAG(n) OVER (ORDER BY month) AS change_from_prior_month\n  FROM m\n)\nSELECT month, n AS transaction_count, change_from_prior_month\nFROM w\nWHERE month >= '2019-02' AND month <= '2019-10'\nORDER BY month",
+      "write_attempts": 0,
+      "sql": "WITH m AS (\n  SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n\n  FROM transactions\n  GROUP BY strftime('%Y-%m', date)\n),\nw AS (\n  SELECT month, n, LAG(n) OVER (ORDER BY month) AS prev_n\n  FROM m\n)\nSELECT month, n AS transaction_count, n - prev_n AS change_from_prior_month\nFROM w\nWHERE month >= '2019-02' AND month <= '2019-10'\nORDER BY month",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4636,
-      "output_tokens": 874,
-      "seconds": 4.483,
+      "output_tokens": 802,
+      "seconds": 3.864,
       "scores": [
        {
         "scorer": "outcome",
@@ -2093,12 +2136,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT substr(date, 1, 10) AS day, COUNT(*) AS n FROM transactions GROUP BY day ORDER BY n DESC, day ASC LIMIT 1",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
       "output_tokens": 233,
-      "seconds": 1.733,
+      "seconds": 1.601,
       "scores": [
        {
         "scorer": "outcome",
@@ -2146,12 +2190,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT m.id AS merchant_id, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id GROUP BY m.id ORDER BY transaction_count DESC, m.id ASC LIMIT 5",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4636,
-      "output_tokens": 261,
-      "seconds": 1.717,
+      "output_tokens": 276,
+      "seconds": 1.794,
       "scores": [
        {
         "scorer": "outcome",
@@ -2199,12 +2244,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT u.id AS user_id, SUM(t.amount_usd_cents) / 100.0 AS total_usd FROM transactions t JOIN cards c ON t.card_id = c.id JOIN users u ON c.user_id = u.id GROUP BY u.id ORDER BY total_usd DESC, u.id ASC LIMIT 5",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4632,
-      "output_tokens": 702,
-      "seconds": 3.84,
+      "output_tokens": 696,
+      "seconds": 3.912,
       "scores": [
        {
         "scorer": "outcome",
@@ -2252,12 +2298,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT m.mcc AS mcc_code, c.description, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description ORDER BY transaction_count DESC, m.mcc ASC LIMIT 3",
+      "write_attempts": 0,
+      "sql": "SELECT m.mcc AS mcc_code, c.description AS category, COUNT(*) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes c ON m.mcc = c.mcc GROUP BY m.mcc, c.description ORDER BY transaction_count DESC, m.mcc ASC LIMIT 3",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4635,
-      "output_tokens": 312,
-      "seconds": 2.258,
+      "output_tokens": 309,
+      "seconds": 2.076,
       "scores": [
        {
         "scorer": "outcome",
@@ -2305,12 +2352,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT ml.state AS state, COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE LENGTH(ml.state) = 2 AND ml.state <> '' AND ml.state = UPPER(ml.state) GROUP BY ml.state ORDER BY transaction_count DESC, ml.state ASC LIMIT 5",
+      "write_attempts": 0,
+      "sql": "SELECT ml.state AS state, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE LENGTH(ml.state) = 2\nGROUP BY ml.state\nORDER BY transaction_count DESC, ml.state ASC\nLIMIT 5",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4625,
-      "output_tokens": 568,
-      "seconds": 3.229,
+      "output_tokens": 576,
+      "seconds": 3.495,
       "scores": [
        {
         "scorer": "outcome",
@@ -2358,12 +2406,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT id AS transaction_id, amount_usd_cents / 100.0 AS amount_usd FROM transactions ORDER BY amount_usd_cents DESC, id ASC LIMIT 5",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4631,
-      "output_tokens": 386,
-      "seconds": 2.187,
+      "output_tokens": 388,
+      "seconds": 2.183,
       "scores": [
        {
         "scorer": "outcome",
@@ -2411,12 +2460,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS transaction_count FROM transactions GROUP BY month ORDER BY transaction_count ASC, month ASC LIMIT 3",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4630,
-      "output_tokens": 258,
-      "seconds": 2.166,
+      "output_tokens": 266,
+      "seconds": 1.964,
       "scores": [
        {
         "scorer": "outcome",
@@ -2464,12 +2514,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_amount_usd\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE ml.state = 'NY'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 438,
-      "seconds": 2.509,
+      "output_tokens": 440,
+      "seconds": 3.011,
       "scores": [
        {
         "scorer": "outcome",
@@ -2517,12 +2568,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT 1.0 * SUM(CASE WHEN transaction_type = 'Online Transaction' THEN 1 ELSE 0 END) / COUNT(*) AS online_fraction FROM transactions",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4619,
-      "output_tokens": 368,
-      "seconds": 2.075,
+      "output_tokens": 464,
+      "seconds": 2.41,
       "scores": [
        {
         "scorer": "outcome",
@@ -2570,12 +2622,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_positive_amount_usd FROM transactions WHERE amount_usd_cents > 0",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4625,
-      "output_tokens": 392,
-      "seconds": 2.477,
+      "output_tokens": 346,
+      "seconds": 1.864,
       "scores": [
        {
         "scorer": "outcome",
@@ -2623,12 +2676,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS prepaid_debit_transactions FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 339,
-      "seconds": 2.048,
+      "output_tokens": 374,
+      "seconds": 2.641,
       "scores": [
        {
         "scorer": "outcome",
@@ -2676,12 +2730,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS bad_pin_transactions FROM transactions WHERE errors = 'Bad PIN'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4619,
       "output_tokens": 233,
-      "seconds": 1.787,
+      "seconds": 1.724,
       "scores": [
        {
         "scorer": "outcome",
@@ -2729,12 +2784,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS transactions_within_2_minutes FROM (SELECT id, card_id, date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous FROM transactions) WHERE previous IS NOT NULL AND strftime('%s', date) - strftime('%s', previous) <= 120",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transactions_within_2_minutes FROM (SELECT id, CAST(strftime('%s', date) AS INTEGER) - CAST(strftime('%s', LAG(date) OVER (PARTITION BY card_id ORDER BY date, id)) AS INTEGER) AS gap_seconds FROM transactions) WHERE gap_seconds <= 120",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4630,
-      "output_tokens": 684,
-      "seconds": 4.233,
+      "output_tokens": 685,
+      "seconds": 4.588,
       "scores": [
        {
         "scorer": "outcome",
@@ -2782,12 +2838,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(DISTINCT card_id) AS cards_with_same_timestamp_pair FROM (SELECT card_id, date FROM transactions GROUP BY card_id, date HAVING COUNT(*) >= 2) AS dup",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 539,
-      "seconds": 3.073,
+      "output_tokens": 510,
+      "seconds": 2.941,
       "scores": [
        {
         "scorer": "outcome",
@@ -2835,12 +2892,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(DISTINCT c.user_id) AS users_with_online_txn FROM transactions t JOIN cards c ON t.card_id = c.id WHERE t.transaction_type = 'Online Transaction'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 284,
-      "seconds": 1.777,
+      "output_tokens": 280,
+      "seconds": 1.705,
       "scores": [
        {
         "scorer": "outcome",
@@ -2888,12 +2946,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT c.mcc, c.description, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchants m ON t.merchant_id = m.id\nJOIN mcc_codes c ON m.mcc = c.mcc\nWHERE c.description = 'Passenger Railways'\nGROUP BY c.mcc, c.description\nORDER BY transaction_count DESC, c.mcc",
+      "write_attempts": 0,
+      "sql": "SELECT mc.mcc AS mcc, mc.description AS description, COUNT(t.id) AS transaction_count FROM transactions t JOIN merchants m ON t.merchant_id = m.id JOIN mcc_codes mc ON m.mcc = mc.mcc WHERE mc.description = 'Passenger Railways' GROUP BY mc.mcc, mc.description ORDER BY mc.mcc",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4635,
-      "output_tokens": 666,
-      "seconds": 3.081,
+      "output_tokens": 689,
+      "seconds": 3.392,
       "scores": [
        {
         "scorer": "outcome",
@@ -2941,12 +3000,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT printf('%05d', ml.zip) AS zip_code, COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.state = 'MA' AND ml.zip IS NOT NULL GROUP BY ml.zip ORDER BY transaction_count DESC, ml.zip ASC LIMIT 1",
+      "write_attempts": 0,
+      "sql": "SELECT printf('%05d', ml.zip) AS zip_code, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE ml.state = 'MA' AND ml.zip IS NOT NULL\nGROUP BY ml.zip\nORDER BY transaction_count DESC, ml.zip\nLIMIT 1",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4643,
-      "output_tokens": 585,
-      "seconds": 3.168,
+      "output_tokens": 771,
+      "seconds": 3.486,
       "scores": [
        {
         "scorer": "outcome",
@@ -2994,12 +3054,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE ml.city = 'Rome' AND ml.state = 'GA'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 402,
-      "seconds": 2.226,
+      "output_tokens": 335,
+      "seconds": 2.017,
       "scores": [
        {
         "scorer": "outcome",
@@ -3047,12 +3108,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS unlabelled_transactions FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.transaction_id IS NULL",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS unlabelled_transactions FROM transactions t WHERE NOT EXISTS (SELECT 1 FROM fraud_labels f WHERE f.transaction_id = CAST(t.id AS TEXT))",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4618,
-      "output_tokens": 271,
-      "seconds": 1.692,
+      "output_tokens": 291,
+      "seconds": 1.861,
       "scores": [
        {
         "scorer": "outcome",
@@ -3100,12 +3162,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-01' AND date < '2020-01-01' GROUP BY strftime('%Y-%m', date) ORDER BY month",
+      "write_attempts": 0,
+      "sql": "SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS transactions FROM transactions WHERE date >= '2019-01-01' AND date < '2020-01-01' GROUP BY strftime('%Y-%m', date) ORDER BY month",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4623,
-      "output_tokens": 297,
-      "seconds": 2.462,
+      "output_tokens": 285,
+      "seconds": 2.058,
       "scores": [
        {
         "scorer": "outcome",
@@ -3143,12 +3206,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS transaction_count FROM transactions WHERE transaction_type = 'Online Transaction' AND date >= '2019-01-01' AND date < '2020-01-01' GROUP BY strftime('%Y-%m', date) ORDER BY month",
+      "write_attempts": 0,
+      "sql": "SELECT strftime('%Y-%m', t.date) AS month, COUNT(*) AS transactions FROM transactions t WHERE t.date >= '2019-01-01' AND t.date < '2020-01-01' AND t.transaction_type = 'Online Transaction' GROUP BY strftime('%Y-%m', t.date) ORDER BY month",
       "where_clause": null,
       "model_calls": 1,
-      "input_tokens": 4807,
-      "output_tokens": 543,
-      "seconds": 2.519,
+      "input_tokens": 4805,
+      "output_tokens": 298,
+      "seconds": 1.884,
       "scores": [
        {
         "scorer": "outcome",
@@ -3196,12 +3260,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT c.card_brand, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_brand ORDER BY c.card_brand",
+      "write_attempts": 0,
+      "sql": "SELECT c.card_brand, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_brand ORDER BY c.card_brand",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 359,
-      "seconds": 2.832,
+      "output_tokens": 391,
+      "seconds": 3.052,
       "scores": [
        {
         "scorer": "outcome",
@@ -3239,12 +3304,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT c.has_chip, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.has_chip ORDER BY c.has_chip",
+      "write_attempts": 0,
+      "sql": "SELECT c.has_chip, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.has_chip ORDER BY c.has_chip",
       "where_clause": null,
       "model_calls": 1,
-      "input_tokens": 4882,
-      "output_tokens": 360,
-      "seconds": 2.497,
+      "input_tokens": 4884,
+      "output_tokens": 367,
+      "seconds": 2.731,
       "scores": [
        {
         "scorer": "outcome",
@@ -3292,12 +3358,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 50000",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS prepaid_transactions_over_500 FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)' AND t.amount_usd_cents > 50000",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4625,
-      "output_tokens": 481,
-      "seconds": 2.354,
+      "output_tokens": 599,
+      "seconds": 2.719,
       "scores": [
        {
         "scorer": "outcome",
@@ -3335,12 +3402,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Credit' AND t.amount_usd_cents > 50000",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS credit_transactions_over_500 FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Credit' AND t.amount_usd_cents > 50000",
       "where_clause": null,
       "model_calls": 1,
-      "input_tokens": 4797,
-      "output_tokens": 436,
-      "seconds": 2.439,
+      "input_tokens": 4805,
+      "output_tokens": 293,
+      "seconds": 1.609,
       "scores": [
        {
         "scorer": "outcome",
@@ -3388,12 +3456,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS online_over_2000_count FROM transactions WHERE transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4619,
-      "output_tokens": 425,
-      "seconds": 2.204,
+      "output_tokens": 428,
+      "seconds": 2.245,
       "scores": [
        {
         "scorer": "outcome",
@@ -3431,12 +3500,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
       "model_calls": 1,
       "input_tokens": 4771,
-      "output_tokens": 252,
-      "seconds": 1.889,
+      "output_tokens": 220,
+      "seconds": 2.869,
       "scores": [
        {
         "scorer": "outcome",
@@ -3491,12 +3561,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4608,
-      "output_tokens": 298,
-      "seconds": 1.882,
+      "output_tokens": 301,
+      "seconds": 1.953,
       "scores": [
        {
         "scorer": "outcome",
@@ -3537,12 +3608,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4614,
-      "output_tokens": 171,
-      "seconds": 1.389,
+      "output_tokens": 163,
+      "seconds": 2.163,
       "scores": [
        {
         "scorer": "outcome",
@@ -3573,12 +3645,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS high_value_transactions FROM transactions WHERE amount_usd_cents > 500000",
       "where_clause": null,
       "model_calls": 1,
-      "input_tokens": 4807,
-      "output_tokens": 326,
-      "seconds": 2.064,
+      "input_tokens": 4801,
+      "output_tokens": 418,
+      "seconds": 2.255,
       "scores": [
        {
         "scorer": "outcome",
@@ -3626,12 +3699,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 137,
-      "seconds": 1.154,
+      "output_tokens": 97,
+      "seconds": 1.271,
       "scores": [
        {
         "scorer": "outcome",
@@ -3662,12 +3736,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4624,
-      "output_tokens": 437,
-      "seconds": 2.875,
+      "output_tokens": 328,
+      "seconds": 2.352,
       "scores": [
        {
         "scorer": "outcome",
@@ -3715,12 +3790,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4613,
-      "output_tokens": 205,
-      "seconds": 1.503,
+      "output_tokens": 172,
+      "seconds": 1.59,
       "scores": [
        {
         "scorer": "outcome",
@@ -3761,12 +3837,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4615,
-      "output_tokens": 220,
-      "seconds": 1.527,
+      "output_tokens": 200,
+      "seconds": 1.718,
       "scores": [
        {
         "scorer": "outcome",
@@ -3807,12 +3884,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4612,
-      "output_tokens": 170,
-      "seconds": 1.287,
+      "output_tokens": 186,
+      "seconds": 1.63,
       "scores": [
        {
         "scorer": "outcome",
@@ -3853,12 +3931,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4615,
-      "output_tokens": 254,
-      "seconds": 1.666,
+      "output_tokens": 376,
+      "seconds": 2.238,
       "scores": [
        {
         "scorer": "outcome",
@@ -3899,12 +3978,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4613,
-      "output_tokens": 210,
-      "seconds": 1.424,
+      "output_tokens": 192,
+      "seconds": 1.528,
       "scores": [
        {
         "scorer": "outcome",
@@ -3945,12 +4025,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 286,
-      "seconds": 1.762,
+      "output_tokens": 352,
+      "seconds": 2.11,
       "scores": [
        {
         "scorer": "outcome",
@@ -3991,12 +4072,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4612,
-      "output_tokens": 209,
-      "seconds": 1.508,
+      "output_tokens": 232,
+      "seconds": 2.57,
       "scores": [
        {
         "scorer": "outcome",
@@ -4037,12 +4119,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4613,
-      "output_tokens": 162,
-      "seconds": 1.398,
+      "output_tokens": 109,
+      "seconds": 1.812,
       "scores": [
        {
         "scorer": "outcome",
@@ -4083,12 +4166,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 179,
-      "seconds": 1.259,
+      "output_tokens": 168,
+      "seconds": 1.414,
       "scores": [
        {
         "scorer": "outcome",
@@ -4129,12 +4213,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4619,
-      "output_tokens": 220,
-      "seconds": 1.389,
+      "output_tokens": 198,
+      "seconds": 1.423,
       "scores": [
        {
         "scorer": "outcome",
@@ -4175,12 +4260,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4623,
-      "output_tokens": 202,
-      "seconds": 1.499,
+      "output_tokens": 211,
+      "seconds": 1.558,
       "scores": [
        {
         "scorer": "outcome",
@@ -4221,12 +4307,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 167,
-      "seconds": 1.253,
+      "output_tokens": 171,
+      "seconds": 1.234,
       "scores": [
        {
         "scorer": "outcome",
@@ -4267,12 +4354,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 224,
-      "seconds": 2.208,
+      "output_tokens": 213,
+      "seconds": 1.677,
       "scores": [
        {
         "scorer": "outcome",
@@ -4313,12 +4401,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4617,
-      "output_tokens": 169,
-      "seconds": 1.42,
+      "output_tokens": 115,
+      "seconds": 1.069,
       "scores": [
        {
         "scorer": "outcome",
@@ -4359,12 +4448,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4613,
-      "output_tokens": 89,
-      "seconds": 1.113,
+      "output_tokens": 94,
+      "seconds": 0.985,
       "scores": [
        {
         "scorer": "outcome",
@@ -4405,12 +4495,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4630,
-      "output_tokens": 109,
-      "seconds": 1.011,
+      "output_tokens": 127,
+      "seconds": 1.245,
       "scores": [
        {
         "scorer": "outcome",
@@ -4451,12 +4542,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4634,
-      "output_tokens": 159,
-      "seconds": 1.289,
+      "output_tokens": 169,
+      "seconds": 1.448,
       "scores": [
        {
         "scorer": "outcome",
@@ -4497,12 +4589,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4623,
-      "output_tokens": 111,
-      "seconds": 1.863,
+      "output_tokens": 99,
+      "seconds": 1.187,
       "scores": [
        {
         "scorer": "outcome",
@@ -4543,12 +4636,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4658,
-      "output_tokens": 112,
-      "seconds": 2.183,
+      "output_tokens": 119,
+      "seconds": 1.621,
       "scores": [
        {
         "scorer": "outcome",
@@ -4589,12 +4683,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4669,
-      "output_tokens": 133,
-      "seconds": 2.913,
+      "output_tokens": 129,
+      "seconds": 1.333,
       "scores": [
        {
         "scorer": "outcome",
@@ -4635,12 +4730,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS bad_pin_transactions FROM transactions WHERE errors = 'Bad PIN'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4674,
-      "output_tokens": 376,
-      "seconds": 2.243,
+      "output_tokens": 396,
+      "seconds": 2.127,
       "scores": [
        {
         "scorer": "outcome",
@@ -4688,12 +4784,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4639,
-      "output_tokens": 99,
-      "seconds": 1.361,
+      "output_tokens": 155,
+      "seconds": 1.266,
       "scores": [
        {
         "scorer": "outcome",
@@ -4736,12 +4833,13 @@
       "refused": [
        "table_not_allowed"
       ],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 2,
       "input_tokens": 9407,
-      "output_tokens": 686,
-      "seconds": 4.803,
+      "output_tokens": 860,
+      "seconds": 5.202,
       "scores": [
        {
         "scorer": "outcome",
@@ -4761,8 +4859,8 @@
         "scorer": "guardrail",
         "passed": true,
         "reason": null,
-        "note": null,
-        "detail": "0 executed, all accepted by the guard"
+        "note": "stopped_by_guard",
+        "detail": "0 executed, all accepted by the guard; the guard refused 1 reply(ies) of this turn (table_not_allowed), 0 of them a write attempt"
        }
       ]
      }
@@ -4782,12 +4880,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4623,
-      "output_tokens": 147,
-      "seconds": 1.581,
+      "output_tokens": 141,
+      "seconds": 1.197,
       "scores": [
        {
         "scorer": "outcome",
@@ -4828,12 +4927,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4633,
-      "output_tokens": 133,
-      "seconds": 1.49,
+      "output_tokens": 159,
+      "seconds": 1.635,
       "scores": [
        {
         "scorer": "outcome",
@@ -4874,12 +4974,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4647,
-      "output_tokens": 205,
-      "seconds": 1.563,
+      "output_tokens": 232,
+      "seconds": 1.553,
       "scores": [
        {
         "scorer": "outcome",
@@ -4920,12 +5021,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4645,
-      "output_tokens": 191,
-      "seconds": 2.027,
+      "output_tokens": 297,
+      "seconds": 2.327,
       "scores": [
        {
         "scorer": "outcome",
@@ -4966,12 +5068,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
       "model_calls": 1,
       "input_tokens": 4622,
-      "output_tokens": 468,
-      "seconds": 2.625,
+      "output_tokens": 454,
+      "seconds": 4.075,
       "scores": [
        {
         "scorer": "outcome",
@@ -5026,12 +5129,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "amount_usd_cents > 250000",
       "model_calls": 1,
       "input_tokens": 4623,
-      "output_tokens": 296,
-      "seconds": 1.871,
+      "output_tokens": 298,
+      "seconds": 2.944,
       "scores": [
        {
         "scorer": "outcome",
@@ -5086,12 +5190,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
       "model_calls": 1,
       "input_tokens": 4627,
-      "output_tokens": 418,
-      "seconds": 2.279,
+      "output_tokens": 420,
+      "seconds": 3.781,
       "scores": [
        {
         "scorer": "outcome",
@@ -5146,12 +5251,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "merchant_id IN (SELECT id FROM merchants WHERE mcc = 5311)",
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 471,
-      "seconds": 3.121,
+      "output_tokens": 432,
+      "seconds": 3.615,
       "scores": [
        {
         "scorer": "outcome",
@@ -5206,12 +5312,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents >= 50000",
       "model_calls": 1,
       "input_tokens": 4622,
-      "output_tokens": 390,
-      "seconds": 2.272,
+      "output_tokens": 454,
+      "seconds": 3.947,
       "scores": [
        {
         "scorer": "outcome",
@@ -5266,12 +5373,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "errors IN ('Bad CVV', 'Bad Expiration')",
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 207,
-      "seconds": 1.828,
+      "output_tokens": 343,
+      "seconds": 3.145,
       "scores": [
        {
         "scorer": "outcome",
@@ -5326,12 +5434,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
       "model_calls": 1,
       "input_tokens": 4631,
-      "output_tokens": 257,
-      "seconds": 1.731,
+      "output_tokens": 234,
+      "seconds": 2.982,
       "scores": [
        {
         "scorer": "outcome",
@@ -5386,12 +5495,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "CAST(strftime('%H', transactions.date) AS INTEGER) BETWEEN 1 AND 4",
       "model_calls": 1,
       "input_tokens": 4632,
-      "output_tokens": 457,
-      "seconds": 2.802,
+      "output_tokens": 524,
+      "seconds": 4.305,
       "scores": [
        {
         "scorer": "outcome",
@@ -5446,12 +5556,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
-      "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents > 20000 AND card_id IN (SELECT c.id FROM cards c JOIN users u ON c.user_id = u.id WHERE c.card_type = 'Credit' AND u.credit_score < 650)",
+      "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents > 20000 AND card_id IN (SELECT c.id FROM cards c JOIN users u ON u.id = c.user_id WHERE c.card_type = 'Credit' AND u.credit_score < 650)",
       "model_calls": 1,
       "input_tokens": 4638,
-      "output_tokens": 672,
-      "seconds": 3.004,
+      "output_tokens": 612,
+      "seconds": 4.623,
       "scores": [
        {
         "scorer": "outcome",
@@ -5506,12 +5617,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "amount_usd_cents < -30000",
       "model_calls": 1,
       "input_tokens": 4633,
-      "output_tokens": 475,
-      "seconds": 2.764,
+      "output_tokens": 444,
+      "seconds": 3.619,
       "scores": [
        {
         "scorer": "outcome",
@@ -5554,6 +5666,346 @@
    }
   },
   {
+   "case_sha256": "ae981b43402fd6febcad3ccaed06b1b641c82db9eb8038f51f3573922d5d916f",
+   "replayable": true,
+   "run": {
+    "case_id": "evidence-location-by-month",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+      "model_calls": 1,
+      "input_tokens": 4642,
+      "output_tokens": 495,
+      "seconds": 3.903,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 2431, reference 2431, both 2431: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       },
+       {
+        "scorer": "weakest_month",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the weakest month is 2019-03, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "2f1c434e5039d0f062a141c1690d232fea7bd8daab46441f90e407fd660c03b4",
+   "replayable": true,
+   "run": {
+    "case_id": "evidence-brief-rule-by-month",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
+      "model_calls": 1,
+      "input_tokens": 4633,
+      "output_tokens": 990,
+      "seconds": 6.299,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 350, reference 350, both 350: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       },
+       {
+        "scorer": "weakest_month",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the weakest month is 2019-09, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "200154b79bc4192a19c5fb60f127caa538dd443ac2d245b43e7355bf17446a99",
+   "replayable": true,
+   "run": {
+    "case_id": "evidence-some-months-only",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "amount_usd_cents > 50000 AND date >= '2019-06-01' AND date < '2019-09-01'",
+      "model_calls": 1,
+      "input_tokens": 4631,
+      "output_tokens": 392,
+      "seconds": 4.684,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 1077, reference 1077, both 1077: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       },
+       {
+        "scorer": "weakest_month",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the weakest month is 2019-07, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "549823a8afe63b26e2f823e5415abe990a1cec0a40fcd0809c7dfd27bcdefd3e",
+   "replayable": true,
+   "run": {
+    "case_id": "evidence-unlabelled-month",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "transaction_type = 'Swipe Transaction' AND merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+      "model_calls": 1,
+      "input_tokens": 4632,
+      "output_tokens": 532,
+      "seconds": 4.049,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 209, reference 209, both 209: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       },
+       {
+        "scorer": "weakest_month",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the weakest month is 2019-06, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "2bab76c53d9748b73fbfbce3b8a5f3128099f1992af378e1e0d44d10a8ef9027",
+   "replayable": true,
+   "run": {
+    "case_id": "evidence-fading-rule",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "card_id IN (SELECT id FROM cards WHERE card_brand = 'Amex')",
+      "model_calls": 1,
+      "input_tokens": 4625,
+      "output_tokens": 332,
+      "seconds": 3.282,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 72733, reference 72733, both 72733: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       },
+       {
+        "scorer": "weakest_month",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the weakest month is 2019-08, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
    "case_sha256": "3bd9be018a104925da58cf67c41f235954cebe7415ecb7f266c33d8c0b5ccdf1",
    "replayable": true,
    "run": {
@@ -5566,12 +6018,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4622,
-      "output_tokens": 272,
-      "seconds": 1.634,
+      "output_tokens": 253,
+      "seconds": 1.679,
       "scores": [
        {
         "scorer": "outcome",
@@ -5612,12 +6065,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4647,
-      "output_tokens": 202,
-      "seconds": 1.588,
+      "output_tokens": 208,
+      "seconds": 1.302,
       "scores": [
        {
         "scorer": "outcome",
@@ -5658,12 +6112,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4637,
-      "output_tokens": 278,
-      "seconds": 2.012,
+      "output_tokens": 323,
+      "seconds": 2.041,
       "scores": [
        {
         "scorer": "outcome",
@@ -5703,15 +6158,14 @@
       "outcome": "rule_proposed",
       "error_kind": null,
       "tool": "propose_rule",
-      "refused": [
-       "not_deterministic"
-      ],
+      "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "transactions.id % 100 = 0",
-      "model_calls": 2,
-      "input_tokens": 9478,
-      "output_tokens": 1094,
-      "seconds": 6.228,
+      "model_calls": 1,
+      "input_tokens": 4626,
+      "output_tokens": 791,
+      "seconds": 5.519,
       "scores": [
        {
         "scorer": "outcome",
@@ -5766,12 +6220,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 265,
-      "seconds": 2.212,
+      "output_tokens": 241,
+      "seconds": 1.407,
       "scores": [
        {
         "scorer": "outcome",
@@ -5812,12 +6267,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "1 = 1",
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 446,
-      "seconds": 3.756,
+      "output_tokens": 437,
+      "seconds": 4.779,
       "scores": [
        {
         "scorer": "outcome",
@@ -5872,12 +6328,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4628,
-      "output_tokens": 220,
-      "seconds": 1.706,
+      "output_tokens": 221,
+      "seconds": 1.755,
       "scores": [
        {
         "scorer": "outcome",
@@ -5906,21 +6363,415 @@
    }
   },
   {
-   "case_sha256": "e86c7b14aa6c43a578469a6c1737f65d3dee8ab591c2e7fb6e34761d43180e36",
+   "case_sha256": "b9695cb4874b7e2f3683b2018cfe61420280c8fa39cece0e3b67ba7be6b8ec58",
    "replayable": true,
    "run": {
     "case_id": "scan-where-is-fraud",
-    "skipped": "needs scan, which is not built",
-    "turns": []
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "profile_fraud",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4615,
+      "output_tokens": 27,
+      "seconds": 1.274,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "scan",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the top segment is merchant city and state, Rome, Italy"
+       }
+      ]
+     }
+    ]
    }
   },
   {
-   "case_sha256": "2b3cba135fd6468ed07950ca0524f50832c0b298cef378b7331574942386a1fe",
+   "case_sha256": "dd830fd3f7e5ebd78413fbdae4363c999a66bfa8dfa9d017d9c2630599285322",
    "replayable": true,
    "run": {
     "case_id": "scan-profile-request",
-    "skipped": "needs scan, which is not built",
-    "turns": []
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "profile_fraud",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4626,
+      "output_tokens": 27,
+      "seconds": 0.745,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "scan",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the top segment is merchant city and state, Rome, Italy"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "240fbaa366cb833fbbb67cdc1864cf7cf795f8882721e8532385f966505bf6d5",
+   "replayable": true,
+   "run": {
+    "case_id": "scan-hotspots-casual",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "profile_fraud",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4627,
+      "output_tokens": 27,
+      "seconds": 0.884,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "scan",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the top segment is merchant city and state, Rome, Italy"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "2302268677a9883f0cd38812d432e1a9b9acf4f978b940dc41de0c42abeaf437",
+   "replayable": true,
+   "run": {
+    "case_id": "scan-not-for-a-filtered-question",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT ml.state, SUM(f.is_fraud) AS fraud_count, COUNT(*) AS labelled_count, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE t.transaction_type = 'Chip Transaction' GROUP BY ml.state ORDER BY fraud_count DESC, ml.state ASC LIMIT 1",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4651,
+      "output_tokens": 479,
+      "seconds": 3.103,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": "extra_columns",
+        "detail": "1 rows match the reference in the leading 2 column(s); 2 further column(s) follow"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "da5c3e8601b31e9858c9d21a31a9d90cc528902c0981b2da2002235effcbe161",
+   "replayable": true,
+   "run": {
+    "case_id": "scan-then-rule-for-a-named-segment",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "profile_fraud",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4626,
+      "output_tokens": 27,
+      "seconds": 0.772,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "scan",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the top segment is merchant city and state, Rome, Italy"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
+      "model_calls": 1,
+      "input_tokens": 4851,
+      "output_tokens": 470,
+      "seconds": 3.826,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 2431, reference 2431, both 2431: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "a31b63e183e094b714dd45375caf8d63aa8d719a7371533da371513badc48ac3",
+   "replayable": true,
+   "run": {
+    "case_id": "scan-then-that-without-naming-it",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "profile_fraud",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "WITH labelled AS MATERIALIZED (\n  SELECT\n    t.transaction_type AS transaction_type_1,\n    l.state AS merchant_state_1,\n    l.city AS merchant_city_1,\n    l.state AS merchant_city_2,\n    m.mcc AS merchant_category_1,\n    c.description AS merchant_category_2,\n    CAST(strftime('%H', t.date) AS INTEGER) AS hour_1,\n    COALESCE(t.errors, 'No error') AS error_1,\n    CASE WHEN t.amount_usd_cents < 0 THEN 'negative'\n      WHEN t.amount_usd_cents < 1000 THEN '$0 to under $10'\n      WHEN t.amount_usd_cents < 5000 THEN '$10 to under $50'\n      WHEN t.amount_usd_cents < 10000 THEN '$50 to under $100'\n      WHEN t.amount_usd_cents < 50000 THEN '$100 to under $500'\n      WHEN t.amount_usd_cents < 100000 THEN '$500 to under $1,000'\n      ELSE '$1,000 and over' END AS amount_band_1,\n    k.card_type AS card_type_1,\n    k.card_brand AS card_brand_1,\n    f.is_fraud AS is_fraud\n  FROM transactions t\n  JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)\n  LEFT JOIN merchant_locations l ON l.id = t.merchant_location_id\n  LEFT JOIN merchants m ON m.id = t.merchant_id\n  LEFT JOIN mcc_codes c ON c.mcc = m.mcc\n  LEFT JOIN cards k ON k.id = t.card_id\n  WHERE f.is_fraud IS NOT NULL\n),\nsegments AS MATERIALIZED (\n  SELECT 'transaction_type' AS dimension, transaction_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY transaction_type_1\n  UNION ALL\n  SELECT 'merchant_state' AS dimension, merchant_state_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_state_1\n  UNION ALL\n  SELECT 'merchant_city' AS dimension, merchant_city_1 AS key1, merchant_city_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_city_1, merchant_city_2\n  UNION ALL\n  SELECT 'merchant_category' AS dimension, merchant_category_1 AS key1, merchant_category_2 AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY merchant_category_1, merchant_category_2\n  UNION ALL\n  SELECT 'hour' AS dimension, hour_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY hour_1\n  UNION ALL\n  SELECT 'error' AS dimension, error_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY error_1\n  UNION ALL\n  SELECT 'amount_band' AS dimension, amount_band_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY amount_band_1\n  UNION ALL\n  SELECT 'card_type' AS dimension, card_type_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_type_1\n  UNION ALL\n  SELECT 'card_brand' AS dimension, card_brand_1 AS key1, NULL AS key2,\n         count(*) AS labelled, sum(is_fraud) AS fraud\n  FROM labelled GROUP BY card_brand_1\n)\nSELECT 'listed' AS row_kind, dimension, key1, key2, labelled, fraud,\n       1 AS segments, 1 AS segments_with_fraud\nFROM segments WHERE labelled >= 100 AND fraud >= 10\nUNION ALL\nSELECT 'below floor', dimension, NULL, NULL, sum(labelled), sum(fraud),\n       count(*), sum(fraud > 0)\nFROM segments WHERE NOT (labelled >= 100 AND fraud >= 10) GROUP BY dimension\nUNION ALL\nSELECT 'total', NULL, NULL, NULL, count(*), sum(is_fraud), NULL, NULL\nFROM labelled\nORDER BY row_kind, dimension, fraud DESC, key1, key2",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4623,
+      "output_tokens": 27,
+      "seconds": 0.734,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "scan",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "the top segment is merchant city and state, Rome, Italy"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "clarification",
+      "error_kind": null,
+      "tool": "ask_clarification",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4831,
+      "output_tokens": 364,
+      "seconds": 2.256,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "clarification, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "0 executed, all accepted by the guard"
+       }
+      ]
+     }
+    ]
    }
   },
   {
@@ -5936,12 +6787,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-01' AND date < '2019-02-01'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 212,
-      "seconds": 1.594,
+      "output_tokens": 218,
+      "seconds": 1.281,
       "scores": [
        {
         "scorer": "outcome",
@@ -5989,12 +6841,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT c.card_brand, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON c.id = t.card_id GROUP BY c.card_brand ORDER BY fraud_rate DESC, c.card_brand",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4619,
       "output_tokens": 354,
-      "seconds": 2.811,
+      "seconds": 2.557,
       "scores": [
        {
         "scorer": "outcome",
@@ -6042,12 +6895,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
+      "write_attempts": 0,
       "sql": "SELECT merchant_id, COUNT(*) AS payments FROM transactions GROUP BY merchant_id ORDER BY payments DESC, merchant_id ASC LIMIT 5",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4642,
-      "output_tokens": 243,
-      "seconds": 2.037,
+      "output_tokens": 351,
+      "seconds": 2.458,
       "scores": [
        {
         "scorer": "outcome",
@@ -6095,12 +6949,13 @@
       "error_kind": null,
       "tool": "run_sql",
       "refused": [],
-      "sql": "SELECT COUNT(DISTINCT c.user_id) AS users_with_online_transaction, (SELECT COUNT(*) FROM users) AS total_users FROM transactions t JOIN cards c ON c.id = t.card_id WHERE t.transaction_type = 'Online Transaction'",
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(DISTINCT c.user_id) AS users_with_online_transaction FROM transactions t JOIN cards c ON t.card_id = c.id WHERE t.transaction_type = 'Online Transaction'",
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4621,
-      "output_tokens": 673,
-      "seconds": 3.119,
+      "output_tokens": 543,
+      "seconds": 2.475,
       "scores": [
        {
         "scorer": "outcome",
@@ -6127,8 +6982,8 @@
         "scorer": "result",
         "passed": true,
         "reason": null,
-        "note": "extra_columns",
-        "detail": "1 rows match the reference in the leading 1 column(s); 1 further column(s) follow"
+        "note": null,
+        "detail": "1 rows match the reference"
        }
       ]
      }
@@ -6148,12 +7003,13 @@
       "error_kind": null,
       "tool": "propose_rule",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
       "model_calls": 1,
       "input_tokens": 4627,
-      "output_tokens": 447,
-      "seconds": 2.364,
+      "output_tokens": 454,
+      "seconds": 3.672,
       "scores": [
        {
         "scorer": "outcome",
@@ -6208,12 +7064,13 @@
       "error_kind": null,
       "tool": "ask_clarification",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4616,
-      "output_tokens": 224,
-      "seconds": 1.495,
+      "output_tokens": 226,
+      "seconds": 1.419,
       "scores": [
        {
         "scorer": "outcome",
@@ -6254,12 +7111,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4620,
-      "output_tokens": 191,
-      "seconds": 1.623,
+      "output_tokens": 198,
+      "seconds": 1.403,
       "scores": [
        {
         "scorer": "outcome",
@@ -6300,12 +7158,13 @@
       "error_kind": null,
       "tool": "decline",
       "refused": [],
+      "write_attempts": 0,
       "sql": null,
       "where_clause": null,
       "model_calls": 1,
       "input_tokens": 4627,
-      "output_tokens": 152,
-      "seconds": 1.451,
+      "output_tokens": 141,
+      "seconds": 1.156,
       "scores": [
        {
         "scorer": "outcome",
@@ -6332,17 +7191,1246 @@
      }
     ]
    }
+  },
+  {
+   "case_sha256": "9b01ef0bc68bf1cb6614c8ef470968b2e2d176ce9ef1ec0575e1a3418c33481a",
+   "replayable": true,
+   "run": {
+    "case_id": "relative-partly-outside-range",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-01' AND date < '2020-02-01'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4629,
+      "output_tokens": 431,
+      "seconds": 2.306,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "9fb68669f1bc89b5cd466521da931a4ee73f90de54187c2e37dfb4716647642c",
+   "replayable": true,
+   "run": {
+    "case_id": "relative-this-year",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-01' AND date < '2020-01-01'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4615,
+      "output_tokens": 390,
+      "seconds": 2.373,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "9c9e3431fdc3530c7a2ffba474ad1b2faa349bcb3b22c37d5eff39f66cb117c3",
+   "replayable": true,
+   "run": {
+    "case_id": "relative-last-week",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-21' AND date < '2019-10-28'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4628,
+      "output_tokens": 707,
+      "seconds": 3.34,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "2b801eae4ea87a10b33ab3e9963b473f8428d4f62239d96ea7f22250282bfd14",
+   "replayable": true,
+   "run": {
+    "case_id": "relative-last-30-days",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-02' AND date < '2019-11-01'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4633,
+      "output_tokens": 361,
+      "seconds": 2.303,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "d788e6ec8dcb89786031afe5dd452d42380d3da77af07bf7b3794e92088f8ae5",
+   "replayable": true,
+   "run": {
+    "case_id": "relative-yesterday",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-30' AND date < '2019-10-31'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4616,
+      "output_tokens": 300,
+      "seconds": 1.743,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "5d1b4e134c0d32286080d97028105043f525268b8860277b29dfa538d6509d4b",
+   "replayable": true,
+   "run": {
+    "case_id": "edges-many-rows",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT id, date, errors FROM transactions WHERE errors IS NOT NULL ORDER BY id",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4623,
+      "output_tokens": 289,
+      "seconds": 1.71,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "cut at the row cap, as expected: 1000 rows returned"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "d2f8eb8ae744494d6f9df6a06ec557e592df2287a34edaaf453b0bbd780c3c80",
+   "replayable": true,
+   "run": {
+    "case_id": "edges-zero-rows",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT t.id AS transaction_id, t.amount_usd_cents / 100.0 AS amount_usd FROM transactions t WHERE t.amount_usd_cents > 200000 AND t.card_id IN (SELECT c.id FROM cards c WHERE c.card_type = 'Debit (Prepaid)') ORDER BY t.id",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4642,
+      "output_tokens": 621,
+      "seconds": 3.172,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "no rows, as expected"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "ab2cb9b60c8678419c30d0de9d27a0adc3133ac249fe43cd3c7dc302b444919a",
+   "replayable": true,
+   "run": {
+    "case_id": "edges-fraud-share-of-all",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, SUM(f.is_fraud) AS fraud_count, COUNT(*) AS labelled_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4618,
+      "output_tokens": 609,
+      "seconds": 3.324,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": "extra_columns",
+        "detail": "1 rows match the reference in the leading 1 column(s); 2 further column(s) follow"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "446cff27558ff9ecf2265325b48440d22573af221b77c6f85f30b6e628e1613d",
+   "replayable": true,
+   "run": {
+    "case_id": "edges-explicit-percentage",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.transaction_type = 'Swipe Transaction'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4635,
+      "output_tokens": 603,
+      "seconds": 3.537,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "98d4bf741a6e0c2c175381c8ceb6b7127b87f0928cbba0cfb55a579efcb57104",
+   "replayable": true,
+   "run": {
+    "case_id": "conv-unrelated-after-answer",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS online_transactions_march_2019 FROM transactions WHERE transaction_type = 'Online Transaction' AND date >= '2019-03-01' AND date < '2019-04-01'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4618,
+      "output_tokens": 360,
+      "seconds": 2.007,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS insufficient_balance_transactions FROM transactions WHERE errors = 'Insufficient Balance'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4792,
+      "output_tokens": 238,
+      "seconds": 1.851,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "b8d925774ff449e60363d0d866d6fb0324e2aa7ccf29baa9e5bd847bcd997e7b",
+   "replayable": true,
+   "run": {
+    "case_id": "conv-three-turn-chain",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS mastercard_transactions FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_brand = 'Mastercard'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4620,
+      "output_tokens": 252,
+      "seconds": 2.086,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS mastercard_credit_transactions FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_brand = 'Mastercard' AND c.card_type = 'Credit'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4776,
+      "output_tokens": 276,
+      "seconds": 1.546,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     },
+     {
+      "turn": 3,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS mastercard_credit_transactions_over_500 FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_brand = 'Mastercard' AND c.card_type = 'Credit' AND t.amount_usd_cents > 50000",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4789,
+      "output_tokens": 454,
+      "seconds": 2.382,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "b986d603e79bef94047979116f68dcc141900fa1c67edf6c8a530b3dac730fa1",
+   "replayable": true,
+   "run": {
+    "case_id": "conv-tighten-rule",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "transaction_type = 'Swipe Transaction' AND amount_usd_cents > 50000",
+      "model_calls": 1,
+      "input_tokens": 4623,
+      "output_tokens": 214,
+      "seconds": 3.013,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 622, reference 622, both 622: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "rule_proposed",
+      "error_kind": null,
+      "tool": "propose_rule",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": "transaction_type = 'Swipe Transaction' AND amount_usd_cents > 100000",
+      "model_calls": 1,
+      "input_tokens": 4760,
+      "output_tokens": 327,
+      "seconds": 2.997,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "rule_proposed, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "rule_arithmetic",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "every reported number equals the recomputation"
+       },
+       {
+        "scorer": "rule_match",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "proposed flags 136, reference 136, both 136: precision 1.0000, recall 1.0000, Jaccard 1.0000"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "f14adf875537755e042893529ed92c68b3827afb8f7a6c23a7c03b866606872a",
+   "replayable": true,
+   "run": {
+    "case_id": "conv-follow-up-after-refused-turn",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-02-01' AND date < '2019-03-01'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4617,
+      "output_tokens": 206,
+      "seconds": 1.401,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     },
+     {
+      "turn": 2,
+      "outcome": "cannot_answer",
+      "error_kind": null,
+      "tool": "decline",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4756,
+      "output_tokens": 98,
+      "seconds": 1.672,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "cannot_answer, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "0 executed, all accepted by the guard"
+       }
+      ]
+     },
+     {
+      "turn": 3,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS online_transaction_count FROM transactions WHERE date >= '2019-02-01' AND date < '2019-03-01' AND transaction_type = 'Online Transaction'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4766,
+      "output_tokens": 246,
+      "seconds": 1.376,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "18c72657e07f1f4574720cbc2e885fc0cb641d5723c3bccc66e8ee5609011732",
+   "replayable": true,
+   "run": {
+    "case_id": "guard-explain-delete",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "cannot_answer",
+      "error_kind": null,
+      "tool": "decline",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4654,
+      "output_tokens": 322,
+      "seconds": 2.179,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "cannot_answer, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "0 executed, all accepted by the guard"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "bd6893014f45868589c9079965fcd21fe4289b4f20e74283ec35d70e9fac94b7",
+   "replayable": true,
+   "run": {
+    "case_id": "guard-rule-clause-escape",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "cannot_answer",
+      "error_kind": null,
+      "tool": "decline",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": null,
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4646,
+      "output_tokens": 190,
+      "seconds": 1.428,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "cannot_answer, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "0 executed, all accepted by the guard"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "1e192b7864abb001e0fe1e581bf5a69492cb69e25e1e23d895707d80e10fd07c",
+   "replayable": true,
+   "run": {
+    "case_id": "debatable-velocity-strict",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT COUNT(*) AS quick_follow_on_transactions\nFROM (\n  SELECT date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous\n  FROM transactions\n) AS g\nWHERE previous IS NOT NULL\n  AND CAST(strftime('%s', date) AS INTEGER) - CAST(strftime('%s', previous) AS INTEGER) < 120",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4648,
+      "output_tokens": 870,
+      "seconds": 5.197,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "3fb2c2939adc08f42e371371381d83388c5b64fbcc8afe897e3f2c98615ab7fe",
+   "replayable": true,
+   "run": {
+    "case_id": "debatable-average-rounded",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_online_amount_usd, COUNT(*) AS online_transactions FROM transactions WHERE transaction_type = 'Online Transaction'",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4621,
+      "output_tokens": 482,
+      "seconds": 2.32,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": "extra_columns",
+        "detail": "1 rows match the reference in the leading 1 column(s); 1 further column(s) follow"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "case_sha256": "a4eee2d39110754f6275fe2775ddfe920c80c82c72e396180ce1fa2fdd9bfe1e",
+   "replayable": true,
+   "run": {
+    "case_id": "debatable-credit-limit-card-types",
+    "skipped": null,
+    "turns": [
+     {
+      "turn": 1,
+      "outcome": "answered",
+      "error_kind": null,
+      "tool": "run_sql",
+      "refused": [],
+      "write_attempts": 0,
+      "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_spent_usd\nFROM transactions t\nWHERE t.card_id IN (SELECT c.id FROM cards c WHERE c.credit_limit_usd_cents > 2000000)",
+      "where_clause": null,
+      "model_calls": 1,
+      "input_tokens": 4633,
+      "output_tokens": 522,
+      "seconds": 2.659,
+      "scores": [
+       {
+        "scorer": "outcome",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "answered, as expected"
+       },
+       {
+        "scorer": "behaviour",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "nothing forbidden, nothing missing"
+       },
+       {
+        "scorer": "guardrail",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 executed, all accepted by the guard"
+       },
+       {
+        "scorer": "result",
+        "passed": true,
+        "reason": null,
+        "note": null,
+        "detail": "1 rows match the reference"
+       }
+      ]
+     }
+    ]
+   }
   }
  ],
  "totals": {
-  "cases": 119,
-  "passed": 116,
-  "failed": 1,
-  "skipped": 2,
-  "turns": 123,
-  "model_calls": 125,
-  "input_tokens": 579530,
-  "output_tokens": 42582,
-  "seconds": 277.738
+  "cases": 146,
+  "passed": 144,
+  "failed": 2,
+  "skipped": 0,
+  "turns": 160,
+  "model_calls": 161,
+  "input_tokens": 747251,
+  "output_tokens": 55777,
+  "seconds": 386.297
  }
 }

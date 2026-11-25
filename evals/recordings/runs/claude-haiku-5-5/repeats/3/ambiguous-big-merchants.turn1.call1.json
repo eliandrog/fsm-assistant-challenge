@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-big-merchants",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "How do you want \"big\" measured for merchants?",
+          "suggestions": [
+            "By total transaction amount (dollars processed)",
+            "By number of transactions",
+            "By number of distinct cards that transacted with them"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 183
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb7tz9qfjA5bQbjLS2N",
+    "request_hash": "4a4e82b60d1d726e10ffa61e3789139e636f7bf3dedfe7e3467390a12388637b"
+  }
+}

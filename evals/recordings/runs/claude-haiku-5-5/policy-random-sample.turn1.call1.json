@@ -9,12 +9,12 @@
       {
         "name": "propose_rule",
         "arguments": {
-          "where_clause": "abs(random() % 100) = 0",
-          "explanation": "Flags a random sample of about 1% of all transactions for manual review. Each transaction is selected independently, so the sample differs each time the rule runs.",
+          "where_clause": "transactions.id % 100 = 0",
+          "explanation": "Flags every transaction whose id is a multiple of 100, which is about 1% of all transactions, selected without regard to amount, card, merchant or type.",
           "assumptions": [
-            "'Random 1%' means each transaction has an independent 1-in-100 chance of being flagged, not a fixed sample of exactly 1%.",
-            "The rule covers all transactions, not only labelled ones, and is not conditioned on amount, card, or merchant.",
-            "The sample is not reproducible: each evaluation selects a different set of transactions."
+            "'Random' is implemented as a fixed id-based sample (id modulo 100 = 0) rather than SQLite random(), so the same transactions are flagged on every run and the review set is reproducible.",
+            "The sample is about 1% of all transactions by id, not exactly 1% of any date range or segment.",
+            "The rule does not use fraud labels, so it is a review sample, not a fraud-detection pattern."
           ]
         }
       }
@@ -23,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4626,
-      "output_tokens": 622
+      "output_tokens": 791
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJZLDA8H3GS9t8BehcW",
-    "request_hash": "215cc7b47848ad0309d44929f072048710f1ccd6f20da6912ba6ce58435bb48a"
+    "response_id": "msg_011ChNZv8NcSmwYSY9MU639C",
+    "request_hash": "3a65061a2a5c6542b31f4879a2c77c596582d5ef186ab375bcbe32d5c7b1e8fc"
   }
 }

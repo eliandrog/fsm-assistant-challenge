@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-brief-example",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents > 100000 AND card_id IN (SELECT id FROM cards WHERE card_type = 'Debit')",
+          "explanation": "Flags transactions over $1,000 made on debit cards.",
+          "assumptions": [
+            "\"Debit card\" means card_type = 'Debit' only, which leaves out 'Debit (Prepaid)'.",
+            "\"Over $1,000\" means strictly greater than 100000 cents, so a transaction of exactly $1,000 is not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4622,
+      "output_tokens": 246
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgzfP6VjpHXEoroSHXF",
+    "request_hash": "0e6e20df1a7e2cec36616371f22be286194aa1e326a45be4450648140a566b89"
+  }
+}

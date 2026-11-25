@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "policy-flag-everything",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "1 = 1",
+          "explanation": "This rule flags every transaction, whatever its amount, card, merchant or type. Its measurements will show the baseline: it catches all labelled fraud, but it also blocks every legitimate transaction.",
+          "assumptions": [
+            "I took 'block' to mean flag. A rule can only flag transactions; it cannot change or stop them in the database."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 294
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh72H7D6sSbJpTSqCGK",
+    "request_hash": "4ef0f180394f3fd2d4aaf09f893ec515710ac570bbc9467becd1a1bc6ae6d7a0"
+  }
+}

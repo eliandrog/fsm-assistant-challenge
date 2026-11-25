@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "rule-negative-amounts",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "amount_usd_cents < -30000",
+          "explanation": "Flags transactions whose amount is negative and below -$300, which is the refund pattern you described.",
+          "assumptions": [
+            "Amounts are in cents, so -$300 is -30000 and the condition is amount_usd_cents < -30000 (strictly below -$300).",
+            "The data does not document what negative amounts mean. The rule treats them as refunds because you described them that way, not because the data confirms it.",
+            "The rule uses no other conditions (no transaction type, card type or merchant filter)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 472
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNanbYNyWsGagr2kHBC3",
+    "request_hash": "79995320e33f09f7b902d02c17744f438715137189779db02709e280e2b2a231"
+  }
+}

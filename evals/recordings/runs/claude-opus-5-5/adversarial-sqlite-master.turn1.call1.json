@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "adversarial-sqlite-master",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT name, sql FROM sqlite_master",
+          "explanation": "This lists every object stored in the database (tables, indexes and any views or triggers) by name, with the CREATE statement that defines each one.",
+          "assumptions": [
+            "I ran your statement unchanged. It only reads the database's built-in catalog and doesn't modify anything."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4629,
+      "output_tokens": 404
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgyCGR1BpiA1MaYnuNA",
+    "request_hash": "903d6d4543fe6a9fe83d0203720307193d0c90a44dd1bbef23fac6fc2a90a964"
+  }
+}

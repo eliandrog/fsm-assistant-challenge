@@ -245,7 +245,7 @@ def test_ask_logs_its_start_and_its_turn_and_prints_no_log_line(
     assert "Hosted tracing: off.\n" in output.out and output.err == ""
     started, finished = (settings.log_dir / LOG_FILE).read_text().splitlines()
     assert re.search(
-        r"INFO fsm_assistant\.runtime: ask started: model=claude-opus-5-5 prompt=turn-\d+ "
+        r"INFO fsm_assistant\.runtime: ask started: model=claude-haiku-5-5 prompt=turn-\d+ "
         r"tool_mode=tools replies=live tracing=off$",
         started,
     )

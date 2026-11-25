@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "guard-explain-delete",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't run this statement. It is a DELETE, and the database is read-only, so I can't change or delete transactions, and I can't run EXPLAIN on a DELETE either. I can instead show you the transactions with negative amounts (the 56,900 rows where amount_usd_cents < 0) with a SELECT, or describe their characteristics, such as their types, merchants or dates."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4654,
+      "output_tokens": 247
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaWU5yJafzMM356To1p",
+    "request_hash": "6e8de76016713fa6268060c2ffc2f8aa3d56f674debe6afd77fca02e3e564c5b"
+  }
+}

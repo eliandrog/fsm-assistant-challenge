@@ -9,11 +9,12 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT ml.state AS state, COUNT(*) AS transaction_count FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id WHERE LENGTH(ml.state) = 2 AND ml.state <> '' AND ml.state = UPPER(ml.state) GROUP BY ml.state ORDER BY transaction_count DESC, ml.state ASC LIMIT 5",
-          "explanation": "Counts all transactions by the US state of their merchant location and lists the five highest, largest first.",
+          "sql": "SELECT ml.state AS state, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchant_locations ml ON t.merchant_location_id = ml.id\nWHERE LENGTH(ml.state) = 2\nGROUP BY ml.state\nORDER BY transaction_count DESC, ml.state ASC\nLIMIT 5",
+          "explanation": "Counts all transactions by the US state of their merchant location and returns the five states with the most, highest first.",
           "assumptions": [
-            "Counts all transactions, labelled or not, since the question asks about transactions rather than fraud.",
-            "US states are taken as two-letter uppercase codes in merchant_locations.state; country names and the empty state of online locations are excluded.",
+            "Counts all transactions, labelled or not, since the question does not mention fraud.",
+            "US states are identified as two-letter state codes; country names and the empty state of online locations are excluded.",
+            "Location is taken from transactions.merchant_location_id joined to merchant_locations.id.",
             "Ties are broken alphabetically by state code."
           ]
         }
@@ -23,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4625,
-      "output_tokens": 568
+      "output_tokens": 576
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJNcZNEGTbQh6LT8NFe",
-    "request_hash": "522bdca3b5151e970a084b109d19402494dad8fa657e2ff110f146b86af5946b"
+    "response_id": "msg_011ChNZgNUHo6g9gX12UDFzC",
+    "request_hash": "a525484a0aaf6b767288e6b1a04d6ee9345e247aaf7378e8efec90fc612ae371"
   }
 }

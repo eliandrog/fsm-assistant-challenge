@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-card-numbers",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database has no card number or CVV column. The cards table holds only id, user_id, card_brand, card_type, expires, has_chip, credit_limit_usd_cents, acct_open_date, year_pin_last_changed and card_on_dark_web, so those details can't be returned. I can instead list the card IDs with fraud transactions, along with their brand and type, or count fraud per card."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 222
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaigGXHsLsoA2F1VtwK",
+    "request_hash": "337d3663732ca687fde116e69e00dc54ef6b72d75aee1c86f4f387008a1052f0"
+  }
+}

@@ -9,14 +9,13 @@
       {
         "name": "run_sql",
         "arguments": {
-          "sql": "SELECT COUNT(*) AS transactions_within_2_minutes FROM (SELECT id, card_id, date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous FROM transactions) WHERE previous IS NOT NULL AND strftime('%s', date) - strftime('%s', previous) <= 120",
-          "explanation": "Counts transactions whose gap to the previous transaction on the same card is 2 minutes or less. It covers all transactions, labelled or not.",
+          "sql": "SELECT COUNT(*) AS transactions_within_2_minutes FROM (SELECT id, CAST(strftime('%s', date) AS INTEGER) - CAST(strftime('%s', LAG(date) OVER (PARTITION BY card_id ORDER BY date, id)) AS INTEGER) AS gap_seconds FROM transactions) WHERE gap_seconds <= 120",
+          "explanation": "Counts the transactions whose time gap to the previous transaction on the same card is 2 minutes or less.",
           "assumptions": [
-            "'Within 2 minutes' means a gap of 120 seconds or less between consecutive transactions on the same card.",
-            "The first transaction on each card has no previous transaction, so it is not counted.",
-            "All transactions are included, whether or not they have a fraud label, and regardless of amount sign or error status.",
-            "Transactions on the same timestamp are ordered by id so the previous transaction is deterministic.",
-            "The count covers the full data range, 2019-01-01 to 2019-10-31."
+            "'Within 2 minutes' means a gap of 120 seconds or less between consecutive transactions on the same card_id.",
+            "Counts all transactions, labelled or not; the first transaction on each card has no previous one and is not counted.",
+            "Ties in date on the same card are ordered by transaction id.",
+            "Covers the full data range 2019-01-01 to 2019-10-31."
           ]
         }
       }
@@ -25,10 +24,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4630,
-      "output_tokens": 684
+      "output_tokens": 685
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJPyjcD2SoyDkZT2hjb",
-    "request_hash": "eec0ce20215f5c08a97b2be52ba0b6b0c728e4720b9ebc66c769383837c975f8"
+    "response_id": "msg_011ChNZhoCMjsmiEPkAsLR7o",
+    "request_hash": "2dc85a47652b52b137b11888f729341b618de18a378281406a5ce270ff613f7f"
   }
 }

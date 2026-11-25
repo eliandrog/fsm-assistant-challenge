@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-velocity-strict",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM (SELECT id, date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous FROM transactions) WHERE previous IS NOT NULL AND strftime('%s', date) - strftime('%s', previous) < 120",
+          "explanation": "Counts transactions that came less than 2 minutes (under 120 seconds) after the previous transaction on the same card. A gap of exactly 2 minutes is left out.",
+          "assumptions": [
+            "Each card's first transaction has no previous transaction, so it is never counted.",
+            "Transactions on the same card with the same timestamp are ordered by id. The second one counts as having a gap of zero.",
+            "All transactions are included, whether or not they have a fraud label, have errors or have negative amounts."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4648,
+      "output_tokens": 349
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhFjhihXgSLmMtnPnE1",
+    "request_hash": "f79d3069b3b107e8869ae925591dca1cb3bab79277c0dfd15b9a3aa215b60c54"
+  }
+}

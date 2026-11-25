@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-velocity-strict",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS quick_follow_on_transactions\nFROM (\n  SELECT date, lag(date) OVER (PARTITION BY card_id ORDER BY date, id) AS previous\n  FROM transactions\n) AS g\nWHERE previous IS NOT NULL\n  AND CAST(strftime('%s', date) AS INTEGER) - CAST(strftime('%s', previous) AS INTEGER) < 120",
+          "explanation": "Counts transactions whose gap to the previous transaction on the same card is under 120 seconds, so a gap of exactly 2 minutes is excluded.",
+          "assumptions": [
+            "Gap measured in whole seconds between a transaction and the immediately preceding transaction on the same card; under 2 minutes means strictly less than 120 seconds.",
+            "Counts every transaction in the table, whether or not it has a fraud label, and regardless of amount sign or error status.",
+            "The first transaction on each card has no previous transaction and is not counted.",
+            "Transactions with identical timestamps on the same card are ordered by id to keep the result stable."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4648,
+      "output_tokens": 870
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa3DAXQtYuhUvQvJYJz",
+    "request_hash": "b415a84e7e4543e9857ebb3085b049d22a95f47f462f4eae48d0d7dd829d189b"
+  }
+}

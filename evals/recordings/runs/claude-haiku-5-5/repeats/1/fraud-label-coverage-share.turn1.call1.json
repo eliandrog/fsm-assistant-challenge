@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-label-coverage-share",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * COUNT(f.transaction_id) / COUNT(*) AS labelled_fraction FROM transactions t LEFT JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "Returns the share of all transactions that have a row in fraud_labels, as a fraction between 0 and 1.",
+          "assumptions": [
+            "'All transactions' means every row in the transactions table, labelled or not, over the full range 2019-01-01 to 2019-10-31.",
+            "A transaction counts as labelled if it has any row in fraud_labels, whatever its is_fraud value."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 469
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNa9R3aY3jSiv5SqUq1g",
+    "request_hash": "6bf0d3ed7fa8c64b7a964b087c1871c7c6b50355e55753c1c789e758014174ad"
+  }
+}

@@ -12,9 +12,9 @@
           "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents >= 50000",
           "explanation": "Flags online transactions whose amount is $500 or more.",
           "assumptions": [
-            "'Online transaction' means transaction_type = 'Online Transaction'.",
-            "$500 is 50000 cents, and 'or more' includes exactly $500.00.",
-            "Amounts are read as USD cents, so the threshold applies to the stored amount as is; negative amounts are not flagged."
+            "'Online' means transaction_type = 'Online Transaction'.",
+            "'$500 or more' is inclusive: amount_usd_cents >= 50000 (500 dollars in cents).",
+            "Amounts are taken as positive purchase values; negative-amount rows (undocumented meaning) are not separately excluded beyond failing the threshold."
           ]
         }
       }
@@ -23,10 +23,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4622,
-      "output_tokens": 390
+      "output_tokens": 454
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJXmrTLeK3UEt68RiuA",
-    "request_hash": "2c841068aa1f77cd43f32c7a136d21eec995cce49fafbd07747aec725b9516ee"
+    "response_id": "msg_011ChNZrAsJnT3nAZLBtM3sK",
+    "request_hash": "c74ebcda74f0bdc968f718dc73dc577bcca86ad0b6ab395e8229e73a225ea516"
   }
 }

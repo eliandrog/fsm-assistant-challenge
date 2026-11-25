@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "para-top-merchants-british",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT merchant_id, COUNT(*) AS payment_count FROM transactions GROUP BY merchant_id ORDER BY payment_count DESC, merchant_id ASC LIMIT 5",
+          "explanation": "Returns the five merchants with the most transactions, with each merchant's id and transaction count, busiest first.",
+          "assumptions": [
+            "\"Payments\" means all rows in transactions, including rows with errors and rows with negative amounts.",
+            "Ties in count are ordered by merchant id ascending."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4642,
+      "output_tokens": 247
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh9qyKxeZuPaw3UEn6D",
+    "request_hash": "89fd9f7ef622b422da696651496621b184e12e67aaf5d1807dfcaba31f1ad2bb"
+  }
+}

@@ -3,21 +3,16 @@
     "model_id": "claude-haiku-5-5",
     "effort": "medium",
     "tool_mode": "tools",
-    "prompt_version": "turn-4",
+    "prompt_version": "turn-5",
     "source": "replay",
     "schema_context_sha256": "daeca3714a5ffdb81b1cfc8ea9fafc4336c7456571bff802e1546d1db9379ee5",
-    "suite_sha256": "606fb75efb03793a41c0f492f38c455607b26ff964ac1d299d97d9d557484b2a"
+    "suite_sha256": "5cdb10549486759203821e18aa0f036c877c5310e08438ef6f0689d94562a684"
   },
   "operations": {
-    "turns": 123,
-    "model_requests": 125,
-    "repairs": 2,
+    "turns": 160,
+    "model_requests": 161,
+    "repairs": 1,
     "refusals": [
-      {
-        "code": "not_deterministic",
-        "by": "guard",
-        "count": 1
-      },
       {
         "code": "table_not_allowed",
         "by": "guard",
@@ -25,28 +20,28 @@
       }
     ],
     "write_attempts": 0,
-    "seconds_p50": 2.075,
-    "seconds_p95": 3.881,
-    "seconds_max": 6.228,
-    "input_tokens": 579530,
-    "output_tokens": 42582,
-    "input_tokens_per_turn": 4711.6,
-    "output_tokens_per_turn": 346.2,
+    "seconds_p50": 2.163,
+    "seconds_p95": 4.588,
+    "seconds_max": 6.299,
+    "input_tokens": 747251,
+    "output_tokens": 55777,
+    "input_tokens_per_turn": 4670.3,
+    "output_tokens_per_turn": 348.6,
     "cost": {
       "input_usd_per_million": 0.1,
       "output_usd_per_million": 0.5,
-      "run_usd": 0.079244,
-      "per_turn_usd": 0.000644
+      "run_usd": 0.102614,
+      "per_turn_usd": 0.000641
     }
   },
   "overall": {
     "name": "all",
-    "cases": 117,
-    "passed": 116,
-    "failed": 1,
+    "cases": 146,
+    "passed": 144,
+    "failed": 2,
     "skipped": 0,
-    "with_extra_columns": 5,
-    "stopped_by_guard": 2,
+    "with_extra_columns": 7,
+    "stopped_by_guard": 1,
     "known_limitation": 1
   },
   "by_tier": [
@@ -66,17 +61,17 @@
       "passed": 9,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 2,
+      "with_extra_columns": 1,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "fraud",
       "cases": 13,
-      "passed": 13,
-      "failed": 0,
+      "passed": 12,
+      "failed": 1,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 2,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -152,8 +147,8 @@
     },
     {
       "name": "rules",
-      "cases": 10,
-      "passed": 10,
+      "cases": 15,
+      "passed": 15,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -167,13 +162,73 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
-      "stopped_by_guard": 1,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "scan",
+      "cases": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "paraphrases",
       "cases": 8,
       "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "relative_dates",
+      "cases": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "result_edges",
+      "cases": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 1,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "conversations",
+      "cases": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "guard_stops",
+      "cases": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "debatable",
+      "cases": 3,
+      "passed": 3,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
@@ -184,22 +239,22 @@
   "by_split": [
     {
       "name": "tuned",
-      "cases": 21,
-      "passed": 21,
+      "cases": 27,
+      "passed": 27,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 0,
+      "with_extra_columns": 2,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "held_out",
-      "cases": 96,
-      "passed": 95,
-      "failed": 1,
+      "cases": 119,
+      "passed": 117,
+      "failed": 2,
       "skipped": 0,
       "with_extra_columns": 5,
-      "stopped_by_guard": 2,
+      "stopped_by_guard": 1,
       "known_limitation": 1
     }
   ],
@@ -216,11 +271,21 @@
     },
     {
       "name": "average",
-      "cases": 3,
-      "passed": 3,
+      "cases": 4,
+      "passed": 4,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 2,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "boundary",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -246,11 +311,11 @@
     },
     {
       "name": "cards",
-      "cases": 13,
-      "passed": 13,
+      "cases": 18,
+      "passed": 18,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 2,
+      "with_extra_columns": 1,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -266,8 +331,18 @@
     },
     {
       "name": "casual",
-      "cases": 3,
-      "passed": 3,
+      "cases": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "caveat",
+      "cases": 2,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -276,11 +351,21 @@
     },
     {
       "name": "cents",
-      "cases": 17,
-      "passed": 17,
+      "cases": 24,
+      "passed": 24,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 2,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "chain",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -296,8 +381,8 @@
     },
     {
       "name": "clarification",
-      "cases": 11,
-      "passed": 11,
+      "cases": 13,
+      "passed": 13,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -306,28 +391,28 @@
     },
     {
       "name": "count",
-      "cases": 18,
-      "passed": 18,
+      "cases": 24,
+      "passed": 24,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 0,
+      "with_extra_columns": 1,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "coverage",
-      "cases": 3,
+      "cases": 4,
       "passed": 3,
-      "failed": 0,
+      "failed": 1,
       "skipped": 0,
-      "with_extra_columns": 0,
+      "with_extra_columns": 1,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "date",
-      "cases": 17,
-      "passed": 16,
+      "cases": 24,
+      "passed": 23,
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -346,8 +431,8 @@
     },
     {
       "name": "delete",
-      "cases": 1,
-      "passed": 1,
+      "cases": 3,
+      "passed": 3,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -356,8 +441,8 @@
     },
     {
       "name": "destructive",
-      "cases": 10,
-      "passed": 9,
+      "cases": 13,
+      "passed": 12,
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -370,7 +455,7 @@
       "passed": 6,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -395,12 +480,42 @@
       "known_limitation": 0
     },
     {
+      "name": "evidence",
+      "cases": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
       "name": "exfiltration",
       "cases": 2,
       "passed": 2,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "explain",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "filter",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 1,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -416,8 +531,8 @@
     },
     {
       "name": "follow-up",
-      "cases": 7,
-      "passed": 6,
+      "cases": 13,
+      "passed": 12,
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -426,11 +541,11 @@
     },
     {
       "name": "fraction",
-      "cases": 11,
-      "passed": 11,
-      "failed": 0,
+      "cases": 13,
+      "passed": 12,
+      "failed": 1,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 2,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -441,6 +556,16 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "guard-route",
+      "cases": 2,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -466,8 +591,8 @@
     },
     {
       "name": "injection",
-      "cases": 6,
-      "passed": 6,
+      "cases": 7,
+      "passed": 7,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -486,11 +611,11 @@
     },
     {
       "name": "join",
-      "cases": 19,
-      "passed": 19,
+      "cases": 22,
+      "passed": 22,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 3,
+      "with_extra_columns": 2,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -506,21 +631,31 @@
     },
     {
       "name": "labels",
-      "cases": 17,
-      "passed": 17,
+      "cases": 23,
+      "passed": 22,
+      "failed": 1,
+      "skipped": 0,
+      "with_extra_columns": 4,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "listing",
+      "cases": 2,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "location",
-      "cases": 9,
-      "passed": 9,
+      "cases": 15,
+      "passed": 15,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 2,
+      "with_extra_columns": 3,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -611,7 +746,7 @@
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
-      "stopped_by_guard": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -620,7 +755,7 @@
       "passed": 1,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -666,8 +801,8 @@
     },
     {
       "name": "out-of-range",
-      "cases": 1,
-      "passed": 1,
+      "cases": 2,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -678,6 +813,16 @@
       "name": "paraphrase",
       "cases": 8,
       "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "percentage",
+      "cases": 2,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
@@ -716,18 +861,28 @@
     },
     {
       "name": "rate",
-      "cases": 9,
-      "passed": 9,
+      "cases": 11,
+      "passed": 11,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 2,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
       "name": "relative-date",
-      "cases": 3,
-      "passed": 3,
+      "cases": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "repeats-a-rule",
+      "cases": 2,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -745,9 +900,9 @@
       "known_limitation": 0
     },
     {
-      "name": "rows-vs-entities",
-      "cases": 6,
-      "passed": 6,
+      "name": "rounding",
+      "cases": 1,
+      "passed": 1,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 1,
@@ -755,13 +910,43 @@
       "known_limitation": 0
     },
     {
-      "name": "rule",
-      "cases": 20,
-      "passed": 20,
+      "name": "row-cap",
+      "cases": 1,
+      "passed": 1,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
-      "stopped_by_guard": 1,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "rows-vs-entities",
+      "cases": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "rule",
+      "cases": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "scan",
+      "cases": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 1,
+      "stopped_by_guard": 0,
       "known_limitation": 0
     },
     {
@@ -806,8 +991,8 @@
     },
     {
       "name": "subquery",
-      "cases": 5,
-      "passed": 5,
+      "cases": 9,
+      "passed": 9,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -816,11 +1001,11 @@
     },
     {
       "name": "sum",
-      "cases": 4,
-      "passed": 4,
+      "cases": 5,
+      "passed": 5,
       "failed": 0,
       "skipped": 0,
-      "with_extra_columns": 1,
+      "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -866,8 +1051,8 @@
     },
     {
       "name": "trap:case-sensitive",
-      "cases": 4,
-      "passed": 4,
+      "cases": 5,
+      "passed": 5,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -886,13 +1071,23 @@
     },
     {
       "name": "trap:date-range",
-      "cases": 5,
-      "passed": 4,
+      "cases": 8,
+      "passed": 7,
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
       "stopped_by_guard": 0,
       "known_limitation": 1
+    },
+    {
+      "name": "trap:denominator",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 1,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
     },
     {
       "name": "trap:duplicate-description",
@@ -946,8 +1141,8 @@
     },
     {
       "name": "trap:velocity",
-      "cases": 2,
-      "passed": 2,
+      "cases": 3,
+      "passed": 3,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -965,9 +1160,29 @@
       "known_limitation": 0
     },
     {
+      "name": "two-readings",
+      "cases": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
       "name": "typos",
       "cases": 2,
       "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "unrelated",
+      "cases": 1,
+      "passed": 1,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1016,8 +1231,18 @@
     },
     {
       "name": "window",
-      "cases": 3,
-      "passed": 3,
+      "cases": 4,
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "zero-rows",
+      "cases": 1,
+      "passed": 1,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1028,8 +1253,8 @@
   "by_scorer": [
     {
       "name": "behaviour",
-      "cases": 123,
-      "passed": 123,
+      "cases": 160,
+      "passed": 160,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1038,18 +1263,18 @@
     },
     {
       "name": "guardrail",
-      "cases": 123,
-      "passed": 123,
+      "cases": 160,
+      "passed": 160,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
-      "stopped_by_guard": 2,
+      "stopped_by_guard": 1,
       "known_limitation": 0
     },
     {
       "name": "outcome",
-      "cases": 123,
-      "passed": 122,
+      "cases": 160,
+      "passed": 159,
       "failed": 1,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1058,11 +1283,11 @@
     },
     {
       "name": "result",
-      "cases": 72,
-      "passed": 71,
-      "failed": 1,
+      "cases": 92,
+      "passed": 90,
+      "failed": 2,
       "skipped": 0,
-      "with_extra_columns": 5,
+      "with_extra_columns": 7,
       "stopped_by_guard": 0,
       "known_limitation": 0
     },
@@ -1078,8 +1303,8 @@
     },
     {
       "name": "rule_arithmetic",
-      "cases": 14,
-      "passed": 14,
+      "cases": 22,
+      "passed": 22,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1088,8 +1313,28 @@
     },
     {
       "name": "rule_match",
-      "cases": 13,
-      "passed": 13,
+      "cases": 21,
+      "passed": 21,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "scan",
+      "cases": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "with_extra_columns": 0,
+      "stopped_by_guard": 0,
+      "known_limitation": 0
+    },
+    {
+      "name": "weakest_month",
+      "cases": 5,
+      "passed": 5,
       "failed": 0,
       "skipped": 0,
       "with_extra_columns": 0,
@@ -1107,9 +1352,22 @@
       "scorer": "result",
       "reason": "no_result",
       "count": 1
+    },
+    {
+      "scorer": "result",
+      "reason": "value_mismatch",
+      "count": 1
     }
   ],
   "failures": [
+    {
+      "case_id": "fraud-label-coverage-share",
+      "tier": "fraud",
+      "turn": 1,
+      "scorer": "result",
+      "reason": "value_mismatch",
+      "detail": "row 1, compared column 1: the reference has 0.6701394696051436, the result has a larger integer"
+    },
     {
       "case_id": "follow-after-decline",
       "tier": "follow_ups",

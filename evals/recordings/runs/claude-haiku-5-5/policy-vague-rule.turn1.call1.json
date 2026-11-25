@@ -11,9 +11,9 @@
         "arguments": {
           "question": "\"Suspicious\" isn't defined in the data. Which pattern should the rule flag?",
           "suggestions": [
-            "Transactions above a dollar amount threshold (for example, over $1,000), optionally limited to one transaction type",
-            "Transactions that carry an error code (for example, Bad CVV, Bad PIN or Insufficient Balance)",
-            "Quick repeat transactions on the same card (for example, two or more within 5 minutes of the previous one)"
+            "Large amounts: transactions above a dollar threshold you choose",
+            "Fast repeat use: transactions within a short window of the same card's previous transaction",
+            "Transactions that returned an error (for example Bad CVV, Bad PIN or Insufficient Balance)"
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4620,
-      "output_tokens": 265
+      "output_tokens": 241
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJZoF6qB177BxB7LEWw",
-    "request_hash": "b0e5cbb406d03a2c2945576754144f33fa1bf572c3f5546e0739d602c06439c6"
+    "response_id": "msg_011ChNZvYd7uhrwEHPgBuFcy",
+    "request_hash": "740568455be1056c8c749581752e0eb2b69c57a7098165b5e992e808f2623409"
   }
 }

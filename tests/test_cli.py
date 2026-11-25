@@ -91,7 +91,7 @@ def test_without_the_flag_nothing_is_sent(
     output = capsys.readouterr().out
     assert "COST WARNING" in output
     assert "Nothing was sent." in output
-    assert "claude-opus-5-5" in output
+    assert "claude-haiku-5-5" in output
     assert "ANTHROPIC_API_KEY is set." in output
     assert "To run it, add --yes-spend." in output
     assert all(question in output for question in model_check.CHECK_QUESTIONS)
@@ -109,8 +109,8 @@ def test_nothing_is_written_without_a_flag(
 def test_the_model_flag_is_shown_in_the_plan(
     isolated: None, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    assert cli.main(["check-model", "--model", "claude-haiku-5-5"]) == 0
-    assert "to claude-haiku-5-5 in tool mode" in capsys.readouterr().out
+    assert cli.main(["check-model", "--model", "claude-opus-5-5"]) == 0
+    assert "to claude-opus-5-5 in tool mode" in capsys.readouterr().out
 
 
 def test_a_complete_run_prints_the_table_the_decision_and_what_it_recorded(
@@ -129,7 +129,7 @@ def test_a_complete_run_prints_the_table_the_decision_and_what_it_recorded(
     assert "Recorded 11 of 11 replies and summary.json" in output
     assert "--replay will stop there" not in output
     assert SECRET not in output
-    directory = recordings / "claude-opus-5-5"
+    directory = recordings / "claude-haiku-5-5"
     assert sorted(path.name for path in directory.iterdir()) == [*RECORDING_NAMES, "summary.json"]
 
 
@@ -177,9 +177,9 @@ def test_the_check_uses_tool_mode_and_its_own_prompt_version(
             {"FSM_TOOL_MODE": "structured", "FSM_DB_PATH": str(config.DEFAULT_DB_PATH)}, None
         ),
     )
-    cli.main(["check-model", "--yes-spend", "--model", "claude-haiku-5-5"])
+    cli.main(["check-model", "--yes-spend", "--model", "claude-opus-5-5"])
     assert (seen[0].model, seen[0].tool_mode, seen[0].prompt_version) == (
-        "claude-haiku-5-5",
+        "claude-opus-5-5",
         "tools",
         "check-model-1",
     )
@@ -241,7 +241,7 @@ def test_replay_of_another_model_fails_as_stale(
     isolated: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     record(monkeypatch, capsys)
-    assert cli.main(["check-model", "--replay", "--model", "claude-haiku-5-5"]) == 2
+    assert cli.main(["check-model", "--replay", "--model", "claude-opus-5-5"]) == 2
     assert "Cannot replay: stale recording" in capsys.readouterr().out
 
 

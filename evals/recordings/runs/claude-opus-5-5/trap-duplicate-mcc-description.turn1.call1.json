@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "trap-duplicate-mcc-description",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT m.mcc, c.description, COUNT(*) AS transaction_count\nFROM transactions t\nJOIN merchants m ON t.merchant_id = m.id\nJOIN mcc_codes c ON m.mcc = c.mcc\nWHERE c.description = 'Passenger Railways'\nGROUP BY m.mcc, c.description\nORDER BY transaction_count DESC, m.mcc",
+          "explanation": "Counts all transactions for each merchant category code whose description is exactly 'Passenger Railways'. Each code gets its own row.",
+          "assumptions": [
+            "The description must match 'Passenger Railways' exactly, including case.",
+            "All transactions are counted, labelled or not, including those with negative amounts or errors."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4635,
+      "output_tokens": 380
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgqHq4LQvJJv2gBPNVQ",
+    "request_hash": "f3de01cc1588c855ec6c057b188fcbfd8a2856070501ef403026ec9f2124157c"
+  }
+}

@@ -10,10 +10,10 @@
         "name": "propose_rule",
         "arguments": {
           "where_clause": "merchant_location_id IN (SELECT id FROM merchant_locations WHERE city = 'Rome' AND state = 'Italy')",
-          "explanation": "Flags every transaction whose merchant location is in Rome, Italy (city Rome and state Italy together).",
+          "explanation": "Flags every transaction whose merchant location is in Rome, Italy, matched on city and country together.",
           "assumptions": [
-            "'Rome' is matched case-sensitively as city = 'Rome' and state = 'Italy', since the state column holds the country name for locations outside the US.",
-            "Location is taken from the transaction's merchant_location_id, not from the merchant's other locations."
+            "Rome is matched as city = 'Rome' with state = 'Italy', since state holds the country name for locations outside the US.",
+            "Case-sensitive exact match on the city and state values as stored."
           ]
         }
       }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4631,
-      "output_tokens": 257
+      "output_tokens": 234
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJY71PAJkgYaNif7DHN",
-    "request_hash": "d34c1d85b375a1f2594b05dbf62b358a05a821c0c328d4ce033bce34b6dd1b57"
+    "response_id": "msg_011ChNZrjVMjyhAFpyuLE8ji",
+    "request_hash": "9ce6144f96a5031c7e598528fe39ee1ad5fa6959313bb42ce65c994d74b2bbc9"
   }
 }

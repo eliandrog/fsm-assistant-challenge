@@ -7,8 +7,8 @@
     "schema_context": false
   },
   "key_configured": true,
-  "model_id": "claude-opus-5-5",
-  "prompt_version": "turn-4",
+  "model_id": "claude-haiku-5-5",
+  "prompt_version": "turn-5",
   "tracing": {
     "enabled": false,
     "destination": null

@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "date-month-over-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "WITH m AS (\n  SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS n\n  FROM transactions\n  WHERE date >= '2019-01-01' AND date < '2019-11-01'\n  GROUP BY strftime('%Y-%m', date)\n),\nw AS (\n  SELECT month, n, LAG(n) OVER (ORDER BY month) AS prev_n\n  FROM m\n)\nSELECT month, n AS transaction_count, n - prev_n AS change_from_prior_month\nFROM w\nWHERE month >= '2019-02' AND month <= '2019-10'\nORDER BY month;",
+          "explanation": "Counts all transactions per calendar month from February to October 2019, with the change from the previous month. January is included in the calculation so February's change has a base.",
+          "assumptions": [
+            "Counts all transactions, labelled or not, since the question asks for transaction counts rather than fraud rates.",
+            "Months are calendar months (e.g. October 2019 = 2019-10-01 to 2019-10-31), using the data's date range.",
+            "Change is this month's count minus the previous month's count; February's change is measured against January 2019, which is in the data but not shown.",
+            "Negative-amount transactions are included in the count."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4636,
+      "output_tokens": 838
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNacTkJPpMaDg1Mv6epx",
+    "request_hash": "05de2f176e22653a7d91c97690005622a048b71d365e648a15b7bea580f4cfac"
+  }
+}

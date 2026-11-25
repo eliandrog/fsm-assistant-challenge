@@ -62,7 +62,7 @@ def message(content: list[dict[str, JsonValue]], stop_reason: str = "tool_use") 
             "id": "msg_test_1",
             "type": "message",
             "role": "assistant",
-            "model": "claude-opus-5-5",
+            "model": "claude-haiku-5-5",
             "content": content,
             "stop_reason": stop_reason,
             "stop_sequence": None,
@@ -142,7 +142,7 @@ def test_the_hash_is_stable_and_covers_every_input() -> None:
     tool = base.tools[0]
     changed_tool = tool.model_copy(update={"description": tool.description + " More."})
     variants = [
-        (base.model_copy(update={"model": "claude-haiku-5-5"}), REQUEST),
+        (base.model_copy(update={"model": "claude-opus-5-5"}), REQUEST),
         (base.model_copy(update={"effort": "high"}), REQUEST),
         (base.model_copy(update={"max_tokens": 4000}), REQUEST),
         (base.model_copy(update={"tool_mode": "structured"}), REQUEST),
@@ -187,7 +187,7 @@ def test_the_client_is_built_with_our_settings(monkeypatch: pytest.MonkeyPatch) 
     for name in ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_URL", "LANGSMITH_GATEWAY"):
         monkeypatch.setenv(name, "https://elsewhere.example")
     chat = llm.build_chat_model(spec(), settings(FSM_MODEL_TIMEOUT_SECONDS="45"))
-    assert chat.model == "claude-opus-5-5"
+    assert chat.model == "claude-haiku-5-5"
     assert chat.max_tokens == 8000
     assert chat.max_retries == 0
     assert chat.default_request_timeout == 45.0
@@ -208,7 +208,7 @@ def test_tool_mode_sends_strict_tools_one_call_at_a_time_and_no_temperature(
     provider = Provider(message(TOOL_USE)).install(monkeypatch)
     live(spec()).complete(REQUEST)
     (payload,) = provider.payloads
-    assert payload["model"] == "claude-opus-5-5"
+    assert payload["model"] == "claude-haiku-5-5"
     assert payload["max_tokens"] == 8000
     assert payload["system"] == REQUEST.system
     assert payload["messages"] == [{"role": "user", "content": REQUEST.user}]
@@ -265,7 +265,7 @@ def test_a_tool_call_is_read_into_a_reply(monkeypatch: pytest.MonkeyPatch) -> No
         text="",
         stop_reason="tool_use",
         usage=TokenUsage(input_tokens=1200, output_tokens=85),
-        model_id="claude-opus-5-5",
+        model_id="claude-haiku-5-5",
         response_id="msg_test_1",
         request_hash=request_hash(model_spec, REQUEST),
     )
@@ -368,7 +368,7 @@ def test_tracing_is_off_during_a_call_even_when_the_environment_asks_for_it(
         clear_langsmith_cache()
 
 
-def test_forced_tool_choice_is_not_available_on_the_default_model() -> None:
+def test_forced_tool_choice_is_not_available_on_every_model() -> None:
     from langchain_anthropic.chat_models import _supports_forced_tool_choice
 
     assert _supports_forced_tool_choice("claude-opus-5-5") is False
@@ -435,7 +435,7 @@ def test_a_missing_recording_is_stale(tmp_path: Path) -> None:
     "change",
     [
         {"prompt_version": "tools-2"},
-        {"model": "claude-haiku-5-5"},
+        {"model": "claude-opus-5-5"},
         {"effort": "high"},
         {"max_tokens": 4000},
     ],

@@ -11,8 +11,8 @@
         "arguments": {
           "question": "What do you mean by \"big hitters\"? I can rank merchants in a few ways.",
           "suggestions": [
-            "Merchants with the highest total transaction value (sum of amount_usd_cents)",
-            "Merchants with the most transactions (count of transactions)",
+            "Merchants with the highest total transaction amount (dollars spent)",
+            "Merchants with the most transactions (busiest by count)",
             "Merchants with the highest fraud count or fraud rate among labelled transactions"
           ]
         }
@@ -22,10 +22,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4616,
-      "output_tokens": 224
+      "output_tokens": 226
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJbPg5NBzBRnXt65vXV",
-    "request_hash": "3f68e54d3ea8291fffeb9fb3774ed3417d065d40150c605f18a23e53bdf2e784"
+    "response_id": "msg_011ChNZyM5vVDg5ssusNSmfB",
+    "request_hash": "801fd5265643aa318e7130071d81e632d513dba8a79c0c7b33b9bb3ef8f66cf2"
   }
 }

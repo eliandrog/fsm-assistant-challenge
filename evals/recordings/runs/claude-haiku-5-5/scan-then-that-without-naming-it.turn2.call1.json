@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "scan-then-that-without-naming-it",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "Which segment from the fraud profile should the rule be built on? I can't see the scan's results, so please name the segment or pick one of these.",
+          "suggestions": [
+            "The top-ranked segment by transaction type",
+            "The top-ranked merchant category (MCC) segment",
+            "The top-ranked amount band segment"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4831,
+      "output_tokens": 364
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNZxDz1QKJcTHFLRRWC4",
+    "request_hash": "8fb9aa7239e7207a1b2b6287055a675cac3fefa8a0da1cc34ba67d9507115adb"
+  }
+}

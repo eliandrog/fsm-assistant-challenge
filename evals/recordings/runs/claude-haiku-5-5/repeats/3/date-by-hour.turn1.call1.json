@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "date-by-hour",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT CAST(strftime('%H', date) AS INTEGER) AS hour_of_day, COUNT(*) AS transaction_count FROM transactions GROUP BY hour_of_day ORDER BY hour_of_day",
+          "explanation": "Counts all transactions in each hour of the day, from 0 to 23, based on the transaction timestamp.",
+          "assumptions": [
+            "Counts cover all transactions, labelled or not, over the full data range 2019-01-01 to 2019-10-31.",
+            "Hour is taken from the transaction date timestamp as recorded, with no timezone conversion.",
+            "Hours with no transactions would be absent from the result rather than shown as zero."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4631,
+      "output_tokens": 301
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb1wgwpEcg61D7m3SNe",
+    "request_hash": "da726b20f85961301bbdca009390d86aac3eeb1e179798870dbd2ca594c4721a"
+  }
+}

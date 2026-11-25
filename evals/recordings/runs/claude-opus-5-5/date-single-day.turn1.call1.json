@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "date-single-day",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-01-31' AND date < '2019-02-01'",
+          "explanation": "This counts every transaction dated 31 January 2019.",
+          "assumptions": [
+            "All transactions are counted, whatever their fraud label, error status or sign of the amount (negative amounts included)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 196
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgjDK2oyw84NUnR6pRR",
+    "request_hash": "26d3f0ee6748397e9a3151473c52f1b49ea487b83fa5933be0d1242d584f9b8e"
+  }
+}

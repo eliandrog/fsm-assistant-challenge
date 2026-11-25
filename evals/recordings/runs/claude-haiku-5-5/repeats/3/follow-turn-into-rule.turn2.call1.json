@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "follow-turn-into-rule",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
+          "explanation": "Flags online transactions whose amount is over $2,000.",
+          "assumptions": [
+            "'Over $2,000' is read as strictly greater than $2,000 (amount_usd_cents > 200000), so exactly $2,000.00 is not flagged.",
+            "Amounts are in integer US cents, so $2,000 is 200000.",
+            "Negative amounts are not flagged, since they fall below the threshold."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4776,
+      "output_tokens": 360
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNb72ovAq7dBMVUxAtdf",
+    "request_hash": "915b1f578298d2c07b69a2ba4649e80579fb0d53ee2a1ee1e62f0433c32e91c2"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-after-decline",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I can count them, but I can't see the earlier request. Which records do you want counted?",
+          "suggestions": [
+            "Transactions with a negative amount_usd_cents",
+            "Transactions that have an error (errors is not NULL)",
+            "Transactions with no fraud label"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 196
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNguLA4D9niFQ338JrD8",
+    "request_hash": "1f180923fadc6d99819256c7f2382a3bd160cc1aa52082707c3e91c0c3a99922"
+  }
+}

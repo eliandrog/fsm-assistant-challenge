@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "top-largest-transactions",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT id, amount_usd_cents / 100.0 AS amount_usd FROM transactions ORDER BY amount_usd_cents DESC, id ASC LIMIT 5",
+          "explanation": "Returns the five transactions with the largest amounts, showing each transaction id and its amount in dollars, largest first.",
+          "assumptions": [
+            "\"Largest\" means the highest signed amount, so negative amounts rank lowest. It does not mean the largest absolute value.",
+            "When two amounts are equal, the lower transaction id is listed first."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4631,
+      "output_tokens": 255
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgnkqvQoxYNXd8W1ACK",
+    "request_hash": "e6249a0f3415767b351363fd9882413b1f9bef00e3c8b6c9ce524bd2b0c78c46"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "evidence-unlabelled-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.transaction_type = 'Swipe Transaction' AND transactions.merchant_location_id IN (SELECT ml.id FROM merchant_locations ml WHERE ml.city = 'Rome' AND ml.state = 'Italy')",
+          "explanation": "Flags swipe transactions whose merchant location is in Rome, Italy.",
+          "assumptions": [
+            "'Rome' is matched as an exact, case-sensitive city name and 'Italy' as the exact state value, since merchant_locations.state holds the country name for locations outside the US.",
+            "Location is matched through merchant_location_id, not merchant_id.",
+            "No date range is applied, so the rule covers the full 2019-01-01 to 2019-10-31 period."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4632,
+      "output_tokens": 543
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNaoXvdLpo3YoQmTx8YX",
+    "request_hash": "67277675e62ca6a86a8604a69786e1182677609749921ceb125d27fe5e7c8684"
+  }
+}

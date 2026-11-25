@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-card-type",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
+          "explanation": "Flags every transaction made on a card whose type is prepaid debit, meaning the 'Debit (Prepaid)' card type.",
+          "assumptions": [
+            "'Prepaid debit cards' is taken to mean card_type = 'Debit (Prepaid)' only, not plain 'Debit' cards.",
+            "The rule flags all transactions on those cards in the whole data range, regardless of transaction type, amount or errors."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 424
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbAVnit1DuK1r3W3EgQ",
+    "request_hash": "c32e9e9efe2af26f7f7dc262b1bf77c1d25ac6a8120b2e13f543b3b96ed9a7f9"
+  }
+}

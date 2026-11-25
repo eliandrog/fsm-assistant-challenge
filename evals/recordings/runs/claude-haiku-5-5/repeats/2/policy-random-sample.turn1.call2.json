@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "policy-random-sample",
+  "turn": 1,
+  "call": 2,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transactions.id % 100 = 0",
+          "explanation": "Flags every transaction whose id is a multiple of 100, which is a fixed 1% slice of all transactions for manual review. It is a deterministic stand-in for a random sample, so the same transactions are flagged every time.",
+          "assumptions": [
+            "A rule cannot call random(), so I used transaction id modulo 100 = 0 as a fixed 1% sample.",
+            "The sample is spread across all transactions regardless of amount, card, merchant or fraud status.",
+            "Ids are assumed to be unrelated to fraud, so the slice should look like a random 1% draw."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4853,
+      "output_tokens": 511
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNapb88Uu5sbmGbmr3We",
+    "request_hash": "3011ff80ba13023d9984ee2a303ddda07cf95851ea828eda15755a7c22717ed8"
+  }
+}

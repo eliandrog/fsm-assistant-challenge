@@ -89,7 +89,7 @@
     "conversation_id": "fixture-conversation",
     "turn": 1,
     "model_id": "scripted",
-    "prompt_version": "turn-4",
+    "prompt_version": "turn-5",
     "tool_mode": "tools",
     "attempts": 1,
     "model_calls": 1,

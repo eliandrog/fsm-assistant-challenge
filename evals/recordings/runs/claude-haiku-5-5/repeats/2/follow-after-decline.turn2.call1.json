@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "follow-after-decline",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "I don't have the earlier message, so I can't tell which records \"them\" are. Which group should I count?",
+          "suggestions": [
+            "Transactions with a negative amount (amount_usd_cents < 0)",
+            "Confirmed fraud transactions (is_fraud = 1)",
+            "Transactions with no fraud label"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 401
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNahdECHgHvsT7HVmPYR",
+    "request_hash": "fd9474d7271620ff5f72d2c2779b69d3bfa00a464a908fe3427d32df68172c24"
+  }
+}

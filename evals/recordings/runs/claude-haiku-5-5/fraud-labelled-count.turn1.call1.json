@@ -12,7 +12,7 @@
           "sql": "SELECT COUNT(*) AS labelled_transactions FROM transactions t INNER JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
           "explanation": "Counts the transactions that have a matching fraud label.",
           "assumptions": [
-            "A transaction has a fraud label when a matching row exists in fraud_labels, whatever its is_fraud value."
+            "A transaction counts as labelled when it has a row in fraud_labels, whatever the is_fraud value (fraud and non-fraud labels both count)."
           ]
         }
       }
@@ -21,10 +21,10 @@
     "stop_reason": "tool_use",
     "usage": {
       "input_tokens": 4616,
-      "output_tokens": 211
+      "output_tokens": 224
     },
     "model_id": "claude-haiku-5-5",
-    "response_id": "msg_011ChMJHroy2vXPjfJRQ1Fud",
-    "request_hash": "092f9b955a1d5bdea50f54bbf76de829954934d4f3287c1f851cd1ca01420bec"
+    "response_id": "msg_011ChNZbRKny5X1WKg9KGWUx",
+    "request_hash": "6532765fe8066c79f775b6aa4df6ee98d40e86844e9f771a21639d5873877010"
   }
 }

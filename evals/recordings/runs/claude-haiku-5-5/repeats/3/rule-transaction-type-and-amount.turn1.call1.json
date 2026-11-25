@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "rule-transaction-type-and-amount",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transaction_type = 'Online Transaction' AND amount_usd_cents >= 50000",
+          "explanation": "Flags online transactions (transaction type 'Online Transaction') of $500 or more.",
+          "assumptions": [
+            "'Online transactions' means transaction_type = 'Online Transaction'.",
+            "$500 is 50000 cents, and 'or more' is inclusive (>= 50000).",
+            "Amounts are taken as stored; negative amounts are not $500 or more, so they are not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4622,
+      "output_tokens": 463
+    },
+    "model_id": "claude-haiku-5-5",
+    "response_id": "msg_011ChNbB6SJLrMto6Dz4P6wB",
+    "request_hash": "c74ebcda74f0bdc968f718dc73dc577bcca86ad0b6ab395e8229e73a225ea516"
+  }
+}

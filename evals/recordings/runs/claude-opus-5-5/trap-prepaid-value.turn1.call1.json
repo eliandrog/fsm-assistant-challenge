@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "trap-prepaid-value",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS prepaid_debit_transactions FROM transactions t JOIN cards c ON t.card_id = c.id WHERE c.card_type = 'Debit (Prepaid)'",
+          "explanation": "Counts all transactions made with cards whose type is prepaid debit, across the whole data period.",
+          "assumptions": [
+            "Prepaid debit cards are those with card_type = 'Debit (Prepaid)'; regular 'Debit' cards are excluded.",
+            "All transactions are counted, including those with errors or negative amounts, over the full data range 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 283
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgopM3qzuDa7c4SxVme",
+    "request_hash": "245ab6b19dffb97436c786035e3c09f106502c7b9b0d1f49dfdf271df7c30498"
+  }
+}

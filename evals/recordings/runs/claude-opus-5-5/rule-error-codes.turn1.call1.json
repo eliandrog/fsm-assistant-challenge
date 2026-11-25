@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "rule-error-codes",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "errors IN ('Bad CVV', 'Bad Expiration')",
+          "explanation": "This rule flags every transaction whose error is a bad CVV or a bad expiration date.",
+          "assumptions": [
+            "I took 'bad expiration date' to mean the error value 'Bad Expiration'.",
+            "I matched the error values exactly as the schema lists them, each as a single value. A transaction with no error (NULL) is not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 410
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh25cu3Yzp4Tggfqkcx",
+    "request_hash": "b345ef081e43a417c32e2f2c50e559700559f18a8eeaf6944cc60729dfdf08e3"
+  }
+}
