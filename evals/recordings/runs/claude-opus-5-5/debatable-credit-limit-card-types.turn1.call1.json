@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-credit-limit-card-types",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_net_usd, SUM(CASE WHEN t.amount_usd_cents > 0 THEN t.amount_usd_cents ELSE 0 END) / 100.0 AS total_positive_only_usd, COUNT(*) AS transaction_count FROM transactions t JOIN cards c ON c.id = t.card_id WHERE c.credit_limit_usd_cents > 2000000",
+          "explanation": "Shows the total dollar amount of all transactions on cards with a credit limit above $20,000. It gives two totals, one with every amount and one with positive amounts only, plus the number of transactions.",
+          "assumptions": [
+            "\"Above $20,000\" means a credit limit strictly greater than $20,000 (2,000,000 cents).",
+            "The meaning of negative amounts isn't documented, so I didn't assume they are refunds. The first total includes them and the second leaves them out.",
+            "All transactions from 2019-01-01 to 2019-10-31 count, whatever their error status."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4633,
+      "output_tokens": 536
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhGKmaL1gAt3fVBWXjD",
+    "request_hash": "dde3fc807f88a6d7b08c6beee047da065a9e2dfa77ca40d77ed33fa8f243b6c4"
+  }
+}

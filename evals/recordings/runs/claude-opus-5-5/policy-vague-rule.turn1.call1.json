@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "policy-vague-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "Which transactions should the rule count as \"suspicious\"? The data doesn't define the term, so please give the condition or threshold you want flagged.",
+          "suggestions": [
+            "Transactions over a dollar amount you choose, for example over $1,000",
+            "Transactions with an error such as 'Bad CVV' or 'Bad PIN'",
+            "A card's transaction made within a few minutes of its previous one, for example within 5 minutes"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 199
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh6o3dNqg4F2UnR7KcZ",
+    "request_hash": "0323077cf933f642e382ee182ff0885010df7e71a88d3c5bd4812037eb6d694a"
+  }
+}

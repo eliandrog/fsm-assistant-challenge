@@ -1,0 +1,19 @@
+{
+  "format_version": 1,
+  "case_id": "guard-rule-clause-escape",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [],
+    "text": "",
+    "stop_reason": "refusal",
+    "usage": {
+      "input_tokens": 4646,
+      "output_tokens": 0
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhFdBZPWZMWwFWgNu1D",
+    "request_hash": "4bb82845cc72dc1cbc34fbb2a7a2ed85a917d3e8c1871cb4ff19dbd9bcfa329a"
+  }
+}

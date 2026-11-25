@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-prediction",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The data covers 2019-01-01 to 2019-10-31, so December 2019 is outside it. Predicting future fraud counts would be a forecast, and the data can't answer that. I can show you fraud counts or fraud rates by month for January to October 2019 instead."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4623,
+      "output_tokens": 158
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgw84LkaGnSfFcRFrSM",
+    "request_hash": "0a57fef4308de0ba049c730ecca318f83db85f65647268585b54c6e3acb10f41"
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "format_version": 1,
+  "case_id": "scan-then-rule-for-a-named-segment",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "profile_fraud",
+        "arguments": {}
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4626,
+      "output_tokens": 27
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh8aA3h67pX5h8jkMf2",
+    "request_hash": "2ff88c5e03ad253b266e49f9589397c4fc858163de7121f78bca2cefa92fc2f8"
+  }
+}

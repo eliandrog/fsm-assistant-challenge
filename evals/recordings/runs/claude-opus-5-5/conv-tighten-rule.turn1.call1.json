@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "conv-tighten-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "transaction_type = 'Swipe Transaction' AND amount_usd_cents > 50000",
+          "explanation": "Flags swipe transactions with an amount strictly greater than $500.",
+          "assumptions": [
+            "\"Over $500\" means strictly greater than $500.00 (50000 cents), so a transaction of exactly $500 is not flagged.",
+            "Negative amounts are never over $500, so they are not flagged."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4623,
+      "output_tokens": 216
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhERyLK9zivE81Yarcr",
+    "request_hash": "4a48cb57ce5fd5f8d19918ad2bbf25f4e8388a52ef0a17e8ab8b0d43134ddd2e"
+  }
+}

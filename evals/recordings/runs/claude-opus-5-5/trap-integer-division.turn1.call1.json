@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "trap-integer-division",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(CASE WHEN transaction_type = 'Online Transaction' THEN 1 ELSE 0 END) / COUNT(*) AS online_fraction, SUM(CASE WHEN transaction_type = 'Online Transaction' THEN 1 ELSE 0 END) AS online_count, COUNT(*) AS total_count FROM transactions",
+          "explanation": "Returns the share of all transactions whose type is 'Online Transaction', as a fraction between 0 and 1, along with the online count and the total count.",
+          "assumptions": [
+            "Online means transaction_type = 'Online Transaction'.",
+            "Counts every transaction, labelled or not, and includes the ones with negative amounts or errors."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 322
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgoPRbuPtBaWk1q67NC",
+    "request_hash": "10a47634926665454b628fea2cc45216aa8ec77325081363d59ab1683d7c2669"
+  }
+}

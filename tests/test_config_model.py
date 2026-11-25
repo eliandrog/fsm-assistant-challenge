@@ -19,7 +19,7 @@ def load(environ: dict[str, str] | None = None, env_file: Path | None = None) ->
 def test_model_defaults() -> None:
     settings = load()
     assert settings.anthropic_api_key is None
-    assert settings.anthropic_model == "claude-opus-5-5"
+    assert settings.anthropic_model == "claude-haiku-5-5"
     assert settings.effort == "medium"
     assert settings.max_tokens == 8000
     assert settings.model_timeout_seconds == 120.0

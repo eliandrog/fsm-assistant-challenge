@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "agg-average-amount-dollars",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_amount_usd, COUNT(*) AS transaction_count FROM transactions",
+          "explanation": "Returns the average transaction amount in dollars across every transaction in the data, with the number of transactions it covers.",
+          "assumptions": [
+            "Includes all transactions, including the ones with negative amounts. What those negative amounts mean isn't documented.",
+            "Includes transactions with and without a fraud label, and with or without an error.",
+            "Covers the whole data period, 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 289
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNfhRybpjVAUGMbDyiHE",
+    "request_hash": "4b0cbe11eb2134dd0980eb9109e7d8835aebc00b529950c3b93e29e3945f16e9"
+  }
+}

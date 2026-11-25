@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "para-big-merchants-slang",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What do you mean by \"big hitters\": the merchants with the most transactions, the most money, or the most fraud?",
+          "suggestions": [
+            "Top 10 merchants by number of transactions",
+            "Top 10 merchants by total transaction amount in dollars",
+            "Top 10 merchants by number of confirmed fraud transactions among labelled ones"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 212
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhAbbvKbsksyHVbymHQ",
+    "request_hash": "16300d77cb2f4793913f1225851ec7be34b5e489309cfa3fd05771787bd6a20f"
+  }
+}

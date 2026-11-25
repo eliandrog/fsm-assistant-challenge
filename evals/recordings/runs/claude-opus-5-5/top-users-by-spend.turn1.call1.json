@@ -1,0 +1,33 @@
+{
+  "format_version": 1,
+  "case_id": "top-users-by-spend",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.user_id, SUM(t.amount_usd_cents) / 100.0 AS total_spent_usd FROM transactions t JOIN cards c ON t.card_id = c.id WHERE t.amount_usd_cents > 0 GROUP BY c.user_id ORDER BY SUM(t.amount_usd_cents) DESC, c.user_id ASC LIMIT 5",
+          "explanation": "Lists the five users with the highest total spending across all their cards, with each user's id and total in dollars, highest first.",
+          "assumptions": [
+            "Only positive transaction amounts count as spending. Negative amounts are left out because their meaning isn't documented.",
+            "Spending is the sum of transaction amounts over all of a user's cards for the whole data period (2019-01-01 to 2019-10-31).",
+            "All transactions are included, labelled or not, and with or without errors.",
+            "Users who spend the same amount are listed in order of user id."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4632,
+      "output_tokens": 567
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgmbcXKTKxnYp99stUq",
+    "request_hash": "8b35f7da31c4fc0858f66bef2cf4d1159d6f3602291acde651cd06f9cc766a58"
+  }
+}

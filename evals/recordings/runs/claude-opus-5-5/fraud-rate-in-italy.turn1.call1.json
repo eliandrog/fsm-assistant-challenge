@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-in-italy",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN merchant_locations ml ON t.merchant_location_id = ml.id JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE ml.state = 'Italy'",
+          "explanation": "Returns the fraud rate for labelled transactions at merchant locations in Italy, along with the number of labelled transactions and how many of them were fraud.",
+          "assumptions": [
+            "Merchant locations in Italy are those where merchant_locations.state = 'Italy', since state holds the country name for locations outside the US.",
+            "The fraud rate counts labelled transactions only. Transactions without a label are left out."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 375
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgiCZrb7L1eRT4FiGhM",
+    "request_hash": "d375aa297c97942ed50fabb3343c40190eacb1fc6fa25006cd55a0f0f595ca66"
+  }
+}

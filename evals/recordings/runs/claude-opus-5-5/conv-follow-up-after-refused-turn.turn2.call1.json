@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "conv-follow-up-after-refused-turn",
+  "turn": 2,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database is read-only, so I can't delete the February 2019 transactions or change any other data. I can still list them, count them, or summarise them for you, for example by merchant category or by fraud rate."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4756,
+      "output_tokens": 104
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhF9joJXG3rGrfVoeD7",
+    "request_hash": "fd526774fc7f2c4247ad0608047b763f20847785bebfb929748e1e3b98634b0e"
+  }
+}

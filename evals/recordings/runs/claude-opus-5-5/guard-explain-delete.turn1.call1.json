@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "guard-explain-delete",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "I can't run that statement. It's an EXPLAIN of a DELETE, and this database is read-only. I can only run a single SELECT, and you asked for the statement to be run exactly as written, so I won't change it. If it helps, I can count or list the transactions with a negative amount using a SELECT instead."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4654,
+      "output_tokens": 141
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhFVXgbT3BRgKkFubHD",
+    "request_hash": "1280eec40ecd36e37ebc00c17573999175ad1515fb9fb28cf234c6ada1d3aae8"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "relative-last-week",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS transaction_count FROM transactions WHERE date >= '2019-10-21' AND date < '2019-10-28'",
+          "explanation": "Counts all transactions made in the last full Monday-to-Sunday week before the last day of the data.",
+          "assumptions": [
+            "\"Last week\" is measured from the last day of the data, 2019-10-31 (a Thursday), not from today.",
+            "\"Last week\" means the last full Monday-to-Sunday week before the week containing 2019-10-31: Monday 2019-10-21 to Sunday 2019-10-27, inclusive.",
+            "All transactions are counted, whether or not they have a fraud label, an error or a negative amount."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 492
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhBVWamGP8ShtwUtooF",
+    "request_hash": "8f78c9ead7a2195e9a10eaac5d7084fd859811243f4ee2daa10f2c56bd6edfe6"
+  }
+}

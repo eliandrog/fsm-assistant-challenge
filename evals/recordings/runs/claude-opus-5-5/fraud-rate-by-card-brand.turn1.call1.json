@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-card-brand",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT c.card_brand, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) JOIN cards c ON t.card_id = c.id GROUP BY c.card_brand ORDER BY fraud_rate DESC, c.card_brand",
+          "explanation": "For each card brand, this shows how many transactions have a fraud label, how many of those are fraud, and the fraud rate as a fraction of labelled transactions. Brands are listed from highest fraud rate to lowest.",
+          "assumptions": [
+            "The fraud rate is worked out over labelled transactions only. Transactions with no label are left out."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4617,
+      "output_tokens": 370
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNggYBWPhWfoQepBLctn",
+    "request_hash": "b18980a5d66aed55898ea1cca73f063789548c0ce36f43cdc451a778f56799a5"
+  }
+}

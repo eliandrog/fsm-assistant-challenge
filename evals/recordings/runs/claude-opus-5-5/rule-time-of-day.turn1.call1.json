@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "rule-time-of-day",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "strftime('%H', date) IN ('01', '02', '03', '04')",
+          "explanation": "Flags every transaction whose time falls between 01:00 and 04:59 (inclusive), on any day.",
+          "assumptions": [
+            "The time is read from the transaction's date column exactly as stored. No time zone conversion is applied.",
+            "The window covers any timestamp from 01:00:00 through 04:59:59, so it includes every minute up to and including 04:59.",
+            "No other conditions are added, such as amount, transaction type or card type."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4632,
+      "output_tokens": 316
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh2m9BEU25ttXeEzZoA",
+    "request_hash": "81ff237c73a36efc2cabedbe61f8177ca7990226e202a2f047fda91862258dd4"
+  }
+}

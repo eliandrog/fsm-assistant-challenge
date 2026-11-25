@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "debatable-average-rounded",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT AVG(amount_usd_cents) / 100.0 AS avg_amount_usd, COUNT(*) AS online_transactions FROM transactions WHERE transaction_type = 'Online Transaction'",
+          "explanation": "Returns the average amount in dollars of all online transactions, along with how many online transactions there are.",
+          "assumptions": [
+            "An 'online transaction' means transaction_type = 'Online Transaction', not one at a merchant location with city 'ONLINE'.",
+            "Negative amounts are included in the average as they are, because their meaning is not documented.",
+            "All transactions are counted, labelled or not, across the whole data period (2019-01-01 to 2019-10-31)."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4621,
+      "output_tokens": 379
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhG4GRx7pH8LvoUb8Nd",
+    "request_hash": "3c1df01055026ab18ad53e83263b3f58f74a076a15f451b881bc7a1a5903f276"
+  }
+}

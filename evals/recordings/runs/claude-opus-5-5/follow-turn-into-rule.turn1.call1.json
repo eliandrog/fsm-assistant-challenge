@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "follow-turn-into-rule",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT COUNT(*) AS online_transactions_over_2000 FROM transactions WHERE transaction_type = 'Online Transaction' AND amount_usd_cents > 200000",
+          "explanation": "Counts all online transactions with an amount strictly greater than $2,000, across the full data period.",
+          "assumptions": [
+            "\"Online\" means transaction_type = 'Online Transaction'.",
+            "\"Over $2,000\" means strictly greater than 200000 cents.",
+            "All transactions are counted, labelled or not, across the full data range 2019-01-01 to 2019-10-31."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4619,
+      "output_tokens": 321
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgt2EXaNNARST7U1BGn",
+    "request_hash": "725ceb09352ca8c27b885cf05f3bf98a2df60e1ea949b73a11ee0abf30e6529a"
+  }
+}

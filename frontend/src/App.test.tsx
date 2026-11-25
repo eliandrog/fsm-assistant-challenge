@@ -58,7 +58,7 @@ describe('sending a message', () => {
     expect(screen.getByRole('list', { name: 'Example questions' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Send message' })).toBeDisabled();
     const status = within(screen.getByRole('list', { name: 'Server status' }));
-    expect(await status.findByText('claude-opus-5-5')).toBeInTheDocument();
+    expect(await status.findByText('claude-haiku-5-5')).toBeInTheDocument();
     expect(status.getByText('Tracing on')).toBeInTheDocument();
   });
 
@@ -118,7 +118,7 @@ describe('sending a message', () => {
       health: { ...HEALTH.live, limits: { ...HEALTH.live.limits, max_message_characters: 20 } },
     });
     const { user, input } = setup(client);
-    await screen.findByText('claude-opus-5-5');
+    await screen.findByText('claude-haiku-5-5');
     await user.type(input, 'x'.repeat(21));
     expect(screen.getByText('21 / 20')).toBeInTheDocument();
     expect(input).toHaveAttribute('aria-invalid', 'true');
@@ -186,7 +186,7 @@ describe('errors and recovery', () => {
     const client = fixtureClient({ fallback: unreachable });
     const health = vi.spyOn(client, 'health');
     const { user, ask } = setup(client);
-    await screen.findByText('claude-opus-5-5');
+    await screen.findByText('claude-haiku-5-5');
     health.mockResolvedValue(null);
     await ask('anything');
 

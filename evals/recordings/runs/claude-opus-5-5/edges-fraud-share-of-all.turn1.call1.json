@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "edges-fraud-share-of-all",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate, SUM(f.is_fraud) AS fraud_count, COUNT(*) AS labelled_count FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)",
+          "explanation": "This returns the share of transactions that are fraud. It also returns the number of fraud cases and the number of transactions that have a fraud label.",
+          "assumptions": [
+            "The rate counts only transactions that have a fraud label. Unlabelled transactions are unknown, not legitimate, so they are left out of both the top and bottom of the fraction. That means this is not a share of every transaction.",
+            "The rate is a fraction between 0 and 1, not a percentage. Multiply it by 100 to get the percentage."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4618,
+      "output_tokens": 420
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNhCiedaxrWPEhhR7zqH",
+    "request_hash": "00981458fae8f32d85e5896379a963627b502604193974c919dce41da710357c"
+  }
+}

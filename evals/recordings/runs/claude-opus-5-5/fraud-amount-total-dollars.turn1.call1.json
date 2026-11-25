@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-amount-total-dollars",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT SUM(t.amount_usd_cents) / 100.0 AS total_fraud_amount_usd, COUNT(*) AS fraud_transactions FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE f.is_fraud = 1",
+          "explanation": "Adds up the amounts, in dollars, of all transactions labelled as fraud, and also gives how many such transactions there are.",
+          "assumptions": [
+            "Negative amounts on fraud-labelled transactions are included in the sum as they are, because their meaning is not documented.",
+            "Only transactions that have a fraud label set to fraud are counted. Unlabelled transactions are left out."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 317
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgik5BWsLn1yf9WFURa",
+    "request_hash": "d42960512957de34afd2372fce9538bcd0bf9c49b44eb2e32e5cfd0b8c5b2576"
+  }
+}

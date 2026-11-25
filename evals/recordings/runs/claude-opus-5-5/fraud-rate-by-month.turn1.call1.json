@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-rate-by-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT strftime('%Y-%m', t.date) AS month, COUNT(*) AS labelled_transactions, SUM(f.is_fraud) AS fraud_transactions, 1.0 * SUM(f.is_fraud) / COUNT(*) AS fraud_rate FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT) WHERE t.date >= '2019-01-01' AND t.date < '2019-11-01' GROUP BY month ORDER BY month",
+          "explanation": "For each month from January to October 2019, this returns the fraud rate as a fraction, with the number of labelled transactions and the number of fraudulent ones.",
+          "assumptions": [
+            "The fraud rate is worked out only over transactions that have a fraud label. Transactions without a label are left out.",
+            "Months come from the transaction date, as calendar months."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4624,
+      "output_tokens": 376
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNggqK8b7eHvojbKdU2N",
+    "request_hash": "efaf4f802bb503339ff9629b32d2e269801a27cd8c5147fcaddf0c3e3d791e4c"
+  }
+}

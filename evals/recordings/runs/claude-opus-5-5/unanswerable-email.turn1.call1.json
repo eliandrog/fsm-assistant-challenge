@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-email",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database doesn't store customer email addresses. The users table only has birth date, gender, address, coordinates, income, debt and credit score. I can list each customer's postal address or other profile fields if that would help."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4613,
+      "output_tokens": 107
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgvjFuB4xRXbH6L1a7F",
+    "request_hash": "ae0e897cd609c76b5ece5f7f5de56f29c50f4eeb679483209291d45396193c50"
+  }
+}

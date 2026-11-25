@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-outside-date-range",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The transaction data only covers 2019-01-01 to 2019-10-31, so there are no 2018 transactions in it. A zero count would be misleading. I can count transactions for any period inside that range instead, for example all of 2019 so far."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4616,
+      "output_tokens": 120
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgwHqiW6x2WNz9NAQho",
+    "request_hash": "7b941f69b28419f75ef3b75e4b01bd1202a9dd6c60db4c509092049aca785e0d"
+  }
+}

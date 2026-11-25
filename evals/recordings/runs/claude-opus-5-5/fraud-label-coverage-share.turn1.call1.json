@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "fraud-label-coverage-share",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "SELECT (SELECT COUNT(*) FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)) AS labelled_transactions, (SELECT COUNT(*) FROM transactions) AS total_transactions, 1.0 * (SELECT COUNT(*) FROM transactions t JOIN fraud_labels f ON f.transaction_id = CAST(t.id AS TEXT)) / (SELECT COUNT(*) FROM transactions) AS labelled_fraction",
+          "explanation": "This counts the transactions that have a fraud label (marked either fraud or not fraud) and the total number of transactions. It also gives the labelled share as a fraction between 0 and 1.",
+          "assumptions": [
+            "I took 'have a fraud label' to mean any label, whether it says fraud or not fraud. If you meant transactions marked as fraud, that is a different number.",
+            "I counted only labels that match a transaction, so the join with transactions decides what counts as labelled."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4620,
+      "output_tokens": 419
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgfveLhP4N6287nRhKs",
+    "request_hash": "1f5d93f76e11fb8e480f9be13698ae6c807d13a5fae8d334ece888aab436efa3"
+  }
+}

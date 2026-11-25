@@ -1,0 +1,32 @@
+{
+  "format_version": 1,
+  "case_id": "date-month-over-month",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "run_sql",
+        "arguments": {
+          "sql": "WITH monthly AS (SELECT strftime('%Y-%m', date) AS month, COUNT(*) AS txn_count FROM transactions WHERE date >= '2019-01-01' AND date < '2019-11-01' GROUP BY strftime('%Y-%m', date)), with_change AS (SELECT month, txn_count, txn_count - lag(txn_count) OVER (ORDER BY month) AS change_from_prev_month FROM monthly) SELECT month, txn_count, change_from_prev_month FROM with_change WHERE month >= '2019-02' ORDER BY month",
+          "explanation": "For each month from February to October 2019, this returns the number of transactions and how much that number went up or down compared with the month before. February is compared with January 2019.",
+          "assumptions": [
+            "All transactions are counted, whether or not they have a fraud label, and including those with negative amounts or errors.",
+            "February's change is measured against January 2019, which is in the data but is not shown as a row itself.",
+            "The change is this month's count minus last month's count, as an absolute number, not a percentage."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4636,
+      "output_tokens": 497
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgkgbNkaAsfiTQ7hvt1",
+    "request_hash": "4aeee3eb9d8ce49b5cccc00cdce2f9d0aba8677c49b4c5aedb1b70f3657a3ae7"
+  }
+}

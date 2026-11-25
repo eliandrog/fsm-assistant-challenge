@@ -1,0 +1,26 @@
+{
+  "format_version": 1,
+  "case_id": "unanswerable-card-numbers",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "decline",
+        "arguments": {
+          "reason": "The database doesn't store full card numbers or CVVs. The cards table only has the card ID, brand, type, expiry date, chip flag, credit limit, account open date and the year the PIN was last changed. I can list the card IDs, with those details, for every card that has a labelled fraud transaction."
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4628,
+      "output_tokens": 137
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNgwPRZjWQYqppdqZAKE",
+    "request_hash": "43001c223607e37c41c769aa3a4563920778c0561e444b39c6701aecf95037e7"
+  }
+}

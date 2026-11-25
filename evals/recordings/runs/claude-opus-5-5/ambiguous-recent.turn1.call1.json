@@ -1,0 +1,31 @@
+{
+  "format_version": 1,
+  "case_id": "ambiguous-recent",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "ask_clarification",
+        "arguments": {
+          "question": "What should \"recent\" cover, and what would you like to see about those transactions?",
+          "suggestions": [
+            "List the 50 latest transactions (the data ends 2019-10-31), with amount, type, merchant category and error",
+            "Summarise October 2019: count, total and average amount, broken down by transaction type",
+            "Show the daily transaction count and labelled fraud rate for the last 30 days of data (2019-10-02 to 2019-10-31)"
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4615,
+      "output_tokens": 256
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNguwDTi9fdpWxAftvx3",
+    "request_hash": "45eb9b882c684b03bea9297a7d3f44d5a90cec36bf89e50d0fe9f723cf161948"
+  }
+}

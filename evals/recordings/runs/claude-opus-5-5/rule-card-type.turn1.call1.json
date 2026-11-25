@@ -1,0 +1,30 @@
+{
+  "format_version": 1,
+  "case_id": "rule-card-type",
+  "turn": 1,
+  "call": 1,
+  "reply": {
+    "tool_mode": "tools",
+    "tool_calls": [
+      {
+        "name": "propose_rule",
+        "arguments": {
+          "where_clause": "card_id IN (SELECT id FROM cards WHERE card_type = 'Debit (Prepaid)')",
+          "explanation": "Flags every transaction made with a card whose type is prepaid debit.",
+          "assumptions": [
+            "Prepaid debit cards are cards with card_type = 'Debit (Prepaid)'. Regular 'Debit' cards are not included."
+          ]
+        }
+      }
+    ],
+    "text": "",
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 4627,
+      "output_tokens": 201
+    },
+    "model_id": "claude-opus-5-5",
+    "response_id": "msg_011ChNh1ED3dvUr2i9KtBFFW",
+    "request_hash": "2dacb83582a5db8ba48f7c41e94705836bdaab2f35dec6808841bf671d34edad"
+  }
+}

@@ -73,7 +73,7 @@ def test_ask_prints_the_model_in_use_the_answer_and_the_sql(
     assert cli.main(["ask", "How many transactions are there?"]) == 0
     output = capsys.readouterr().out
     assert model.calls == 1
-    assert output.startswith("Model: claude-opus-5-5, live. Each question is billed")
+    assert output.startswith("Model: claude-haiku-5-5, live. Each question is billed")
     assert "count(*): 6" in output
     assert f"SQL that ran:\n    {COUNT}" in output
     assert "Model's explanation (not checked): What it returns." in output
