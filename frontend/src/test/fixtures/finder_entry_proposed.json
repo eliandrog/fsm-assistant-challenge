@@ -1,0 +1,41 @@
+{
+  "run_id": 1,
+  "position": 1,
+  "title": "Card used in Rome, Italy",
+  "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+  "columns": [
+    "transactions.merchant_location_id",
+    "merchant_locations.city",
+    "merchant_locations.state"
+  ],
+  "scenario_assumptions": [
+    "merchant_locations.state holds a country name outside the US.",
+    "Every cardholder lives in the US; the schema does not say so."
+  ],
+  "status": "proposed",
+  "turn_outcome": null,
+  "turn_message": null,
+  "refused": [],
+  "clause": null,
+  "explanation": null,
+  "rule_assumptions": [],
+  "rule": null,
+  "caveats": [],
+  "criteria": [],
+  "duplicate_check": "not_applicable",
+  "model_id": "scripted",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "processed_run_id": null,
+  "turn_error_kind": null,
+  "id": 1,
+  "created_at": "2000-01-01T00:00:00+00:00",
+  "decision": "pending",
+  "decision_note": null,
+  "decided_at": null,
+  "matches": [],
+  "backtest_sql": null,
+  "monthly_sql": null,
+  "verdict": "Proposed: waiting to be processed. No rule has been written and nothing has run.",
+  "verdict_short": "waiting"
+}

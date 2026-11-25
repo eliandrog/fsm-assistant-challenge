@@ -30,9 +30,16 @@ one as a `ConfigError` that names the environment variable it came from.
 import os
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    SecretStr,
+    ValidationError,
+    field_validator,
+    model_validator,
+)
 
 from fsm_assistant.db import DEFAULT_MAX_RESULT_BYTES
 
@@ -52,6 +59,13 @@ DEFAULT_ROW_CAP = 1000
 # GROUP BY) takes about 1.3 s; a mistaken join can run for minutes.
 DEFAULT_QUERY_TIMEOUT_SECONDS = 15.0
 DEFAULT_LOG_DIR = PROJECT_ROOT / "logs"
+# The rule bank: a second SQLite file, written by the rule finder. Never the
+# transaction database (docs/DECISIONS.md, D-35).
+DEFAULT_RULE_BANK_PATH = PROJECT_ROOT / "var" / "rule_bank.db"
+# Scenarios `find-rules` proposes and processes in one go: at most 1 + 2 x this many
+# requests. The web page does not use it: there, one click is one scenario.
+DEFAULT_FINDER_BATCH_SIZE = 1
+MAX_FINDER_BATCH_SIZE = 25
 DEFAULT_LANGSMITH_ENDPOINT = "https://api.smith.langchain.com"
 # Where traces go when neither a project nor an agent is named.
 DEFAULT_LANGSMITH_PROJECT = "fsm-assistant"
@@ -106,6 +120,8 @@ class Settings(BaseModel):
     langsmith_agent_id: str | None
     langsmith_agent_environment: str | None
     trace_system_prompt: TraceSystemPrompt
+    rule_bank_path: Path
+    finder_batch_size: int
 
     @field_validator("log_file", mode="before")
     @classmethod
@@ -130,7 +146,12 @@ class Settings(BaseModel):
         return value.rstrip("/")
 
     @field_validator(
-        "row_cap", "max_result_bytes", "max_tokens", "max_message_characters", mode="before"
+        "row_cap",
+        "max_result_bytes",
+        "max_tokens",
+        "max_message_characters",
+        "finder_batch_size",
+        mode="before",
     )
     @classmethod
     def _whole_number(cls, value: object) -> object:
@@ -148,12 +169,26 @@ class Settings(BaseModel):
         "max_tokens",
         "model_timeout_seconds",
         "max_message_characters",
+        "finder_batch_size",
     )
     @classmethod
     def _positive_and_finite[N: (int, float)](cls, value: N) -> N:
         if not 0 < value < float("inf"):
             raise ValueError("must be greater than zero")
         return value
+
+    @field_validator("finder_batch_size")
+    @classmethod
+    def _bounded_batch(cls, value: int) -> int:
+        if value > MAX_FINDER_BATCH_SIZE:
+            raise ValueError(f"must be at most {MAX_FINDER_BATCH_SIZE}")
+        return value
+
+    @model_validator(mode="after")
+    def _bank_is_not_the_database(self) -> Self:
+        if self.rule_bank_path.resolve() == self.db_path.resolve():
+            raise ValueError("rule_bank_path must not be the transaction database")
+        return self
 
 
 # Settings field -> the environment variable it is read from.
@@ -179,6 +214,8 @@ _VARIABLES = {
     "langsmith_agent_id": "LANGSMITH_AGENT_ID",
     "langsmith_agent_environment": "LANGSMITH_AGENT_ENVIRONMENT",
     "trace_system_prompt": "FSM_TRACE_SYSTEM_PROMPT",
+    "rule_bank_path": "FSM_RULE_BANK_PATH",
+    "finder_batch_size": "FSM_FINDER_BATCH_SIZE",
 }
 _SECRETS = frozenset({"anthropic_api_key", "langsmith_api_key"})
 
@@ -257,13 +294,16 @@ def load_settings(
         "langsmith_agent_id": get("LANGSMITH_AGENT_ID"),
         "langsmith_agent_environment": get("LANGSMITH_AGENT_ENVIRONMENT"),
         "trace_system_prompt": get("FSM_TRACE_SYSTEM_PROMPT") or DEFAULT_TRACE_SYSTEM_PROMPT,
+        "rule_bank_path": path("FSM_RULE_BANK_PATH", DEFAULT_RULE_BANK_PATH),
+        "finder_batch_size": get("FSM_FINDER_BATCH_SIZE") or DEFAULT_FINDER_BATCH_SIZE,
     }
     try:
         return Settings.model_validate(fields)
     except ValidationError as error:
         # The first error, in field order, with the variable's name in place of the field's.
         first = error.errors()[0]
-        field = str(first["loc"][0])
+        # A check across two fields names none; the bank's path is the one such check.
+        field = str(first["loc"][0]) if first["loc"] else "rule_bank_path"
         context = first.get("ctx", {})
         reason = context.get("error") or (
             f"must be one of {context['expected']}" if "expected" in context else first["msg"]

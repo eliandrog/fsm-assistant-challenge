@@ -1,0 +1,216 @@
+{
+  "running": false,
+  "active": null,
+  "propose_requests": 1,
+  "process_requests": 2,
+  "criteria": {
+    "confirmation_starts": "2019-08",
+    "discovery_min_labelled": 30,
+    "discovery_min_fraud": 5,
+    "discovery_min_lift": 1.5,
+    "confirmation_min_labelled": 30,
+    "confirmation_min_fraud": 2,
+    "confirmation_min_lift": 1.0,
+    "confirmation_lift_ratio": 0.5
+  },
+  "note": "The rule's text was written from the schema alone, with no data. It was selected on the discovery period and then measured on the confirmation period, which played no part in selecting it. That is a check on a later part of the same history, made for several candidates at once, so a rule can pass it by chance. It is not a test on new data: only new data or a shadow run can show that a rule holds.",
+  "last_run": {
+    "id": 1,
+    "kind": "propose",
+    "status": "completed",
+    "error": null,
+    "source": "scripted",
+    "batch_size": 8,
+    "scenarios": 8,
+    "items": [
+      {
+        "position": 1,
+        "title": "Card used in Rome, Italy",
+        "result": "proposed",
+        "entry_id": 1,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 2,
+        "title": "One merchant taking many cards",
+        "result": "proposed",
+        "entry_id": 2,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 3,
+        "title": "Card testing at $5.17",
+        "result": "proposed",
+        "entry_id": 3,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 4,
+        "title": "Unusually large purchase",
+        "result": "proposed",
+        "entry_id": 4,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 5,
+        "title": "Transactions already known as fraud",
+        "result": "proposed",
+        "entry_id": 5,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 6,
+        "title": "Purchases at Italian locations named Rome",
+        "result": "proposed",
+        "entry_id": 6,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 7,
+        "title": "Many declined attempts before one success",
+        "result": "proposed",
+        "entry_id": 7,
+        "status": "proposed",
+        "match_kind": null
+      },
+      {
+        "position": 8,
+        "title": "Purchases at night",
+        "result": "proposed",
+        "entry_id": 8,
+        "status": "proposed",
+        "match_kind": null
+      }
+    ],
+    "model_requests": 1,
+    "request_bound": 1,
+    "input_tokens": 1000,
+    "output_tokens": 100,
+    "elapsed_ms": 1234,
+    "model_id": "claude-haiku-5-5",
+    "scenario_prompt_version": "scenarios-2",
+    "rule_prompt_version": "turn-5",
+    "started_at": "2000-01-01T00:00:00+00:00",
+    "finished_at": "2000-01-01T00:00:00+00:00"
+  },
+  "proposed": [
+    {
+      "id": 1,
+      "run_id": 1,
+      "title": "Card used in Rome, Italy",
+      "hypothesis": "A card issued in the US is used at a merchant location in Rome, Italy, far from its owner. Flag every transaction at a location with city 'Rome' and state 'Italy'.",
+      "columns": [
+        "transactions.merchant_location_id",
+        "merchant_locations.city",
+        "merchant_locations.state"
+      ],
+      "assumptions": [
+        "merchant_locations.state holds a country name outside the US.",
+        "Every cardholder lives in the US; the schema does not say so."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 2,
+      "run_id": 1,
+      "title": "One merchant taking many cards",
+      "hypothesis": "A colluding merchant runs stolen cards. Flag every transaction at merchant 30.",
+      "columns": [
+        "transactions.merchant_id"
+      ],
+      "assumptions": [
+        "Merchant 30 stands for a merchant with unusually many distinct cards."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 3,
+      "run_id": 1,
+      "title": "Card testing at $5.17",
+      "hypothesis": "A stolen card is tested with a small fixed charge. Flag transactions of exactly $5.17 (517 cents).",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "$5.17 is a chosen amount; no data supports it.",
+        "Negative amounts are left out."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 4,
+      "run_id": 1,
+      "title": "Unusually large purchase",
+      "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "Larger than usual is left undefined."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 5,
+      "run_id": 1,
+      "title": "Transactions already known as fraud",
+      "hypothesis": "Flag the transactions the fraud team has already labelled as fraud.",
+      "columns": [
+        "fraud_labels.is_fraud"
+      ],
+      "assumptions": [
+        "A label is known when the transaction happens."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 6,
+      "run_id": 1,
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 7,
+      "run_id": 1,
+      "title": "Many declined attempts before one success",
+      "hypothesis": "A stolen card number is tried with guessed details. Flag a successful transaction on a card that had at least 3 transactions with an error in the hour before.",
+      "columns": [
+        "transactions.errors",
+        "transactions.card_id",
+        "transactions.date"
+      ],
+      "assumptions": [
+        "Any non-NULL value of errors counts as a declined attempt."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    },
+    {
+      "id": 8,
+      "run_id": 1,
+      "title": "Purchases at night",
+      "hypothesis": "Fraud happens while the cardholder sleeps. Flag transactions between 01:00 and 05:00.",
+      "columns": [
+        "transactions.date"
+      ],
+      "assumptions": [
+        "transactions.date is in the cardholder's local time."
+      ],
+      "created_at": "2000-01-01T00:00:00+00:00"
+    }
+  ],
+  "discarded": 0,
+  "entries": []
+}

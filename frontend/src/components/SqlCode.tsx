@@ -1,12 +1,12 @@
 import { useMemo } from 'react';
 import { tokenizeSql } from '../lib/highlightSql';
 
-/** Syntax-coloured SQL. Scrolls horizontally instead of wrapping. */
-export function SqlCode({ sql, label }: { sql: string; label: string }) {
+/** Syntax-coloured SQL. Scrolls horizontally inside its own box, or wraps when `wrap` is set. */
+export function SqlCode({ sql, label, wrap = false }: { sql: string; label: string; wrap?: boolean }) {
   const tokens = useMemo(() => tokenizeSql(sql), [sql]);
   return (
     // tabIndex: lets keyboard users scroll wide statements.
-    <pre className="sql-code" tabIndex={0} role="region" aria-label={label} translate="no">
+    <pre className={wrap ? 'sql-code sql-wrap' : 'sql-code'} tabIndex={0} role="region" aria-label={label} translate="no">
       <code>
         {tokens.map((token, i) =>
           token.type === 'plain' ? (

@@ -1,4 +1,4 @@
-import type { Health, TurnResult } from './types';
+import type { BankEntry, FinderOverview, FinderRun, Health, RunProgress, TurnResult } from './types';
 
 /**
  * Structural checks for JSON this interface did not write: a response body,
@@ -84,5 +84,91 @@ export function isHealth(value: unknown): value is Health {
     isRecord(value.limits) &&
     typeof value.limits.max_message_characters === 'number' &&
     isStrings(value.demo_questions)
+  );
+}
+
+function isPeriod(value: unknown): boolean {
+  return isRecord(value) && typeof value.flagged === 'number' && typeof value.true_positives === 'number';
+}
+
+export function isFinderRun(value: unknown): value is FinderRun {
+  return (
+    isRecord(value) &&
+    isString(value.status) &&
+    isNullable(value.error, (e) => isRecord(e) && isString(e.kind) && isString(e.message)) &&
+    typeof value.scenarios === 'number' &&
+    typeof value.model_requests === 'number' &&
+    Array.isArray(value.items) &&
+    value.items.every((item) => isRecord(item) && isString(item.title) && isString(item.result))
+  );
+}
+
+export function isRunProgress(value: unknown): value is RunProgress {
+  return (
+    isRecord(value) &&
+    typeof value.run_id === 'number' &&
+    typeof value.entry_id === 'number' &&
+    isString(value.state) &&
+    isNullable(value.step, isString) &&
+    isStrings(value.done) &&
+    typeof value.attempt === 'number' &&
+    isRecord(value.scenario) &&
+    isString(value.scenario.title) &&
+    isString(value.scenario.hypothesis) &&
+    isNullable(value.clause, isString) &&
+    isNullable(value.error, (e) => isRecord(e) && isString(e.kind) && isString(e.message))
+  );
+}
+
+export function isFinderOverview(value: unknown): value is FinderOverview {
+  return (
+    isRecord(value) &&
+    typeof value.running === 'boolean' &&
+    isNullable(value.active, isRunProgress) &&
+    typeof value.propose_requests === 'number' &&
+    typeof value.process_requests === 'number' &&
+    typeof value.discarded === 'number' &&
+    Array.isArray(value.proposed) &&
+    value.proposed.every(
+      (s) => isRecord(s) && typeof s.id === 'number' && isString(s.title) && isString(s.hypothesis) &&
+        isStrings(s.columns) && isStrings(s.assumptions),
+    ) &&
+    isRecord(value.criteria) &&
+    isString(value.note) &&
+    isNullable(value.last_run, isFinderRun) &&
+    Array.isArray(value.entries) &&
+    value.entries.every(
+      (entry) =>
+        isRecord(entry) &&
+        typeof entry.id === 'number' &&
+        isString(entry.title) &&
+        isString(entry.status) &&
+        isString(entry.decision) &&
+        isNullable(entry.discovery, isPeriod) &&
+        isNullable(entry.confirmation, isPeriod),
+    )
+  );
+}
+
+export function isBankEntry(value: unknown): value is BankEntry {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'number' &&
+    isString(value.title) &&
+    isString(value.hypothesis) &&
+    isString(value.status) &&
+    isString(value.decision) &&
+    isNullable(value.turn_outcome, isString) &&
+    isStrings(value.columns) &&
+    isStrings(value.scenario_assumptions) &&
+    isStrings(value.rule_assumptions) &&
+    isStrings(value.refused) &&
+    isNullable(value.clause, isString) &&
+    isNullable(value.rule, isRule) &&
+    Array.isArray(value.criteria) &&
+    value.criteria.every((c) => isRecord(c) && isString(c.detail) && typeof c.passed === 'boolean') &&
+    Array.isArray(value.caveats) &&
+    value.caveats.every((c) => isRecord(c) && isString(c.code) && isString(c.message)) &&
+    Array.isArray(value.matches)
   );
 }

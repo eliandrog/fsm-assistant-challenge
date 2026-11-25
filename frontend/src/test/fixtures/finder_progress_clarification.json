@@ -1,0 +1,108 @@
+[
+  {
+    "run_id": 5,
+    "entry_id": 4,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "Unusually large purchase",
+      "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "Larger than usual is left undefined."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 5,
+    "entry_id": 4,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Unusually large purchase",
+      "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "Larger than usual is left undefined."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 5,
+    "entry_id": 4,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Unusually large purchase",
+      "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "Larger than usual is left undefined."
+      ]
+    },
+    "clause": null,
+    "outcome": "added",
+    "result_entry_id": 4,
+    "status": "not_built",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No rule built: the model asked what the scenario meant instead of writing a rule."
+  },
+  {
+    "run_id": 5,
+    "entry_id": 4,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Unusually large purchase",
+      "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+      "columns": [
+        "transactions.amount_usd_cents"
+      ],
+      "assumptions": [
+        "Larger than usual is left undefined."
+      ]
+    },
+    "clause": null,
+    "outcome": "added",
+    "result_entry_id": 4,
+    "status": "not_built",
+    "match_kind": null,
+    "error": null,
+    "verdict": "No rule built: the model asked what the scenario meant instead of writing a rule."
+  }
+]

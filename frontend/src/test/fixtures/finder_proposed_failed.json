@@ -1,0 +1,23 @@
+{
+  "id": 1,
+  "kind": "propose",
+  "status": "failed",
+  "error": {
+    "kind": "scenario_shape",
+    "message": "The reply held no scenario."
+  },
+  "source": "scripted",
+  "batch_size": 1,
+  "scenarios": 0,
+  "items": [],
+  "model_requests": 1,
+  "request_bound": 1,
+  "input_tokens": 1000,
+  "output_tokens": 100,
+  "elapsed_ms": 1234,
+  "model_id": "claude-haiku-5-5",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "started_at": "2000-01-01T00:00:00+00:00",
+  "finished_at": "2000-01-01T00:00:00+00:00"
+}

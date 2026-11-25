@@ -1,0 +1,21 @@
+{
+  "running": false,
+  "active": null,
+  "propose_requests": 1,
+  "process_requests": 2,
+  "criteria": {
+    "confirmation_starts": "2019-08",
+    "discovery_min_labelled": 30,
+    "discovery_min_fraud": 5,
+    "discovery_min_lift": 1.5,
+    "confirmation_min_labelled": 30,
+    "confirmation_min_fraud": 2,
+    "confirmation_min_lift": 1.0,
+    "confirmation_lift_ratio": 0.5
+  },
+  "note": "The rule's text was written from the schema alone, with no data. It was selected on the discovery period and then measured on the confirmation period, which played no part in selecting it. That is a check on a later part of the same history, made for several candidates at once, so a rule can pass it by chance. It is not a test on new data: only new data or a shadow run can show that a rule holds.",
+  "last_run": null,
+  "proposed": [],
+  "discarded": 0,
+  "entries": []
+}

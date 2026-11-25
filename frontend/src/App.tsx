@@ -3,7 +3,8 @@ import { createClient, type ChatClient } from './api/client';
 import type { Reply } from './api/types';
 import { Composer } from './components/Composer';
 import { EmptyState } from './components/EmptyState';
-import { Header } from './components/Header';
+import { RuleFinder } from './components/finder/RuleFinder';
+import { Header, type View } from './components/Header';
 import { MessageList } from './components/MessageList';
 import { Sidebar } from './components/Sidebar';
 import { useConversations } from './hooks/useConversations';
@@ -42,6 +43,7 @@ export default function App({ client: injected }: { client?: ChatClient }) {
   // One unsent draft per conversation, so switching does not carry text across.
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [view, setView] = useState<View>('chat');
 
   const { activeId, messages, pending, send } = chat;
   const draft = drafts[activeId] ?? '';
@@ -68,6 +70,7 @@ export default function App({ client: injected }: { client?: ChatClient }) {
 
   /** A new chat is for typing: focus goes to the composer, closing the drawer if it is open. */
   const startNewChat = useCallback(() => {
+    setView('chat');
     newChat();
     if (drawerOpen) closeDrawer(inputRef.current);
     else inputRef.current?.focus();
@@ -80,6 +83,7 @@ export default function App({ client: injected }: { client?: ChatClient }) {
    */
   const openConversation = useCallback(
     (id: string) => {
+      setView('chat');
       select(id);
       if (drawerOpen) closeDrawer();
       else inputRef.current?.focus();
@@ -93,10 +97,14 @@ export default function App({ client: injected }: { client?: ChatClient }) {
 
   return (
     <div className="app">
-      <a className="skip-link" href="#composer-input">
-        Skip to message box
-      </a>
+      {view === 'chat' && (
+        <a className="skip-link" href="#composer-input">
+          Skip to message box
+        </a>
+      )}
 
+      {/* The conversations belong to the chat: in the finder view they are not rendered. */}
+      {view === 'chat' && (
       <Sidebar
         conversations={chat.conversations}
         activeId={activeId}
@@ -112,10 +120,13 @@ export default function App({ client: injected }: { client?: ChatClient }) {
         onUndoDelete={chat.undoRemove}
         onClose={() => closeDrawer()}
       />
+      )}
 
       {/* Inert while the drawer is open: focus and clicks stay in the drawer. */}
-      <div className="pane" inert={sidebar.modal}>
+      <div className="pane" inert={sidebar.modal && view === 'chat'}>
         <Header
+          view={view}
+          onView={setView}
           health={health}
           theme={theme}
           onToggleTheme={toggleTheme}
@@ -126,7 +137,20 @@ export default function App({ client: injected }: { client?: ChatClient }) {
           canReset={!isEmpty}
         />
 
-        <main className="main" data-empty={isEmpty || undefined}>
+        {view === 'finder' && (
+          <main className="main">
+            <div className="column column-wide">
+              <RuleFinder client={client} demo={isDemo} />
+            </div>
+          </main>
+        )}
+
+        {/*
+          The chat's state lives above (drafts, conversations), so it survives the switch. Its
+          interface does not: in the finder view it is hidden and inert, out of sight, of the tab
+          order and of the accessibility tree.
+        */}
+        <main className="main" data-empty={isEmpty || undefined} hidden={view !== 'chat'} inert={view !== 'chat'}>
           <div className="column">
             {isEmpty ? (
               <EmptyState onPick={sendPreset} demoQuestions={known?.demo_questions ?? []} />
@@ -143,7 +167,7 @@ export default function App({ client: injected }: { client?: ChatClient }) {
           </div>
         </main>
 
-        <div className="dock">
+        <div className="dock" hidden={view !== 'chat'} inert={view !== 'chat'}>
           <div className="column">
             <Composer
               value={draft}
@@ -167,7 +191,7 @@ export default function App({ client: injected }: { client?: ChatClient }) {
       </div>
 
       <div className="sr-only" role="status" aria-live="polite">
-        {announcement(messages, pending)}
+        {view === 'chat' && announcement(messages, pending)}
       </div>
     </div>
   );

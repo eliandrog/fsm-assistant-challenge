@@ -1,0 +1,170 @@
+[
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "running",
+    "step": "write_rule",
+    "done": [],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "running",
+    "step": "check_rule",
+    "done": [
+      "write_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "running",
+    "step": "backtest",
+    "done": [
+      "write_rule",
+      "check_rule"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": null,
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "running",
+    "step": "duplicates",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": "merchant_location_id = 1",
+    "outcome": null,
+    "result_entry_id": null,
+    "status": null,
+    "match_kind": null,
+    "error": null,
+    "verdict": null
+  },
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "running",
+    "step": "duplicates",
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": "merchant_location_id = 1",
+    "outcome": "duplicate",
+    "result_entry_id": 1,
+    "status": "confirmed",
+    "match_kind": "same_transactions",
+    "error": null,
+    "verdict": "Duplicate: the model wrote a clause that flags exactly the same transactions as rule 1, so no entry was added."
+  },
+  {
+    "run_id": 7,
+    "entry_id": 6,
+    "state": "completed",
+    "step": null,
+    "done": [
+      "write_rule",
+      "check_rule",
+      "backtest",
+      "duplicates"
+    ],
+    "attempt": 1,
+    "scenario": {
+      "title": "Purchases at Italian locations named Rome",
+      "hypothesis": "A stolen card is used abroad. Flag transactions at merchant location 1.",
+      "columns": [
+        "transactions.merchant_location_id"
+      ],
+      "assumptions": [
+        "Location 1 is the one in Rome, Italy."
+      ]
+    },
+    "clause": "merchant_location_id = 1",
+    "outcome": "duplicate",
+    "result_entry_id": 1,
+    "status": "confirmed",
+    "match_kind": "same_transactions",
+    "error": null,
+    "verdict": "Duplicate: the model wrote a clause that flags exactly the same transactions as rule 1, so no entry was added."
+  }
+]

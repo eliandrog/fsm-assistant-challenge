@@ -14,6 +14,7 @@
 - [Backtest metrics](#backtest-metrics)
 - [Outcomes](#outcomes)
 - [Interfaces](#interfaces)
+- [The rule finder](#the-rule-finder)
 - [Observability](#observability)
 - [Where hallucination mitigations sit](#where-hallucination-mitigations-sit)
 - [Evidence](#evidence)
@@ -309,6 +310,9 @@ All six points hold in the built code. They are properties of the design, checke
 | `nodes.py` | The node functions listed [above](#the-nodes) | Built |
 | `llm.py` | The only module that talks to a model provider. One small interface with four implementations: live (Claude), recording, replay, scripted (for tests) | Built |
 | `nl2sql.py` | The five tool schemas and typed actions, shape checks, the prompt version | Built |
+| `scenarios.py` | The rule finder's one scenario request: its system text, its single strict tool, its version (`scenarios-2`) and how its reply is read. Its only inputs are the schema context, a count and the text of earlier scenarios | Built; run against Claude in two finder runs |
+| `finder.py` | The rule finder's two steps: `propose` (the scenario request, scenarios saved as proposed) and `process` (one ordinary turn for a scenario, on a worker thread, with its `RunProgress`); the criteria and the verdict, the duplicate check, the cost bounds, the lock, discard and delete, and the terminal text | Built; two live batch runs under D-35, one cut short by a fault since fixed, and three live single-rule runs |
+| `rule_bank.py` | The rule bank: the only module that opens the bank's SQLite file, and it opens nothing else. Runs, entries (proposed, discarded or processed), matches, review decisions, delete, and marking interrupted runs | Built |
 | `prompt.py` | Prompt assembly: role and tool rules, glossary, rule scope, the previous-turn block and the repair paragraph | Built; run against Claude in one seven-question smoke test on two models |
 | `sql_scan.py` | Splits SQL text into tokens, pairing quotes and comments as SQLite does | Built |
 | `sql_guard.py` | Text limits, query policy and rule policy, decided in code | Built |
@@ -337,7 +341,7 @@ All six points hold in the built code. They are properties of the design, checke
 
 ## Built components
 
-Imports between the built modules go one way: `cli` imports `api`, `demo`, `runtime`, `graph`, `presentation`, `explore`, `model_check`, `nl2sql`, `llm`, `db` and `config`; `api` imports `graph`, `result`, `presentation`, `schema_context`, `nl2sql`, `tracing`, `db` and `config`, and never `cli`; `runtime` imports `graph`, `events`, `tracing`, `applog`, `nl2sql`, `llm` and `config`; `demo` imports `llm` and `nl2sql`; `typescript` imports `api`, `result` and `config`; `graph` imports `nodes`, `state`, `presentation`, `result`, `rules/backtest`, `nl2sql`, `db`, `llm` and `config`; `nodes` imports `presentation`, `prompt`, `state`, `result`, `nl2sql`, `sql_guard`, `explore`, `rules/backtest`, `rules/proposal`, `schema_context`, `db`, `llm` and `config`; `presentation` imports `state`, `result`, `explore`, `nl2sql`, `rules/backtest`, `rules/proposal` and `db`; `state` imports `prompt`, `result`, `explore`, `nl2sql`, `llm`, `rules/backtest`, `rules/proposal` and `db`; `explore` imports `sql_guard`, `schema_context` and `db`; `prompt` imports `schema_context`; `result` imports `config` and `db`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `rules/proposal` imports `rules/backtest` only; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain's model wrapper; `state` and `graph` import LangGraph; only `api` imports FastAPI, and only `cli` imports uvicorn.
+Imports between the built modules go one way: `cli` imports `api`, `demo`, `runtime`, `graph`, `presentation`, `explore`, `model_check`, `nl2sql`, `llm`, `db` and `config`; `api` imports `graph`, `result`, `presentation`, `schema_context`, `nl2sql`, `tracing`, `db` and `config`, and never `cli`; `runtime` imports `graph`, `events`, `tracing`, `applog`, `nl2sql`, `llm` and `config`; `demo` imports `llm` and `nl2sql`; `typescript` imports `api`, `result` and `config`; `graph` imports `nodes`, `state`, `presentation`, `result`, `rules/backtest`, `nl2sql`, `db`, `llm` and `config`; `nodes` imports `presentation`, `prompt`, `state`, `result`, `nl2sql`, `sql_guard`, `explore`, `rules/backtest`, `rules/proposal`, `schema_context`, `db`, `llm` and `config`; `presentation` imports `state`, `result`, `explore`, `nl2sql`, `rules/backtest`, `rules/proposal` and `db`; `state` imports `prompt`, `result`, `explore`, `nl2sql`, `llm`, `rules/backtest`, `rules/proposal` and `db`; `explore` imports `sql_guard`, `schema_context` and `db`; `prompt` imports `schema_context`; `result` imports `config` and `db`; `model_check` imports `nl2sql`, `llm`, `schema_context` and `config`, and nothing imports it but `cli`; `nl2sql` imports `llm`, `sql_guard` and `config`; `llm` imports `config`; `rules/backtest` imports `sql_guard`, `db` and `schema_context`; `rules/proposal` imports `rules/backtest` only; `sql_guard` imports `db` and `sql_scan`; `schema_context` imports `db`; `config` imports one default from `db`; `db` and `sql_scan` import nothing from the project. Only `llm` imports LangChain's model wrapper; `state` and `graph` import LangGraph; only `api` imports FastAPI, and only `cli` imports uvicorn. The rule finder's modules sit on top of the turn ([D-35](DECISIONS.md#d-35-an-automatic-rule-finder-scenarios-from-the-schema-the-same-rule-workflow-two-periods-a-rule-bank-a-persons-approval)): `scenarios` imports `nl2sql`, `llm` and `config`; `rule_bank` imports `result`, `rules.backtest` (for the text of the two statements) and `sql_scan`, and neither `db` nor `config`; `finder` imports `graph`, `scenarios`, `rule_bank`, `schema_context`, `sql_guard`, `presentation`, `tracing` and `db`; `runtime`, `api`, `demo` and `cli` import `finder`, and nothing imports them back.
 
 Conventions ([D-19](DECISIONS.md#d-19-pydantic-models-at-every-structured-boundary-and-strict-type-checking)): every function is fully annotated and the package and its tests pass `mypy` in strict mode; every structured value that crosses a module boundary (`Settings`, `QueryResult`, `QueryInspection`, `TableRead`, `Token`, `GuardDecision`, `BacktestResult`, the scan's `Period`, `Dimension`, `SegmentRow`, `Residual` and `ScanResult`, and the model layer's `ModelSpec`, `ModelRequest`, `ModelReply`, `Recording`, the five actions, `Intent`, `ShapeFailure` and `CheckSummary`, the prompt's `Messages`, `PreviousTurn` and `Repair`, the graph's `TurnState`, `Failure` and `TraceStep`, and `TurnResult` with its parts) is a frozen pydantic model that rejects unknown fields; closed sets of values are a `Literal` or an enum; errors are ordinary exception classes. The one exception is a node's update, which is the dict LangGraph takes; it is built by a function that refuses a key that is not a state field. The API's bodies follow the same rule: `ChatRequest`, `Health` with its parts and `ApiError` are frozen pydantic models, and a chat response is `TurnResult` itself.
 
@@ -533,6 +537,14 @@ Caveats are chosen by code from a fixed list, in a fixed order: result cut at th
 |---|---|---|
 | `POST /api/chat` | Body `{"conversation_id": "...", "message": "..."}`. Runs one turn and returns its `TurnResult`, exactly as `model_dump_json` writes it | 200 for every turn, a failed one included; 422 for a body that is not a request (with the field at fault); 409 when the conversation stayed busy |
 | `GET /api/health` | The database (present, readable, schema context builds), whether a key is set, the model id, the prompt version, the message and row limits, whether turns are traced and to which destination, the mode (`live` or `offline_demo`) and the demo's questions. No model call, never a key | 200 |
+| `POST /api/finder/scenarios` | Find: body `{"count": n}`, 1 by default. One model request; the scenarios are saved as proposed. Answers with the finished `FinderRun` | 200 for every run, a failed one included; 409 (`finder_busy`); 422; 503 when the finder is not set up |
+| `POST /api/finder/scenarios/{id}/process` | Starts processing a proposed scenario on a worker thread and answers at once with the first `RunProgress` | 202; 404; 409 (`finder_busy`, or `not_processable` for an entry that is not waiting); 503 |
+| `GET /api/finder/runs/{id}` | The `RunProgress` of the latest processing run of this process | 200; 404 for any other run |
+| `POST /api/finder/scenarios/{id}/discard` | Sets a proposed scenario aside; it is kept | 200; 404; 409; 503 |
+| `GET /api/finder/entries` | `FinderOverview`: the ranked entries with the two periods' figures, the scenarios waiting, the number discarded, the criteria, the note, the last run, and the run in progress. Creates nothing | 200; 503 when the bank cannot be read |
+| `GET /api/finder/entries/{id}` | One `BankEntry` in full, with the two backtest statements as text | 200; 404; 503 |
+| `POST /api/finder/entries/{id}/decision` | Body `{"decision": "approved" \| "rejected" \| "pending", "note": "..."}`. Records the reviewer's decision | 200; 404; 409 (`not_reviewable`) for an entry with no rule; 422; 503 |
+| `DELETE /api/finder/entries/{id}` | Removes an entry and everything attached to it from the bank, for good | 204; 404; 409 (`finder_busy`) while it is being processed; 503 |
 | any other `GET` | A file of the built page from `frontend/dist`, or the page itself for an address it does not know. When nothing is built, a plain message saying how to build it | 200; 404 with the message |
 
 A response that is not a 2xx has one body, `ApiError`: a `code` from a closed list, a sentence written by code, and the fields at fault. It never repeats the value that was sent.
@@ -546,7 +558,49 @@ A response that is not a 2xx has one body, `ApiError`: a `code` from a closed li
 
 **The page** (`frontend/`: Vite, React, TypeScript; its own [README](../frontend/README.md)) renders every field of a result: the answer line; the SQL, collapsed when longer than twelve lines; the table with the column format hints, its row count and a notice when it was capped; the rule card (overall figures, lift, the month table with the weakest month marked, the earlier and later periods, and the fixed sentence that this is a stability check); the scan's notes; each caveat as a callout with its code; the model's explanation and assumptions under a label saying they were not checked; suggestions as buttons that send their text as the next message, which takes a scan's finding to a rule in one click; and a footer with the tool, the model, the requests, the tokens and the time. Each status has its own presentation: an answer, a question back, a decline, a guard rejection, an error with Retry. A request that got no result back (server unreachable, refused, unreadable) is shown as an error with Retry. The header shows what the health endpoint said. Text that code did not write is rendered as text, never as HTML, with control and invisible characters written out.
 
-**Not built:** authentication, conversations stored on the server, streaming, charts, and accept or reject on a rule card.
+**The "Rule finder" tab** is the second view of the page, reached from the top bar, which marks the current view. Nothing of the chat is shown in it: the conversations, the composer, the transcript and "New Chat" are not rendered or are hidden and inert, while their state is kept above both views, so a draft and a conversation survive the switch. The tab reads `FinderOverview`, `BankEntry`, `FinderRun` and `RunProgress` and computes no figure. "Find a rule" proposes one scenario; each proposed scenario is a card with its hypothesis, columns and assumptions and with Process, Discard and Delete. Processing shows the five steps with the current one marked (`aria-current="step"`), the finished ones ticked and the clause once accepted, polled once a second; its ending names the rule a duplicate matched and opens the result in the table. Each row of the table carries the verdict's short form under its status. An opened entry is rendered beside the table, not inside the box that scrolls sideways, and reads from the answer down: the verdict in one sentence written by the backend (`BankEntry.verdict`, with the likely reason when a rule flags nothing and the schema shows why), the rule (the clause by itself, broken at its top-level ANDs and ORs and wrapped, with a copy button), the scenario, both lists of assumptions as model text, the checks with the figure each was decided on, and the caveats, each with a title in words and none that says nothing for a rule that flags nothing. Closed until asked for: the rule card with the periods named discovery and confirmation and `FINDER_NOTE` in place of the chat's evidence note, and the two backtest statements. Then the later scenarios that matched it, the review form and Delete, which asks on the page before it removes. The only animation is inside a `prefers-reduced-motion: no-preference` query. It has component tests against response bodies written by `tests/test_web_contract.py`, and was driven in headless Chromium in the offline demo at 1400px (dark) and 390px (light); the opened entry, with a long one-line clause that flags nothing, and the chat's rule card and SQL blocks were measured at 390, 768, 850, 1024 and 1400px, with nothing wider than the page and no Copy button cut off.
+
+**Not built:** authentication, conversations stored on the server, streaming, charts, and accept or reject on a rule card of the chat (a rule the finder proposes has them).
+
+## The rule finder
+
+**Built** ([D-35](DECISIONS.md#d-35-an-automatic-rule-finder-scenarios-from-the-schema-the-same-rule-workflow-two-periods-a-rule-bank-a-persons-approval), [D-36](DECISIONS.md#d-36-the-rule-finder-in-two-steps-find-then-process-with-live-progress-no-repeats-and-delete)). The finder proposes fraud scenarios without an analyst's question and, when a reviewer asks, turns one into a rule, measures it and keeps it for a person to approve or reject. It adds one model request of its own and no new way to reach the database. It works in two steps, each started by the reviewer.
+
+```
+ FIND (one request)                                   PROCESS (one turn, at most two requests; in the background)
+ schema context ─► Claude writes a scenario ─► saved   reviewer ─► Assistant.run_turn (the fixed graph above)
+ + titles of earlier   (title, hypothesis,     as        picks one     propose_rule ─► guard_rule ─► backtest, overall and by month
+   scenarios           columns, assumptions)  proposed      │                                          │
+ (nothing measured)                              │           │        RunProgress, polled by the page   ▼
+                                    discard ◄────┘           └──────► already in the bank? ─► verdict on two periods ─► rule bank
+                                    (kept, not proposed again)        (same clause, or the                               │
+                                                                       same transactions)             a person approves, rejects or deletes
+```
+
+**Find** (`Finder.propose(count)`): open a `propose` run in the bank (a bank that cannot be written ends it before any request); build the schema context; read the most recent scenarios from the bank, their title and hypothesis only (`RuleBank.earlier_scenarios(MAX_EARLIER_SCENARIOS)`); send `scenarios.build_request(schema_context, count, earlier)`; save each scenario returned, at most `count`, as an entry with status `proposed`. A reply that is not a batch of scenarios ends the run; it is not repeated.
+
+**Process** (`Finder.start_process(entry_id)` for the API, `Finder.process` for the terminal): open a `process` run; put `rule_question(scenario)` to a fresh `Assistant` in a conversation of its own, with `on_step` mapped to the progress steps; then, for a turn that proposed a rule, look for the rule in the bank and either record a match and drop the scenario, or judge the `RuleCard`'s two periods (`judge`) and complete the entry in place. Any other turn completes the entry as `not_built` with the turn's outcome and what it said. A turn that got no reply from the model fails the run and leaves the scenario `proposed`.
+
+**Progress.** `RunProgress` is the latest state of the processing run of this process: `state`, `step` (`write_rule`, `check_rule`, `backtest`, `duplicates`, `verdict`), `done`, `attempt`, the scenario's text, the clause once accepted, and at the end `outcome`, `result_entry_id`, `status`, `match_kind` or `error`, with `verdict`, the sentence that says what happened. No row, and no figure until that last sentence, which states counts and rates as the entry does. `start_process` returns the first one and a worker thread writes the rest; `GET /api/finder/runs/{id}` reads it and `FinderOverview.active` carries it while the run lasts, for a page that was reloaded. Polling was chosen over an event stream (D-36).
+
+**Invariants.** Each has a test in `tests/test_finder.py`, `tests/test_rule_bank.py` or `tests/test_finder_api.py`.
+
+1. The scenario request is exactly `build_request(schema_context, count, earlier)`, where `earlier` holds titles and hypotheses: no status, no figure, no clause.
+2. A scenario's turn request is the ordinary turn request for its text: no previous-turn block, and nothing measured.
+3. Proposing writes no clause and runs no rule: no turn request is made until a scenario is processed.
+4. A scenario's clause is measured only after `guard_rule` accepted it. A clause that reads the labels or tries to write ends as `rejected`, is never measured, and the database file is unchanged.
+5. A find makes one request and a process at most two; a find returns no more scenarios than were asked for.
+6. The bank never holds the same clause twice, nor two clauses that flag the same non-empty set of transactions. A duplicate is recorded as a match.
+7. The bank stores counts and rates only, and is never the transaction database. A chat turn never opens it; `rule_bank.py` imports neither `db` nor `config`. A delete changes the bank and leaves the database file as it was.
+8. Every failure is a run with a status and a coded error, or an entry's outcome. While a find or a process is in progress, any other is refused, as is discarding or deleting the entry being processed.
+9. A run the bank records as `running` when a finder is built is marked `interrupted`, and its scenario is still `proposed`.
+10. A log line of a run holds counts, codes and ids. A hosted trace of a scenario's turn is an ordinary turn trace labelled `finder`.
+
+**The verdict.** `RuleCard.earlier` is the discovery period and `RuleCard.later` the confirmation period: the months before and from `rules.proposal.LATER_PERIOD_START` (D-28). The thresholds are the constants `DISCOVERY_MIN_LABELLED` (30), `DISCOVERY_MIN_FRAUD` (5), `DISCOVERY_MIN_LIFT` (1.5), `CONFIRMATION_MIN_LABELLED` (30), `CONFIRMATION_MIN_FRAUD` (2), `CONFIRMATION_MIN_LIFT` (1.0) and `CONFIRMATION_LIFT_RATIO` (0.5). A failed discovery check gives `no_signal`, a failed confirmation check `not_confirmed`, none `confirmed`. Each check is stored as a `Criterion` with the figures it was decided on. The confirmation period is a later part of the same history, used by every candidate of every run: it is never called held out, and `FINDER_NOTE`, shown with the evidence, says what it is.
+
+**The bank** (`var/rule_bank.db`; `FSM_RULE_BANK_PATH`). An entry's status is `proposed`, `discarded`, or what processing gave it. `delete` removes an entry with the matches recorded against it and keeps its runs; a bank written before runs had a kind is brought up to date when opened. Three tables: `runs`, `entries` (the entry as JSON, with its status, its clause key, the number of transactions it flags and the reviewer's decision as columns) and `matches`. `clause_key` drops spacing and comments and lowercases bare words; a string literal keeps its text. A unique index on it enforces "the same clause once". "The same transactions" is decided by one statement on the read-only connection that returns two counts; both clauses are judged by the guard again first. Each method opens a connection, does one thing in a transaction and closes it. A file that is not a rule bank of this version is refused and left as it is.
+
+**What is not built:** a scheduler, feedback of results to the model, a correction for the number of candidates tried, detection of near-duplicates, a lock across processes, progress that survives a restart, a longer time budget for a finder rule than for a chat query, attribution of a decision to a person, and a trace of the scenario request.
 
 ## Observability
 
@@ -689,6 +743,42 @@ This is a measured result, separate from the exploration above, and it is a smal
 - What it does not show: anything about other questions, or about a second run of the same question. Fourteen answers is a sample too small to compare the two models, and these answers were checked by reading them, not by the scorers; that is the evaluation suite's job.
 - An earlier run: five of these questions (all but the velocity question and the delete request) were first run once on `claude-haiku-5-5` with the first version of the prompt (`turn-1`); the figures it returned for them are the ones in the table. The changes to the prompt since were the tie-breaker line for rankings, the tags around quoted text and the whole-second velocity example.
 - One fault that earlier run found is fixed: a merchant category code was printed with a thousands separator (`5,045`). A column named `mcc_code`, or any `*_code`, is now shown without grouping.
+
+### Two live runs of the rule finder
+
+**Two runs, on one model, of 10 scenarios each. Not an evaluation.** `fsm-assistant find-rules --yes-spend` on `claude-haiku-5-5`, into a scratch rule bank, with hosted tracing on ([D-35](DECISIONS.md#d-35-an-automatic-rule-finder-scenarios-from-the-schema-the-same-rule-workflow-two-periods-a-rule-bank-a-persons-approval)).
+
+| Run | Result |
+|---|---|
+| First | Completed: 15 requests of at most 21, about 72,000 input and 23,000 output tokens, 190 seconds. Seven entries, three scenarios recorded as duplicates. Two confirmed, five with no signal |
+| Second | Stopped at its third scenario by a fault of ours (a division by a lift of zero in the verdict), since fixed and tested. Two entries before that, one confirmed |
+
+| Rule (first run unless said) | Discovery, 2019-01 to 2019-07 | Confirmation, 2019-08 to 2019-10 | Status |
+|---|---|---|---|
+| Merchant location jump between consecutive card uses | 2,321 flagged; 44 of 1,548 labelled were fraud (2.84%); lift 16.6 | 20 of 635 (3.15%); lift 17.1 | Confirmed |
+| Amount far above the card's own typical spend | 12,218 flagged; 92 of 8,177 (1.13%); lift 6.6 | 51 of 3,223 (1.58%); lift 8.6 | Confirmed |
+| Charges in two states within one hour (second run) | 2,307 flagged; 42 of 1,540 (2.73%); lift 15.9 | 19 of 630 (3.02%); lift 16.4 | Confirmed |
+| Spend burst exhausting credit limit within a day | 3,539 flagged; 1 of 2,425; lift 0.2 | 4 of 1,073; lift 2.0 | No signal |
+| Card testing with micro-amount bursts; card flagged on the dark web; repeated PIN failures; high spend on a new account; card-testing burst online (second run) | Each flags between 0 and 3 transactions over the whole history | | No signal |
+
+- What it shows: the whole path ran with a live model. The model wrote ten distinct scenarios with stated assumptions, each became a clause the guard accepted (four of the first run's after one repair: the first clause passed the guard and failed while it ran, in turns of about 30 seconds against a 15-second query timeout, and the second was written with a window function), and the verdicts follow from the figures. The "spend burst" row is the selection at work: it would have passed on the confirmation period alone.
+- What it does not show: that a confirmed rule is useful. All labelled fraud is at locations in Rome, Italy, which the model was not told. The location rules catch a card that appears in Italy within an hour of a US purchase, and the amount rule catches large purchases; of the 3,266 transactions the first rule flags over the whole history, 100 are in Rome, Italy. They are indirect handles on one concentration.
+- Two faults were found by these runs and fixed: the division above, and rules that flag nothing being recorded as duplicates of one another (three scenarios of the first run).
+- The offline demo's canned run is the first run's seven entries, replayed through the real guard, backtest and bank; it reproduces their figures in about 20 seconds.
+
+### Three live single-rule runs of the rule finder
+
+**Three runs, asked once, on one model. Not an evaluation.** `fsm-assistant find-rules --yes-spend --batch 1` three times on `claude-haiku-5-5` into one scratch bank, in the two-step form of [D-36](DECISIONS.md#d-36-the-rule-finder-in-two-steps-find-then-process-with-live-progress-no-repeats-and-delete): about 35,000 input and 9,000 output tokens together.
+
+| Scenario proposed | Requests | What processing gave |
+|---|---|---|
+| Card-testing bursts of failed online CVV or card-number attempts | 1 + 2 | No rule built: both clauses passed the guard and were interrupted by the 15-second query timeout |
+| Swipe use on chip-less card with stale PIN | 1 + 1 | Not confirmed. Discovery: 20,483 flagged; 38 of 13,804 labelled were fraud (0.28%); lift 1.6. Confirmation: 9 of 5,997; lift 0.8 |
+| Large first-time spend in a new merchant category | 1 + 2 | No rule built: the same timeout, twice |
+
+- What it shows: the second and third scenario requests quoted the earlier scenarios and came back with a different kind of scenario each time; each scenario stated its assumptions; the terminal printed the two phases apart with each step.
+- What it does not show: how often the block prevents a repeat, which three askings cannot say; or anything about the page with a live model, since these runs were made from the terminal.
+- What it found: a rule that needs a window over a card's earlier transactions often cannot be measured within the query timeout, and is then recorded as not built.
 
 ### A live run of the web chat
 
@@ -990,4 +1080,4 @@ Only what is still undecided. Everything else on this page is either built or a 
 | # | Point | How it will be settled |
 |---|---|---|
 | 1 | The model's effort level (how much reasoning it is asked to spend). It is a setting, `medium` by default ([D-20](DECISIONS.md#d-20-model-settings-key-handling-and-hosted-tracing-off)) | Whether another level scores better is for the evaluation suite, once it has been run |
-| 2 | Whether a rule card in the web chat gets accept and reject buttons | Time, and whether there is anywhere for an accepted rule to go: nothing deploys a rule |
+| 2 | Whether a rule card in the web chat gets accept and reject buttons | Time, and whether there is anywhere for an accepted rule to go: nothing deploys a rule. Since D-35 the rule bank is a place a kept rule could go, and the rules the finder proposes are approved or rejected there; the chat's rule card is unchanged and this point stays open |

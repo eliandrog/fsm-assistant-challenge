@@ -25,6 +25,24 @@ evaluation. A screenshot of one of those answers is at
 The decision behind it is [D-31](../docs/DECISIONS.md#d-31-two-interfaces-over-one-result-the-terminal-and-a-local-web-chat-over-an-http-api);
 the API is described under [Interfaces](../docs/ARCHITECTURE.md#interfaces).
 
+**The "Rule finder" tab** is a second view, reached from the top bar, in which nothing of the chat
+is shown or reachable; the chat's state is kept, so a draft and a conversation survive the switch.
+It works in two steps: "Find a rule" asks the backend for one scenario
+(`POST /api/finder/scenarios`), and "Process" on a proposed scenario starts the rule workflow
+(`POST /api/finder/scenarios/{id}/process`), whose progress the page polls once a second
+(`GET /api/finder/runs/{id}`) and shows step by step. It also discards a scenario, reads the bank
+and an entry, records an approval or a rejection, and deletes an entry after a confirmation on the
+page. An opened entry is rendered beside the table and reads from the answer down: the backend's
+one-sentence verdict, the rule clause by itself (`formatClause` breaks it at its top-level ANDs and
+ORs), the scenario, the assumptions and the checks, with the tables and the SQL closed below. Its code is in `src/components/finder/` (`RuleFinder`, `RunProgressPanel`, `FinderEntry`,
+`DeleteButton`), `src/hooks/useFinder.ts` and `src/lib/finder.ts`, its styles in
+`src/styles/finder.css`, and its tests in `src/components/finder/RuleFinder.test.tsx`, which read
+the `finder_*.json` fixtures written by the backend's test (the `finder_progress_*.json` files hold
+every progress body of one processing run, in order). What it shows and what its "confirmed" means
+are described in the root [README](../README.md#rule-finder). It was driven in headless Chromium in
+the offline demo, 1400px wide in the dark theme and 390px wide in the light theme; it has not been
+used in a browser with a live model.
+
 ## Run
 
 Requires Node 22.12+ (or 24+) and npm. The backend needs [uv](https://docs.astral.sh/uv/); see the

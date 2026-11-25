@@ -1,0 +1,85 @@
+{
+  "id": 1,
+  "kind": "propose",
+  "status": "completed",
+  "error": null,
+  "source": "scripted",
+  "batch_size": 8,
+  "scenarios": 8,
+  "items": [
+    {
+      "position": 1,
+      "title": "Card used in Rome, Italy",
+      "result": "proposed",
+      "entry_id": 1,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 2,
+      "title": "One merchant taking many cards",
+      "result": "proposed",
+      "entry_id": 2,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 3,
+      "title": "Card testing at $5.17",
+      "result": "proposed",
+      "entry_id": 3,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 4,
+      "title": "Unusually large purchase",
+      "result": "proposed",
+      "entry_id": 4,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 5,
+      "title": "Transactions already known as fraud",
+      "result": "proposed",
+      "entry_id": 5,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 6,
+      "title": "Purchases at Italian locations named Rome",
+      "result": "proposed",
+      "entry_id": 6,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 7,
+      "title": "Many declined attempts before one success",
+      "result": "proposed",
+      "entry_id": 7,
+      "status": "proposed",
+      "match_kind": null
+    },
+    {
+      "position": 8,
+      "title": "Purchases at night",
+      "result": "proposed",
+      "entry_id": 8,
+      "status": "proposed",
+      "match_kind": null
+    }
+  ],
+  "model_requests": 1,
+  "request_bound": 1,
+  "input_tokens": 1000,
+  "output_tokens": 100,
+  "elapsed_ms": 1234,
+  "model_id": "claude-haiku-5-5",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "started_at": "2000-01-01T00:00:00+00:00",
+  "finished_at": "2000-01-01T00:00:00+00:00"
+}

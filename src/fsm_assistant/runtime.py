@@ -12,14 +12,17 @@ Nothing here prints, parses arguments or chooses a model: the caller does.
 
 import logging
 from collections.abc import Callable
+from pathlib import Path
 from typing import Literal
 
 from fsm_assistant import applog, config, tracing
 from fsm_assistant.config import ConfigError, Settings, load_settings
 from fsm_assistant.events import Command, Label
+from fsm_assistant.finder import Finder
 from fsm_assistant.graph import Assistant
 from fsm_assistant.llm import IntentModel
 from fsm_assistant.nl2sql import model_spec
+from fsm_assistant.rule_bank import RuleBank, RunSource
 
 logger = logging.getLogger(__name__)
 
@@ -67,3 +70,39 @@ def open_assistant(
         "off" if tracer is None else tracer.target.describe(),
     )
     return Assistant(settings, model, label=Label(command=command), tracer=tracer), tracer
+
+
+def bank_path(settings: Settings, replies: Replies) -> Path:
+    """Where a finder run's results go. The offline demo's canned rules get a file of their own."""
+    path = settings.rule_bank_path
+    return path.with_name(f"{path.stem}.demo{path.suffix}") if replies == "demo" else path
+
+
+def open_bank(settings: Settings, replies: Replies) -> RuleBank:
+    """The rule bank. Raises `rule_bank.BankError` when its path is the transaction database."""
+    return RuleBank(bank_path(settings, replies), not_the_database=settings.db_path)
+
+
+def open_finder(
+    settings: Settings,
+    *,
+    scenario_model: IntentModel,
+    turn_model: IntentModel,
+    replies: Replies,
+    model_id: str | None = None,
+    tracer: tracing.Tracer | None = None,
+) -> Finder:
+    """The rule finder of the process. Raises `rule_bank.BankError` for an unusable bank path."""
+    sources: dict[Replies, RunSource] = {
+        "live": "live", "demo": "offline_demo", "recorded": "scripted"
+    }  # fmt: skip
+    bank = open_bank(settings, replies)
+    return Finder(
+        settings,
+        scenario_model,
+        turn_model,
+        bank,
+        source=sources[replies],
+        model_id=model_id,
+        tracer=tracer,
+    )

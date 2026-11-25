@@ -1,0 +1,38 @@
+{
+  "run_id": 1,
+  "position": 4,
+  "title": "Unusually large purchase",
+  "hypothesis": "A stolen card is used for one purchase much larger than usual.",
+  "columns": [
+    "transactions.amount_usd_cents"
+  ],
+  "scenario_assumptions": [
+    "Larger than usual is left undefined."
+  ],
+  "status": "not_built",
+  "turn_outcome": "clarification",
+  "turn_message": "How much larger than usual should a purchase be to count?",
+  "refused": [],
+  "clause": null,
+  "explanation": null,
+  "rule_assumptions": [],
+  "rule": null,
+  "caveats": [],
+  "criteria": [],
+  "duplicate_check": "not_applicable",
+  "model_id": "scripted",
+  "scenario_prompt_version": "scenarios-2",
+  "rule_prompt_version": "turn-5",
+  "processed_run_id": 5,
+  "turn_error_kind": null,
+  "id": 4,
+  "created_at": "2000-01-01T00:00:00+00:00",
+  "decision": "pending",
+  "decision_note": null,
+  "decided_at": null,
+  "matches": [],
+  "backtest_sql": null,
+  "monthly_sql": null,
+  "verdict": "No rule built: the model asked what the scenario meant instead of writing a rule.",
+  "verdict_short": "model asked a question"
+}
